@@ -1,0 +1,75 @@
+📦 Guia Pós-Formatação — Ambientes Docker + PostgreSQL + Python
+
+🧰 1. Instalações obrigatórias
+    ✅ Programas que você deve instalar:
+    Docker Desktop
+
+    ⚙️ Ativar WSL2 (e instalar Ubuntu, se necessário)
+
+    Configurar DNS se der erro de rede (8.8.8.8 / 8.8.4.4)
+
+    Git (para clonar repositórios)
+
+    Python (recomendado: mesma versão do container, ex: 3.12)
+
+    DBeaver (para gerenciar seu banco PostgreSQL)
+
+    VS Code ou editor de texto para editar arquivos .py, .yml, Dockerfile
+
+📂 2. Estrutura do projeto (repositório Git)
+
+    PRIVATE-TCC/
+    ├── tcc_docker/
+    │   ├── app/
+    │   │   ├── db.py
+    │   │   ├── backup.py
+    │   │   ├── scraper.py
+    │   │   └── backups/         # <== Ignorado pelo Git
+    │   ├── requirements.txt
+    │   ├── Dockerfile
+    │   └── docker-compose.yml
+    ├── .gitignore               # Ignora arquivos pesados e temporários
+
+🐳 3. Rodar seu ambiente com Docker
+    🔁 Primeiro build:
+
+    cd tcc_docker
+    docker compose up --build
+
+    Se quiser rodar o banco em segundo plano:
+    docker compose up -d
+
+    🐘 Rodar o scraper ou qualquer script Python:
+    docker compose run scraper python backup.py
+
+🔄 4. Scripts importantes
+
+    📥 Fazer backup do banco:
+    docker compose run scraper python backup.py
+    Gera .dump com timestamp
+    
+    Salva em app/backups/
+    
+    Pasta ignorada pelo Git com .gitignore
+    
+    ♻️ Restaurar backup:
+    Rode o mesmo backup.py, escolha "2" e selecione um arquivo .dump salvo
+
+📦 5. Arquivos fundamentais
+
+    Dockerfile
+    docker-compose.yml
+
+🧠 6. Coisas importantes pra lembrar
+
+    🔐 Nunca suba arquivos .dump ou pesados no GitHub — use .gitignore
+    
+    📦 Reinstale o Docker e o Git após formatar
+    
+    📥 Faça backups do banco periodicamente com backup.py
+    
+    🐳 Use docker compose up -d pra iniciar o banco após ligar o PC
+    
+    🧹 Use docker compose down para desligar os containers
+    
+    📁 Mantenha seus arquivos organizados em app/ para facilitar builds

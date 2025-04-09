@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: stocks
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - custom_net
+
+  scraper:
+    build: .
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_NAME: stocks
+      DB_USER: user
+      DB_PASS: password
+      DB_PORT: 5432
+    volumes:
+      - ./app:/app
+    working_dir: /app
+    command: ["python", "test_connection.py"]
+    networks:
+      - custom_net
+
+volumes:
+  postgres_data:
+
+networks:
+  custom_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
