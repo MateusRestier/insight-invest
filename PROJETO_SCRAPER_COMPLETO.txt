@@ -1,0 +1,134 @@
+📌 DETALHAMENTO COMPLETO DO PROJETO DE SCRAPING DE AÇÕES - TCC
+
+============================================================
+🔹 VISÃO GERAL
+============================================================
+Este projeto tem como objetivo a coleta automatizada de indicadores fundamentalistas de ações da B3 utilizando Python, com armazenamento estruturado em um banco de dados PostgreSQL via Docker.
+
+Foi projetado para ser executado de forma paralela, escalável e portátil, podendo rodar em diferentes máquinas com o mesmo setup via Docker Compose.
+
+============================================================
+🔹 OBJETIVOS DO PROJETO
+============================================================
+- Coletar os principais indicadores fundamentalistas das ações brasileiras (B3).
+- Inserir e atualizar automaticamente essas informações em um banco de dados.
+- Possibilitar análises posteriores em Power BI, Excel ou diretamente em SQL.
+- Executar de forma eficiente com paralelismo.
+- Rodar de forma isolada e reprodutível com Docker.
+
+============================================================
+🔹 INDICADORES EXTRAÍDOS POR AÇÃO
+============================================================
+- P/L
+- P/RECEITA (PSR)
+- P/VP
+- DIVIDEND YIELD
+- PAYOUT
+- MARGEM LÍQUIDA
+- MARGEM BRUTA
+- MARGEM EBIT
+- MARGEM EBITDA
+- EV/EBITDA
+- EV/EBIT
+- P/EBITDA
+- P/EBIT
+- P/ATIVO
+- P/CAP.GIRO
+- P/ATIVO CIRC LIQ
+- VPA
+- LPA
+- GIRO ATIVOS
+- ROE
+- ROIC
+- ROA
+- DÍVIDA LÍQUIDA / PATRIMÔNIO
+- DÍVIDA LÍQUIDA / EBITDA
+- DÍVIDA LÍQUIDA / EBIT
+- DÍVIDA BRUTA / PATRIMÔNIO
+- PATRIMÔNIO / ATIVOS
+- PASSIVOS / ATIVOS
+- LIQUIDEZ CORRENTE
+- COTAÇÃO ATUAL
+- VARIAÇÃO 12 MESES
+
+============================================================
+🔹 FUNCIONALIDADES DO SCRIPT
+============================================================
+- Requisições HTTP para investidor10.com.br
+- Parsing do HTML com BeautifulSoup4
+- Mapeamento flexível por nome dos indicadores
+- Conversão de strings com vírgulas, porcentagens e símbolos
+- Extração adicional de cotação e variação 12m
+- Organização de logs por ação
+- Inserção no banco com ON CONFLICT (upsert)
+- Execução em paralelo com ThreadPoolExecutor (máximo núcleos - 1)
+
+============================================================
+🔹 EXECUÇÃO PADRÃO
+============================================================
+- Container PostgreSQL é iniciado com:
+  docker compose up -d
+
+- Scraper executado com:
+  docker compose run scraper python scraper_indicadores.py
+
+============================================================
+🔹 DOCKER
+============================================================
+- PostgreSQL 15 rodando em container isolado
+- Volume persistente para os dados
+- Dockerfile configurado com Python 3.12 e requirements.txt
+- Banco acessível via localhost:5432 (para DBeaver)
+
+============================================================
+🔹 PASTAS E ARQUIVOS IMPORTANTES
+============================================================
+- scraper_indicadores.py — script principal de coleta e inserção
+- db_connection.py — gerencia a conexão com PostgreSQL
+- docker-compose.yml — orquestra containers
+- Dockerfile — imagem do scraper com Python e libs
+- requirements.txt — dependências Python
+- README.md — documentação de execução
+- backups/ — (pasta futura para armazenar dumps automáticos)
+- log.txt — (log opcional, se desejar registrar saídas)
+
+============================================================
+🔹 ESTRUTURA DO BANCO
+============================================================
+Tabela: indicadores_fundamentalistas
+Chave primária: (acao, data_coleta)
+
+Colunas:
+- acao, data_coleta
+- Todos os indicadores mencionados acima (NUMERIC)
+- cotacao, variacao_12m (NUMERIC)
+
+============================================================
+🔹 LISTA ATUAL DE AÇÕES MONITORADAS (150+)
+============================================================
+Inclui PETR4, VALE3, ITUB4, BBDC4, MGLU3, BBAS3, WEGE3, e diversas outras entre as mais negociadas da B3, abrangendo múltiplos setores.
+
+============================================================
+🔹 PRÉ-REQUISITOS NO NOVO COMPUTADOR
+============================================================
+- Python 3.12 (ou superior)
+- Docker Desktop
+- Git (opcional)
+- DBeaver (opcional, para visualizar o banco)
+- Clone do repositório
+
+============================================================
+🔹 AUTOMAÇÃO E ESCALABILIDADE
+============================================================
+- Executável via linha de comando, cron ou agendador de tarefas
+- Modularidade permite extensão futura para:
+  - Coleta de múltiplas fontes
+  - Exportação para CSV
+  - Agendamento diário
+  - Monitoramento de falhas
+
+============================================================
+🔹 DESENVOLVEDOR
+============================================================
+Mateus — Analista de BI | Projeto de TCC
+Domínio: Web scraping, bancos de dados, automação e paralelismo em Python
