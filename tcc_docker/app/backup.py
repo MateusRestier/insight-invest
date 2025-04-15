@@ -1,7 +1,7 @@
 import subprocess
 import datetime
 from pathlib import Path
-import os
+import win32com.client as win32
 
 # Info do container e banco
 CONTAINER_NAME = "tcc_docker-db-1"
@@ -12,6 +12,19 @@ DB_USER = "user"
 BASE_DIR = Path(__file__).parent
 BACKUP_DIR = BASE_DIR / "backups"
 BACKUP_DIR.mkdir(exist_ok=True)
+
+def enviar_email_com_anexo(caminho_anexo):
+    try:
+        outlook = win32.Dispatch('outlook.application')
+        mail = outlook.CreateItem(0)
+        mail.To = "mateusrestier1@gmail.com; groundfordtv@gmail.com"
+        mail.Subject = f"Backup do banco - {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}"
+        mail.Body = "Segue em anexo o arquivo de backup gerado automaticamente."
+        mail.Attachments.Add(str(caminho_anexo))
+        mail.Send()
+        print("📧 Email enviado com sucesso!")
+    except Exception as e:
+        print(f"❌ Erro ao enviar email: {e}")
 
 def criar_backup():
     data = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -34,6 +47,9 @@ def criar_backup():
     ], check=True)
 
     print(f"✅ Backup salvo com sucesso em: {dump_local}")
+
+    # Envia o backup por email
+    enviar_email_com_anexo(dump_local)
 
 def restaurar_backup():
     print("\n📁 Arquivos disponíveis na pasta de backup:")
@@ -70,10 +86,12 @@ def restaurar_backup():
     print("✅ Banco restaurado com sucesso!")
 
 def main():
-    print("\n📌 Escolha uma opção:")
+    print("\n Escolha uma opção:")
     print("1. Fazer backup do banco")
     print("2. Restaurar um backup")
-    opcao = input("Digite 1 ou 2: ")
+
+    opcao = '1'
+    #opcao = input("Digite 1 ou 2: ")
 
     if opcao == "1":
         criar_backup()
