@@ -91,7 +91,7 @@ def main():
     print("2. Restaurar um backup")
 
     opcao = '1'
-    #opcao = input("Digite 1 ou 2: ")
+    opcao = input("Digite 1 ou 2: ")
 
     if opcao == "1":
         criar_backup()
