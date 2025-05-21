@@ -1,4 +1,7 @@
-psycopg2-binary
 pandas
+psycopg2-binary
+numpy
+matplotlib
+seaborn
 scikit-learn
 joblib
