@@ -26,7 +26,7 @@ services:
     volumes:
       - ./app:/app
     working_dir: /app
-    command: ["python", "test_connection.py"]
+    command: tail -f /dev/null
     networks:
       - custom_net
 
