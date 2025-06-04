@@ -22,7 +22,7 @@ def carregar_dados_do_banco():
     conn = None
     try:
         conn = get_connection()
-        query = "SELECT acao, data_coleta, cotacao, lpa, vpa FROM indicadores_fundamentalistas ORDER BY acao, data_coleta;" # Ordenar aqui
+        query = "SELECT acao, pl, pvp, data_coleta, cotacao, lpa, vpa FROM indicadores_fundamentalistas ORDER BY acao, data_coleta;" # Ordenar aqui
         # Carregando apenas colunas necessárias para esta etapa, mais as de Graham.
         # Se outras colunas forem necessárias para features do modelo, adicione-as.
         df = pd.read_sql_query(query, conn)

@@ -5,7 +5,7 @@ from scraper_indicadores import coletar_indicadores  # importe do seu arquivo sc
 
 def carregar_modelo():
     base_path = os.path.dirname(os.path.abspath(__file__))
-    modelo_path = os.path.join(base_path, "modelo", "modelo_classificador.pkl")
+    modelo_path = os.path.join(base_path, "modelo", "modelo_classificador_desempenho.pkl")
     if not os.path.exists(modelo_path):
         raise FileNotFoundError(f"Modelo não encontrado em {modelo_path}")
     return joblib.load(modelo_path)
