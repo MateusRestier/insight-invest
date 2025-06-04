@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from scraper_indicadores import coletar_indicadores
+# Ele tá não recomendando e recomendando ações de forma muito direta, quero adicionar coisas como parcialmente recomendado, ver a última resposta do gemini
 
 # Lista de features EXATAMENTE como o modelo foi treinado
 FEATURES_ESPERADAS_PELO_MODELO = [
