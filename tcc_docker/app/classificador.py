@@ -113,53 +113,69 @@ def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_s
     return df
 
 
-def preparar_X_y_para_modelo(df_com_tudo):
-    """Prepara X (features) e y (target) para o modelo."""
+def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path): # Adicionado modelo_base_path como argumento
+    """Prepara X (features) e y (target) para o modelo e salva o imputer."""
     print("Preparando X e y para o modelo...")
     df_para_treino = df_com_tudo.dropna(subset=['rotulo_desempenho_futuro']).copy()
     
     if df_para_treino.empty:
         print("Nenhum dado restou após remover NaNs dos rótulos. O modelo não pode ser treinado.")
-        return None, None, None
+        return None, None, None, None # Retornar None para o imputer também
 
     y = df_para_treino['rotulo_desempenho_futuro'].astype(int)
 
-    # Lista de todas as colunas de indicadores do seu banco + 'preco_sobre_graham'
-    # Exclua colunas de identificação, data, e aquelas que seriam data leakage ou não são features.
     features_colunas = [
         'pl', 'psr', 'pvp', 'dividend_yield', 'payout', 'margem_liquida', 'margem_bruta',
         'margem_ebit', 'margem_ebitda', 'ev_ebitda', 'ev_ebit', 'p_ebitda', 'p_ebit',
-        'p_ativo', 'p_cap_giro', 'p_ativo_circ_liq', 'vpa', 'lpa', # VPA e LPA podem ser redundantes se P/VP e P/L estiverem, mas podem ajudar
+        'p_ativo', 'p_cap_giro', 'p_ativo_circ_liq', 'vpa', 'lpa',
         'giro_ativos', 'roe', 'roic', 'roa', 'div_liq_patrimonio', 'div_liq_ebitda',
         'div_liq_ebit', 'div_bruta_patrimonio', 'patrimonio_ativos', 'passivos_ativos',
-        'liquidez_corrente', 'variacao_12m', # Assumindo que variacao_12m não causa leakage
+        'liquidez_corrente', 'variacao_12m',
         'preco_sobre_graham'
     ]
     
-    # Garantir que todas as colunas listadas realmente existem no df_para_treino
     features_existentes = [col for col in features_colunas if col in df_para_treino.columns]
     if len(features_existentes) < len(features_colunas):
-        print(f"Aviso: Algumas colunas de features esperadas não foram encontradas. Usando: {features_existentes}")
+        ausentes = set(features_colunas) - set(features_existentes)
+        print(f"Aviso: As seguintes colunas de features esperadas não foram encontradas no DataFrame: {list(ausentes)}. Usando apenas as existentes: {features_existentes}")
     
+    if not features_existentes:
+        print("Nenhuma das features esperadas foi encontrada no DataFrame. Não é possível criar X.")
+        return None, None, None, None
+
     X = df_para_treino[features_existentes].copy()
 
-    # Tratar NaNs e Infinitos em X
     X.replace([np.inf, -np.inf], np.nan, inplace=True)
     
     if X.empty:
         print("DataFrame X está vazio antes da imputação. Verifique a seleção de features.")
-        return None, None, None
+        return None, None, None, None
         
-    if X.isnull().all().all(): # Verifica se todas as colunas são completamente NaN
+    if X.isnull().all().all():
         print("Todas as colunas de features (X) são NaN. Não é possível treinar o modelo.")
-        return None, None, None
+        return None, None, None, None
 
     imputer = SimpleImputer(strategy='median')
-    X_imputado = imputer.fit_transform(X)
+    # Ajustar o imputer APENAS nos dados que serão usados para TREINAR o modelo (X)
+    # Se você faz o train_test_split ANTES da imputação, ajuste o imputer no X_train
+    # e transforme tanto X_train quanto X_test.
+    # Assumindo por enquanto que X aqui é o conjunto completo que será dividido depois:
+    X_imputado = imputer.fit_transform(X) 
     X = pd.DataFrame(X_imputado, columns=X.columns, index=X.index)
     
-    print(f"Shape de X: {X.shape}, Shape de y: {y.shape}")
-    return X, y, X.columns # Retornar nomes das colunas para importância
+    # Salvar o imputer ajustado
+    # Garante que o diretório 'modelo' exista (modelo_base_path é o diretório 'modelo')
+    os.makedirs(modelo_base_path, exist_ok=True) 
+    imputer_path = os.path.join(modelo_base_path, "imputer.pkl")
+    try:
+        joblib.dump(imputer, imputer_path)
+        print(f"Imputer salvo com sucesso em {imputer_path}")
+    except Exception as e:
+        print(f"Erro ao salvar o imputer: {e}")
+        # Você pode decidir se quer interromper ou continuar mesmo se o imputer não for salvo
+    
+    print(f"Shape de X (após imputação): {X.shape}, Shape de y: {y.shape}")
+    return X, y, X.columns, imputer # Retornar o imputer também, caso precise dele na sequência
 
 
 def treinar_avaliar_e_salvar_modelo(X, y, X_colunas_nomes, modelo_base_path):
@@ -208,7 +224,11 @@ def executar_pipeline_classificador():
     df_com_graham = calcular_features_graham_estrito(df_bruto)
     df_com_rotulos = calcular_rotulos_desempenho_futuro(df_com_graham, n_dias=10, q_inferior=0.25, q_superior=0.75)
 
-    X, y, X_colunas_nomes = preparar_X_y_para_modelo(df_com_rotulos)
+    # Define o caminho base para salvar o modelo e o imputer
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    modelo_base_path = os.path.join(script_dir, "modelo")
+
+    X, y, X_colunas_nomes, imputer_ajustado = preparar_X_y_para_modelo(df_com_rotulos, modelo_base_path)
     
     if X is None or y is None or X.empty or y.empty:
         print("Pipeline encerrado devido à falha na preparação de X ou y.")
