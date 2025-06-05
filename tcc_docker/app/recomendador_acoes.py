@@ -3,8 +3,6 @@ import pandas as pd
 import numpy as np
 import joblib
 from scraper_indicadores import coletar_indicadores
-# Ele tá não recomendando e recomendando ações de forma muito direta, quero adicionar coisas como parcialmente recomendado, ver a última resposta do gemini
-# Ta levando em consideração demais a variação nos ultimos 12 meses, talvez seja melhor q nao leve tanto em consideração assim
 
 # Lista de features EXATAMENTE como o modelo foi treinado
 FEATURES_ESPERADAS_PELO_MODELO = [
@@ -19,7 +17,7 @@ FEATURES_ESPERADAS_PELO_MODELO = [
 
 FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR = [
     'pl', 'pvp', 'dividend_yield', 'roe', 'preco_sobre_graham',
-    'variacao_12m', 'p_ebit', 'margem_liquida' # p_ebit adicionado para exemplo
+    'variacao_12m', 'p_ebit', 'margem_liquida'
 ]
 
 def calcular_preco_sobre_graham_para_recomendacao(dados_acao_dict):
@@ -37,7 +35,7 @@ def calcular_preco_sobre_graham_para_recomendacao(dados_acao_dict):
             preco_sobre_graham = cotacao / vi_graham
         dados_copy['preco_sobre_graham'] = preco_sobre_graham
     except Exception as e:
-        print(f"Erro ao calcular preco_sobre_graham para recomendação: {e}")
+        # Silencioso aqui, pois o erro já foi impresso no scraper se ocorreu lá
         dados_copy['preco_sobre_graham'] = np.nan
     return dados_copy
 
@@ -54,87 +52,65 @@ def carregar_artefatos_modelo():
     print("Modelo e Imputer carregados com sucesso.")
     return modelo, imputer
 
-def gerar_justificativas(dados_acao_df, predicao_modelo):
+def gerar_justificativas(dados_acao_df, predicao_texto_modelo): # Alterado para receber o texto da predição
     justificativas_positivas = []
     justificativas_negativas = []
 
     try:
-        # Extrair valores das features (após imputação)
-        # Usamos .get(col, np.nan) para evitar KeyError se alguma feature chave não estiver no df por algum motivo extremo
-        # e pd.to_numeric para garantir que estamos comparando números.
         def get_numeric_feature(df, col_name):
             return pd.to_numeric(df.get(col_name, np.nan).iloc[0], errors='coerce')
 
         pl = get_numeric_feature(dados_acao_df, 'pl')
         pvp = get_numeric_feature(dados_acao_df, 'pvp')
-        dy = get_numeric_feature(dados_acao_df, 'dividend_yield') # Será um número como 7.12 para 7.12%
-        roe = get_numeric_feature(dados_acao_df, 'roe')          # Será um número como 12.16 para 12.16%
+        dy = get_numeric_feature(dados_acao_df, 'dividend_yield')
+        roe = get_numeric_feature(dados_acao_df, 'roe')
         psg = get_numeric_feature(dados_acao_df, 'preco_sobre_graham')
-        var12m = get_numeric_feature(dados_acao_df, 'variacao_12m') # Será um número como -9.80 para -9.80%
-        margem_liq = get_numeric_feature(dados_acao_df, 'margem_liquida') # Será um número como 9.70 para 9.70%
-        p_ebit = get_numeric_feature(dados_acao_df,'p_ebit') # Adicionando p_ebit como exemplo
+        var12m = get_numeric_feature(dados_acao_df, 'variacao_12m')
+        margem_liq = get_numeric_feature(dados_acao_df, 'margem_liquida')
+        p_ebit = get_numeric_feature(dados_acao_df,'p_ebit')
 
-        # Lógica de Justificativas (Ajuste os thresholds conforme sua análise)
-        # P/L (Preço/Lucro)
         if pd.notna(pl):
             if 0 < pl < 10: justificativas_positivas.append(f"P/L baixo ({pl:.2f}), pode indicar subavaliação.")
-            elif pl >= 10 and pl < 20: justificativas_positivas.append(f"P/L em nível razoável ({pl:.2f}).") # Ajustado para ser positivo
+            elif pl >= 10 and pl < 20: justificativas_positivas.append(f"P/L em nível razoável ({pl:.2f}).")
             elif pl >= 20: justificativas_negativas.append(f"P/L elevado ({pl:.2f}).")
             elif pl <= 0: justificativas_negativas.append(f"Empresa com prejuízo (P/L={pl:.2f}).")
-
-        # P/VP (Preço/Valor Patrimonial)
         if pd.notna(pvp):
             if 0 < pvp < 1: justificativas_positivas.append(f"P/VP < 1 ({pvp:.2f}), pode estar descontada em relação ao VPA.")
-            elif pvp >= 1 and pvp < 2: justificativas_positivas.append(f"P/VP razoável ({pvp:.2f}).") # Ajustado
-            elif pvp >= 2: justificativas_negativas.append(f"P/VP pode ser considerado alto ({pvp:.2f}).") # Ajustado
+            elif pvp >= 1 and pvp < 2: justificativas_positivas.append(f"P/VP razoável ({pvp:.2f}).")
+            elif pvp >= 2: justificativas_negativas.append(f"P/VP pode ser considerado alto ({pvp:.2f}).")
             elif pvp <= 0 : justificativas_negativas.append(f"Patrimônio líquido negativo ou zero (P/VP={pvp:.2f}).")
-
-        # Dividend Yield (em %)
-        if pd.notna(dy): # dy já está em formato percentual, ex: 7.12 para 7.12%
+        if pd.notna(dy):
             if dy >= 6: justificativas_positivas.append(f"Excelente Dividend Yield ({dy:.2f}%).")
             elif dy >= 4 and dy < 6: justificativas_positivas.append(f"Bom Dividend Yield ({dy:.2f}%).")
             elif dy < 2 and dy >=0: justificativas_negativas.append(f"Dividend Yield baixo ({dy:.2f}%).")
-            elif dy <0 : justificativas_negativas.append(f"Dividend Yield negativo? ({dy:.2f}%).") # Incomum, mas para cobrir
-
-        # ROE (Retorno sobre o Patrimônio Líquido, em %)
-        if pd.notna(roe): # roe já está em formato percentual, ex: 12.16 para 12.16%
+            elif dy <0 : justificativas_negativas.append(f"Dividend Yield negativo? ({dy:.2f}%).")
+        if pd.notna(roe):
             if roe >= 20: justificativas_positivas.append(f"Excelente rentabilidade (ROE {roe:.2f}%).")
             elif roe >= 15 and roe < 20 : justificativas_positivas.append(f"Boa rentabilidade (ROE {roe:.2f}%).")
             elif roe < 10 and roe >=0 : justificativas_negativas.append(f"Rentabilidade (ROE {roe:.2f}%) pode ser melhorada.")
             elif roe < 0: justificativas_negativas.append(f"Rentabilidade negativa (ROE {roe:.2f}%).")
-
-        # Preco_Sobre_Graham
         if pd.notna(psg):
             if psg < 0.75: justificativas_positivas.append(f"Preço atrativo pelo Valor de Graham (P/VG {psg:.2f}).")
             elif psg >= 0.75 and psg < 1.2: justificativas_positivas.append(f"Preço razoável pelo Valor de Graham (P/VG {psg:.2f}).")
             elif psg >= 1.5: justificativas_negativas.append(f"Preço elevado pelo Valor de Graham (P/VG {psg:.2f}).")
-
-        # Variacao_12m (em %)
-        if pd.notna(var12m): # var12m já está em formato percentual, ex: -9.80 para -9.80%
+        if pd.notna(var12m):
             if var12m > 15: justificativas_positivas.append(f"Boa valorização recente (Variação 12M: {var12m:.2f}%).")
             elif var12m < -15: justificativas_negativas.append(f"Desvalorização considerável recente (Variação 12M: {var12m:.2f}%).")
-        
-        # Margem Líquida (em %)
-        if pd.notna(margem_liq): # margem_liq já está em formato percentual
+        if pd.notna(margem_liq):
             if margem_liq > 15: justificativas_positivas.append(f"Excelente margem líquida ({margem_liq:.2f}%).")
             elif margem_liq >= 5 and margem_liq < 15: justificativas_positivas.append(f"Margem líquida razoável ({margem_liq:.2f}%).")
             elif margem_liq < 5: justificativas_negativas.append(f"Margem líquida apertada ({margem_liq:.2f}%).")
-
-        # P/EBIT
         if pd.notna(p_ebit):
             if 0 < p_ebit < 10: justificativas_positivas.append(f"P/EBIT atrativo ({p_ebit:.2f}).")
             elif p_ebit >= 15: justificativas_negativas.append(f"P/EBIT elevado ({p_ebit:.2f}).")
             elif p_ebit <=0: justificativas_negativas.append(f"EBIT negativo ou zero (P/EBIT={p_ebit:.2f}).")
-
-
     except Exception as e:
         print(f"Erro ao gerar justificativas: {e}")
 
     print("\n--- Análise Detalhada (Baseada em Regras Heurísticas) ---")
-    if predicao_modelo == 1:
-        print("O modelo RECOMENDOU esta ação. Observações com base em regras:")
-    else:
-        print("O modelo NÃO RECOMENDOU esta ação. Observações com base em regras:")
+    # Usar o predicao_texto_modelo para o cabeçalho
+    print(f"O modelo classificou como: \"{predicao_texto_modelo}\". Observações com base em regras:")
+
 
     if justificativas_positivas:
         print("\n  Pontos Positivos Observados:")
@@ -207,33 +183,48 @@ def recomendar_acao(ticker):
         
     print("Realizando previsão...")
     try:
-        pred = modelo.predict(X_imputado_df)[0]
-        proba = modelo.predict_proba(X_imputado_df)[0] 
+        # pred_binaria = modelo.predict(X_imputado_df)[0] # Previsão binária 0 ou 1
+        proba = modelo.predict_proba(X_imputado_df)[0]  # Probabilidades [prob_classe_0, prob_classe_1]
     except Exception as e:
         print(f"Um erro inesperado ocorreu durante a previsão: {e}")
         return
+
+    # --- LÓGICA PARA RECOMENDAÇÃO GRANULAR BASEADA EM PROBABILIDADES ---
+    prob_recomendada = proba[1] # Probabilidade da classe 1 (Recomendada)
+    
+    if prob_recomendada >= 0.75:
+        recomendacao_final_texto = "FORTEMENTE RECOMENDADA para compra"
+    elif prob_recomendada >= 0.60:
+        recomendacao_final_texto = "RECOMENDADA para compra"
+    elif prob_recomendada >= 0.50: # Limiar padrão do .predict()
+        recomendacao_final_texto = "PARCIALMENTE RECOMENDADA (Neutro com viés positivo)"
+    elif prob_recomendada >= 0.40:
+        recomendacao_final_texto = "PARCIALMENTE NÃO RECOMENDADA (Neutro com viés negativo)"
+    elif prob_recomendada >= 0.25:
+        recomendacao_final_texto = "NÃO RECOMENDADA para compra"
+    else: # prob_recomendada < 0.25
+        recomendacao_final_texto = "FORTEMENTE NÃO RECOMENDADA para compra"
+    # --------------------------------------------------------------------
 
     print("\n===================================================")
     print(f"Relatório de Recomendação para: {ticker.upper()}")
     print("===================================================")
 
-    pred_texto = "RECOMENDADA para compra!" if pred == 1 else "NÃO RECOMENDADA para compra."
-    print(f"Resultado do Modelo: {pred_texto}")
+    print(f"Resultado do Modelo: {recomendacao_final_texto.upper()}!") # Usar o texto granular
     print(f"Probabilidade (calculada pelo modelo): Não Recomendada={proba[0]:.2%}, Recomendada={proba[1]:.2%}")
 
     print("\n--- Indicadores Chave Utilizados na Análise (Valores que o Modelo Viu Após Imputação) ---")
     for feature_nome in FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR:
         if feature_nome in X_imputado_df.columns:
             valor = X_imputado_df[feature_nome].iloc[0]
-            # Assumindo que os dados no DataFrame para DY, ROE, Var12M, Margem Liq já estão na escala percentual (ex: 7.12 para 7.12%)
             if feature_nome in ['dividend_yield', 'roe', 'variacao_12m', 'margem_liquida']:
-                print(f"  {feature_nome.replace('_',' ').capitalize()}: {valor:.2f}%") # Sem *100
+                print(f"  {feature_nome.replace('_',' ').capitalize()}: {valor:.2f}%")
             else:
                 print(f"  {feature_nome.replace('_',' ').capitalize()}: {valor:.2f}")
         else:
             print(f"  {feature_nome.replace('_',' ').capitalize()}: Dado não disponível para exibição.")
             
-    gerar_justificativas(X_imputado_df, pred) # Passar a predição do modelo
+    gerar_justificativas(X_imputado_df, recomendacao_final_texto) # Passar o texto da predição granular
     print("\n===================================================")
 
 if __name__ == "__main__":

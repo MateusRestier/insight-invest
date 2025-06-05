@@ -1,4 +1,4 @@
-import pandas as pd #ADICIONAR MAIS COLUNAS NA CONSULTA
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns

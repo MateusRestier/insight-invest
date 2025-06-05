@@ -1,0 +1,103 @@
+Este script evoluiu bastante desde a nossa primeira discussão sobre a feature de Graham e agora também inclui a lógica de rotulagem por desempenho futuro.
+
+Objetivo Principal do Código:
+
+O objetivo deste script é carregar os dados fundamentalistas do seu banco de dados, enriquecê-los com uma métrica de valor (Preço sobre Valor de Graham) e, crucialmente, gerar os rótulos (variável alvo) que serão usados para treinar o modelo de Machine Learning. Ele também realiza algumas análises exploratórias sobre a feature de Graham.
+
+Detalhamento das Etapas e Funções:
+
+Importações e Configuração Inicial:
+
+Importa bibliotecas essenciais: pandas para manipulação de dados, numpy para operações numéricas, matplotlib e seaborn para gráficos, os para manipulação de caminhos (usado no classificador.py para salvar o modelo/imputer), e psycopg2 para a conexão com o banco.
+Tenta importar a função get_connection do seu módulo db_connection.py para se conectar ao PostgreSQL.
+carregar_dados_do_banco():
+
+Conecta-se ao banco de dados PostgreSQL usando get_connection().
+Executa uma query SQL para selecionar colunas específicas (acao, pl, pvp, data_coleta, cotacao, lpa, vpa) da tabela indicadores_fundamentalistas.
+Importante: A query agora está mais seletiva, pegando apenas as colunas diretamente necessárias para os cálculos de Graham e a rotulagem de desempenho futuro, além de pl e pvp que você quis incluir. No classificador.py, essa query precisará ser SELECT * ... para pegar todas as features.
+Ordena os dados por acao e data_coleta, o que é fundamental para o cálculo correto do preco_futuro_N_dias.
+Carrega o resultado da query em um DataFrame do Pandas.
+Converte a coluna data_coleta para o tipo datetime.
+Imprime o shape do DataFrame carregado e o retorna. Trata exceções e garante o fechamento da conexão.
+calcular_features_graham_estrito(df_input):
+
+Recebe um DataFrame como entrada.
+Calcula a feature vi_graham (Valor Intrínseco de Graham) usando a fórmula simplificada VI= 
+22.5×LPA×VPA
+
+​
+ .
+Aplica a lógica estrita: o cálculo só é feito se lpa > 0 E vpa > 0. Caso contrário, vi_graham será NaN.
+Calcula a feature preco_sobre_graham (Cotação / VI de Graham). Esta também será NaN se vi_graham for NaN ou zero.
+Retorna o DataFrame com essas duas novas colunas.
+calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_superior=0.75):
+
+Esta é a função chave para criar a variável alvo (Y) do seu modelo.
+Recebe o DataFrame (que já deve incluir as colunas acao, data_coleta, cotacao).
+Parâmetros: n_dias (o horizonte futuro, definido como 10 dias), q_inferior (0.25 para o primeiro quartil), q_superior (0.75 para o terceiro quartil).
+Cálculo do Preço Futuro: Para cada ação, calcula preco_futuro_N_dias olhando N dias à frente na cotação (df.groupby('acao')['cotacao'].shift(-n_dias)).
+Cálculo do Retorno Futuro: Calcula retorno_futuro_N_dias como a variação percentual entre a cotacao atual e o preco_futuro_N_dias.
+Rotulagem por Dia:
+Itera sobre cada data_coleta única para a qual existem retornos futuros válidos.
+Para cada dia, filtra as ações daquele dia e calcula os quantis (25% e 75%) dos retorno_futuro_N_dias apenas para aquele dia específico.
+Atribui o rotulo_desempenho_futuro:
+0.0 se o retorno da ação estiver no quartil inferior (bottom 25%) ou abaixo.
+1.0 se o retorno da ação estiver no quartil superior (top 25%) ou acima.
+(Implicitamente) NaN se o retorno estiver entre os quartis (os 50% do meio) ou se o retorno futuro não pôde ser calculado (para as datas mais recentes).
+Imprime exemplos e a contagem dos rótulos gerados.
+Retorna o DataFrame com as novas colunas (preco_futuro_N_dias, retorno_futuro_N_dias, rotulo_desempenho_futuro).
+analisar_e_mostrar_resultados_graham(df_com_graham):
+
+Função dedicada a analisar a feature preco_sobre_graham.
+Imprime estatísticas descritivas (média, mediana, min, max, quartis).
+Plota e salva um histograma da distribuição do preco_sobre_graham para visualização.
+main():
+
+Orquestra a execução do script:
+Chama carregar_dados_do_banco() para obter os dados.
+Converte data_coleta para datetime.
+Chama calcular_features_graham_estrito() para adicionar as features de Graham.
+Chama analisar_e_mostrar_resultados_graham() para exibir a análise da feature de Graham.
+Chama calcular_rotulos_desempenho_futuro() para adicionar os rótulos.
+Imprime as últimas linhas do DataFrame final para inspeção.
+Comenta sobre os próximos passos (preparar X e y para o classificador).
+Papel no Fluxo do Aprendizado de Máquina:
+
+Este script analisador_graham_db.py (ou o código dentro dele, se você o integrar ao classificador.py) representa as seguintes etapas cruciais no seu fluxo de aprendizado de máquina:
+
+Etapa 1.5: Engenharia de Features Adicionais:
+
+Após a coleta inicial de dados pelo scraper_indicadores.py, este script realiza uma etapa de engenharia de features ao calcular vi_graham e, mais importante, preco_sobre_graham. Esta nova feature é derivada dos dados brutos e tem como objetivo adicionar mais uma dimensão de "valor" para o modelo considerar.
+Etapa 2: Criação da Variável Alvo (Rotulagem):
+
+A função calcular_rotulos_desempenho_futuro é onde você define o que o seu modelo de Machine Learning tentará prever. Ao rotular as ações com base no seu desempenho futuro relativo (top 25% vs. bottom 25% em N=10 dias), você está transformando seu problema em um problema de classificação supervisionada. Esta é uma das etapas mais importantes, pois a qualidade do seu modelo dependerá fortemente da qualidade e relevância desses rótulos.
+Etapa (Implícita) de Preparação para o classificador.py:
+
+Embora este script em si não treine o modelo, ele prepara o terreno. O DataFrame resultante de df_com_rotulos é o que será usado pelo classificador.py para:
+Selecionar todas as features (X), incluindo preco_sobre_graham e os indicadores originais.
+Selecionar a variável alvo (y), que é rotulo_desempenho_futuro.
+Prosseguir com o tratamento de NaNs, divisão treino/teste, treinamento e avaliação.
+Confirmando seu Fluxo (com este script no meio):
+
+Seu fluxo, considerando este script, seria:
+
+scraper_indicadores.py: Coleta os dados brutos diários do Investidor10 e salva no banco de dados PostgreSQL. (✅ Coleta de Dados)
+analisador_graham_db.py (ou a lógica dele dentro do classificador.py):
+Carrega os dados do banco.
+Realiza Engenharia de Features (calcula preco_sobre_graham).
+Realiza a Rotulagem (cria rotulo_desempenho_futuro).
+(Este script também faz uma análise exploratória da feature de Graham, o que é bom para entendimento).
+classificador.py:
+Utiliza o DataFrame processado pelo passo anterior (com features e rótulos).
+Realiza a Preparação Final dos Dados (seleção de X e y, imputação de NaNs em X).
+Divide em Treino/Teste.
+Treina o Modelo (RandomForestClassifier).
+Avalia o Modelo.
+Salva o Modelo e o Imputer.
+recomendador_acoes.py:
+Coleta dados de uma única ação (usando coletar_indicadores do primeiro script).
+Realiza a mesma Engenharia de Features (preco_sobre_graham).
+Carrega o Modelo e o Imputer salvos.
+Prepara os dados da ação única (garantindo mesmas features e imputando NaNs com o imputer carregado).
+Faz a Previsão e apresenta a recomendação com justificativas.
+Seu entendimento do fluxo, com a inclusão do analisador_graham_db.py (ou sua lógica) entre o scraper e o classificador principal, está correto. Este script analisador_graham_db.py é essencial para a criação das features e, mais criticamente, dos rótulos que definem o problema de aprendizado do seu modelo.

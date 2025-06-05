@@ -1,0 +1,91 @@
+O script scraper_indicadores.py é a primeira etapa fundamental do seu projeto de aprendizado de máquina, focada na Coleta e Armazenamento de Dados.
+
+Vamos detalhar o que o código scraper_indicadores.py faz:
+
+Objetivo Principal do Código:
+
+O objetivo central deste script é buscar automaticamente (via web scraping) indicadores fundamentalistas, cotações e a variação de 12 meses de uma lista predefinida de ações brasileiras diretamente do site investidor10.com.br. Após a coleta, esses dados são processados e salvos em um banco de dados PostgreSQL para uso posterior.
+
+Detalhamento das Etapas e Funções:
+
+O código é organizado em quatro etapas principais:
+
+ETAPA 1: Funções para Extrair Indicadores e Dados da Página
+
+get_valor_indicador(soup, nome_indicador):
+
+Recebe um objeto soup (HTML da página da ação, já processado pelo BeautifulSoup) e o nome_indicador (ex: "P/L", "ROE").
+Procura por elementos <span> no HTML que contenham o nome_indicador.
+Uma vez encontrado o span com o nome, ele localiza o elemento pai (<div class='cell'>) e, dentro dele, busca o valor numérico do indicador, que geralmente está em outro <span> dentro de uma <div class='value'>.
+Realiza uma limpeza no texto do valor: remove o símbolo %, troca pontos de milhar por nada e vírgulas decimais por pontos decimais (para converter para o formato float americano, ex: "1.234,56%" -> "1234.56").
+Tenta converter o texto limpo para float. Se falhar (ex: o valor não é numérico), retorna None.
+Retorna o valor do indicador como um número de ponto flutuante ou None.
+get_cotacao(soup):
+
+Recebe o objeto soup.
+Procura especificamente pelo card de cotação na página HTML (identificado pela classe _card cotacao).
+Extrai o valor da cotação, que está dentro de um <span> com a classe value.
+Limpa o texto da cotação (remove "R$", pontos de milhar, troca vírgula por ponto) e o converte para float.
+Retorna a cotação como float ou None em caso de erro.
+get_variacao_12m(soup):
+
+Recebe o objeto soup.
+Localiza o card que (segundo o comentário e a estrutura do código) contém a variação dos últimos 12 meses (identificado pela classe _card pl).
+Extrai o valor da variação de dentro de um <span>.
+Limpa o texto da variação (remove "%", pontos, troca vírgula por ponto) e o converte para float.
+Retorna a variação como float ou None em caso de erro, imprimindo uma mensagem de erro se a extração falhar.
+coletar_indicadores(acao):
+
+Esta é a função principal de coleta para uma única ação. Recebe o ticker da acao como argumento (ex: "PETR4").
+Constrói a URL específica da ação no site investidor10.com.br.
+Define um User-Agent no cabeçalho da requisição HTTP para simular um navegador comum e evitar bloqueios.
+Faz uma requisição GET para a URL.
+Verifica se a requisição foi bem-sucedida (código de status 200). Se não, retorna uma mensagem de erro.
+Se bem-sucedida, usa BeautifulSoup para parsear o conteúdo HTML da resposta.
+Mapeamento de Indicadores: Possui um dicionário indicadores_map que mapeia os nomes dos indicadores como aparecem no site para os nomes das colunas que você quer usar no seu banco de dados/dicionário de dados (ex: "DIVIDEND YIELD" no site -> "dividend_yield" no dicionário).
+Cria um dicionário dados inicial com o ticker da ação.
+Itera sobre o indicadores_map, chamando get_valor_indicador para cada indicador e armazenando o resultado no dicionário dados.
+Chama get_cotacao e get_variacao_12m para obter esses valores e os adiciona ao dicionário dados.
+Monta uma string de log_final formatada com todos os dados coletados para aquela ação.
+Retorna uma tupla contendo o dicionário dados e a string log_final. Em caso de erro inesperado durante o processo, retorna uma mensagem de erro.
+ETAPA 2: Salvar no Banco de Dados
+
+salvar_no_banco(dados):
+Recebe o dicionário dados (coletado pela função coletar_indicadores).
+Adiciona a data_coleta (data atual) ao dicionário de dados.
+Prepara uma instrução SQL de INSERT.
+Upsert (ON CONFLICT DO UPDATE): A parte crucial aqui é a cláusula ON CONFLICT (acao, data_coleta) DO UPDATE SET .... Isso significa que:
+Se já existir um registro no banco para a mesma acao e mesma data_coleta (que são a chave primária da sua tabela), em vez de dar erro, o comando irá atualizar os valores dos indicadores daquele registro existente com os novos valores coletados.
+Se não existir, ele insere um novo registro.
+Obtém uma conexão com o banco de dados PostgreSQL usando a função get_connection (do arquivo db_connection.py).
+Executa a instrução SQL com os valores dos dados.
+Faz o commit das alterações e fecha a conexão.
+Imprime mensagens de sucesso ou erro.
+ETAPA 3: Lógica para Processar Cada Ação e Rodar em Paralelo
+
+processar_acao(acao):
+Função "wrapper" que orquestra o processo para uma única ação.
+Chama coletar_indicadores(acao).
+Verifica se o resultado é uma tupla (sucesso na coleta) ou uma string (erro).
+Se for sucesso, imprime o log e chama salvar_no_banco(dados).
+Se for erro, apenas imprime a mensagem de erro.
+ETAPA 4: Main para Execução com ThreadPool
+
+main():
+Ponto de entrada principal quando o script é executado.
+Define uma lista extensa de acoes (tickers) a serem processadas.
+Paralelismo: Configura o número máximo de threads para execução paralela (max_workers) como o número de CPUs do sistema menos 1 (ou 1, se houver apenas 1 CPU). Isso permite que várias ações sejam coletadas e processadas simultaneamente, acelerando muito o processo total.
+Usa ThreadPoolExecutor para criar um pool de threads.
+Submete a função processar_acao para cada ação na lista acoes ao executor, que as distribui entre as threads.
+Usa as_completed para lidar com os resultados das threads à medida que elas terminam, incluindo o tratamento de possíveis exceções que ocorram dentro de uma thread.
+if __name__ == "__main__":: Garante que a função main() seja chamada apenas quando o script é executado diretamente (e não quando é importado como um módulo por outro script).
+Papel no Fluxo do Aprendizado de Máquina:
+
+Você está correto. O scraper_indicadores.py é a Etapa 1: Coleta e Preparação Inicial dos Dados Brutos.
+
+Coleta de Dados: Ele é o responsável por obter os dados crus (indicadores fundamentalistas) de uma fonte externa (o site Investidor10). Sem dados, não há aprendizado de máquina.
+Limpeza e Transformação Inicial: Dentro das funções de scraping, já ocorre uma limpeza básica (remoção de caracteres como "R$", "%", conversão de formatos numéricos).
+Armazenamento Estruturado: Ao salvar os dados no PostgreSQL, ele os organiza de forma estruturada (tabela indicadores_fundamentalistas), o que é essencial para que os próximos scripts (analisador_graham_db.py, classificador.py) possam acessá-los e processá-los de maneira eficiente.
+Este script garante que você tenha um conjunto de dados fundamentalistas atualizado e armazenado, que servirá de base para toda a engenharia de features, rotulagem, treinamento e, finalmente, as previsões do seu sistema de recomendação.
+
+Em resumo, scraper_indicadores.py é o alicerce que fornece a matéria-prima para todo o seu projeto de TCC.

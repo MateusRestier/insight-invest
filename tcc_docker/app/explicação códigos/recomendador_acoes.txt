@@ -1,0 +1,69 @@
+Este é o ponto final do seu fluxo de aprendizado de máquina, onde você efetivamente usa o modelo treinado para obter uma recomendação para uma ação específica.
+
+Objetivo Principal do Código:
+
+Este script é a interface final e operacional do seu sistema de recomendação de ações. Para um ticker de ação específico fornecido pelo usuário, ele realiza um processo completo que vai desde a coleta de dados atualizados até a apresentação de uma recomendação de investimento, enriquecida com dados de suporte e justificativas contextuais. O objetivo é aplicar o modelo de Machine Learning treinado para avaliar o potencial de uma ação e fornecer um feedback útil e interpretável.
+
+Detalhamento das Etapas e Funções:
+
+Importações e Constantes Globais:
+
+Importa bibliotecas padrão (os, pandas, numpy, joblib) e a função coletar_indicadores do seu script scraper_indicadores.py.
+FEATURES_ESPERADAS_PELO_MODELO: Uma lista crucial que define exatas 31 colunas (features) que o modelo de Machine Learning (modelo_classificador_desempenho.pkl) espera receber para fazer uma predição. Esta lista deve ser idêntica à utilizada durante o treinamento do modelo no script classificador.py.
+FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR: Uma sublista de indicadores selecionados (como P/L, P/VP, Dividend Yield, ROE, Preço sobre Graham, etc.) que são considerados mais relevantes para serem exibidos ao usuário final e para serem utilizados na geração de justificativas heurísticas.
+calcular_preco_sobre_graham_para_recomendacao(dados_acao_dict):
+
+Função: Realiza a engenharia da feature "Preço sobre Valor de Graham".
+Ação: Recebe um dicionário (dados_acao_dict) contendo os indicadores brutos de uma única ação, coletados pelo scraper_indicadores. Ela calcula o Valor Intrínseco de Graham (VI) usando a fórmula simplificada VI= 
+22.5×LPA×VPA
+
+​
+ , mas de forma "estrita", ou seja, apenas se o LPA (Lucro Por Ação) e o VPA (Valor Patrimonial por Ação) forem ambos positivos. Em seguida, calcula a feature preco_sobre_graham (Cotação / VI de Graham).
+Saída: Retorna o dicionário de dados da ação atualizado, agora incluindo a chave preco_sobre_graham (ou NaN se não pôde ser calculada).
+carregar_artefatos_modelo():
+
+Função: Carrega os componentes essenciais do modelo de Machine Learning previamente treinado.
+Ação: Localiza e carrega dois arquivos da subpasta modelo/:
+modelo_classificador_desempenho.pkl: O modelo RandomForest treinado.
+imputer.pkl: O objeto SimpleImputer que foi ajustado (fitted) durante o treinamento no classificador.py e sabe como preencher valores ausentes (NaNs) com base nas medianas das features do conjunto de treinamento.
+Verifica a existência dos arquivos e levanta um erro se não forem encontrados.
+Saída: Retorna o objeto modelo e o objeto imputer carregados.
+gerar_justificativas(dados_acao_df, predicao_texto_modelo):
+
+Função: Cria explicações textuais, baseadas em regras, para contextualizar a recomendação do modelo.
+Ação: Recebe o DataFrame de uma linha dados_acao_df (contendo os dados da ação após a imputação, ou seja, os valores que o modelo efetivamente utilizou) e o predicao_texto_modelo (a recomendação granular, ex: "PARCIALMENTE RECOMENDADA").
+Extrai os valores de algumas das FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR.
+Aplica um conjunto de regras heurísticas (condições if/elif/else) a esses indicadores, comparando-os com thresholds predefinidos (ex: P/L < 10 é considerado "baixo", ROE >= 15% é "bom").
+Com base nessas regras, monta listas de justificativas_positivas e justificativas_negativas.
+Saída: Imprime uma seção formatada chamada "Análise Detalhada", indicando qual foi a classificação do modelo e, em seguida, listando os "Pontos Positivos Observados" e/ou "Pontos Negativos / de Atenção Observados" que foram acionados pelas regras heurísticas. Se nenhuma regra específica for acionada para uma categoria, uma mensagem indicando isso é exibida.
+recomendar_acao(ticker):
+
+Função: Orquestra todo o processo de geração de recomendação para um ticker de ação específico.
+Ação (passo a passo):
+Invoca coletar_indicadores(ticker) para obter os dados fundamentalistas mais recentes da ação via web scraping.
+Chama calcular_preco_sobre_graham_para_recomendacao() para adicionar a feature de Graham aos dados coletados.
+Converte o dicionário de dados resultante para um DataFrame Pandas de uma única linha.
+Prepara X_para_previsao: Cria um novo DataFrame (X_para_previsao) que contém colunas para todas as FEATURES_ESPERADAS_PELO_MODELO. Os valores são preenchidos com os dados da ação atual; se algum indicador não foi coletado pelo scraper (e não é o preco_sobre_graham), ele será NaN neste momento.
+Invoca carregar_artefatos_modelo() para obter o modelo treinado e o imputer ajustado.
+Imputação de Dados Ausentes: Utiliza o imputer carregado para preencher quaisquer valores NaN em X_para_previsao. O resultado é X_imputado_df. Este passo é crucial para garantir que o modelo receba um vetor de features completo e tratado de forma consistente com o treinamento.
+Verifica criticamente se ainda existem NaNs após a imputação (o que indicaria um problema).
+Predição: Alimenta X_imputado_df no modelo treinado para obter:
+pred: A classe predita (0 para Não Recomendada, 1 para Recomendada, com base no threshold padrão de 0.5 da probabilidade). (Embora o pred binário não seja mais usado diretamente para o texto final da recomendação, o cálculo é mantido, e predict_proba é o principal).
+proba: As probabilidades para cada classe (ex: [prob_nao_recomendada, prob_recomendada]).
+Geração de Recomendação Granular: Com base na prob_recomendada (ou seja, proba[1]), uma lógica if/elif/else define um recomendacao_final_texto mais detalhado (ex: "FORTEMENTE RECOMENDADA", "PARCIALMENTE RECOMENDADA", "NÃO RECOMENDADA", etc.), utilizando faixas de probabilidade predefinidas.
+Exibição dos Resultados: Imprime um relatório bem formatado para o usuário, contendo:
+O ticker da ação.
+O recomendacao_final_texto gerado pelo modelo.
+As probabilidades calculadas para "Não Recomendada" e "Recomendada".
+Uma lista dos "Indicadores Chave" da ação (os valores que o modelo viu, após a imputação, formatados para leitura).
+As justificativas contextuais geradas pela função gerar_justificativas().
+Bloco if __name__ == "__main__"::
+
+Este é o ponto de entrada padrão para scripts Python.
+Solicita ao usuário que digite o ticker da ação desejada.
+Chama a função recomendar_acao() com o ticker fornecido para iniciar o processo.
+Papel no Fluxo do Aprendizado de Máquina:
+
+Este script recomendador_acoes.py representa a Etapa 4: Aplicação do Modelo (Inferência/Predição) e Apresentação dos Resultados.
+
+Ele é o componente "voltado para o usuário" do seu sistema. Ele pega uma nova entrada (um ticker de ação), aplica todo o pré-processamento necessário (de forma consistente com o treinamento), usa o modelo treinado para fazer uma predição e, em seguida, traduz essa predição e os dados subjacentes em um formato que seja informativo e o mais interpretável possível para quem está buscando a recomendação. A adição de níveis de recomendação baseados em probabilidade e as justificativas heurísticas aumentam significativamente o valor prático do script.
