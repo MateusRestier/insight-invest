@@ -4,6 +4,7 @@ import numpy as np
 import joblib
 from scraper_indicadores import coletar_indicadores
 # Ele tá não recomendando e recomendando ações de forma muito direta, quero adicionar coisas como parcialmente recomendado, ver a última resposta do gemini
+# Ta levando em consideração demais a variação nos ultimos 12 meses, talvez seja melhor q nao leve tanto em consideração assim
 
 # Lista de features EXATAMENTE como o modelo foi treinado
 FEATURES_ESPERADAS_PELO_MODELO = [
