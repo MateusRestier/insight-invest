@@ -8,6 +8,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
 from sklearn.impute import SimpleImputer
 
+#ALTERAR PARA ELE NAO CONSIDERAR TANTO ASSIM A VARIAÇÃO 12M, PQ ISSO É MUITO VOLÁTIL E NAO É UM INDICADOR DE LONGO PRAZO
+
 # Tenta importar do local padrão do seu projeto TCC
 try:
     from app.db_connection import get_connection
