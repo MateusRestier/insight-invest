@@ -52,13 +52,16 @@ def carregar_artefatos_modelo():
     print("Modelo e Imputer carregados com sucesso.")
     return modelo, imputer
 
-def gerar_justificativas(dados_acao_df, predicao_texto_modelo): # Alterado para receber o texto da predição
+def gerar_justificativas(dados_acao_df, predicao_modelo):
     justificativas_positivas = []
     justificativas_negativas = []
 
     try:
+        # Função auxiliar para extrair features numericamente de forma segura
         def get_numeric_feature(df, col_name):
-            return pd.to_numeric(df.get(col_name, np.nan).iloc[0], errors='coerce')
+            if col_name not in df.columns: # Verificação para evitar KeyErrors
+                return np.nan
+            return pd.to_numeric(df[col_name].iloc[0], errors='coerce')
 
         pl = get_numeric_feature(dados_acao_df, 'pl')
         pvp = get_numeric_feature(dados_acao_df, 'pvp')
@@ -69,48 +72,96 @@ def gerar_justificativas(dados_acao_df, predicao_texto_modelo): # Alterado para 
         margem_liq = get_numeric_feature(dados_acao_df, 'margem_liquida')
         p_ebit = get_numeric_feature(dados_acao_df,'p_ebit')
 
+        # ================== LÓGICA DE JUSTIFICATIVAS REFINADA COM FILTROS DE SANIDADE ==================
+        
+        # P/L (Preço/Lucro)
         if pd.notna(pl):
-            if 0 < pl < 10: justificativas_positivas.append(f"P/L baixo ({pl:.2f}), pode indicar subavaliação.")
-            elif pl >= 10 and pl < 20: justificativas_positivas.append(f"P/L em nível razoável ({pl:.2f}).")
-            elif pl >= 20: justificativas_negativas.append(f"P/L elevado ({pl:.2f}).")
-            elif pl <= 0: justificativas_negativas.append(f"Empresa com prejuízo (P/L={pl:.2f}).")
+            if pl <= 0:
+                justificativas_negativas.append(f"Empresa com prejuízo (P/L={pl:.2f}).")
+            # Filtro de Sanidade: P/L muito baixo pode ser um sinal de risco.
+            elif 0 < pl < 2:
+                justificativas_negativas.append(f"P/L excessivamente baixo ({pl:.2f}), pode indicar alto risco ou distorções.")
+            elif 2 <= pl < 10:
+                justificativas_positivas.append(f"P/L baixo ({pl:.2f}), pode indicar subavaliação.")
+            elif 10 <= pl < 20:
+                justificativas_positivas.append(f"P/L em nível razoável ({pl:.2f}).")
+            elif pl >= 20:
+                justificativas_negativas.append(f"P/L elevado ({pl:.2f}).")
+
+        # P/VP (Preço/Valor Patrimonial)
         if pd.notna(pvp):
-            if 0 < pvp < 1: justificativas_positivas.append(f"P/VP < 1 ({pvp:.2f}), pode estar descontada em relação ao VPA.")
-            elif pvp >= 1 and pvp < 2: justificativas_positivas.append(f"P/VP razoável ({pvp:.2f}).")
-            elif pvp >= 2: justificativas_negativas.append(f"P/VP pode ser considerado alto ({pvp:.2f}).")
-            elif pvp <= 0 : justificativas_negativas.append(f"Patrimônio líquido negativo ou zero (P/VP={pvp:.2f}).")
+            if pvp <= 0:
+                justificativas_negativas.append(f"Patrimônio líquido negativo ou zero (P/VP={pvp:.2f}).")
+            elif 0 < pvp < 1:
+                justificativas_positivas.append(f"P/VP < 1 ({pvp:.2f}), pode estar descontada em relação ao VPA.")
+            elif 1 <= pvp < 2:
+                justificativas_positivas.append(f"P/VP razoável ({pvp:.2f}).")
+            elif pvp >= 2:
+                justificativas_negativas.append(f"P/VP pode ser considerado alto ({pvp:.2f}).")
+
+        # Dividend Yield (em %)
         if pd.notna(dy):
             if dy >= 6: justificativas_positivas.append(f"Excelente Dividend Yield ({dy:.2f}%).")
-            elif dy >= 4 and dy < 6: justificativas_positivas.append(f"Bom Dividend Yield ({dy:.2f}%).")
-            elif dy < 2 and dy >=0: justificativas_negativas.append(f"Dividend Yield baixo ({dy:.2f}%).")
-            elif dy <0 : justificativas_negativas.append(f"Dividend Yield negativo? ({dy:.2f}%).")
+            elif 4 <= dy < 6: justificativas_positivas.append(f"Bom Dividend Yield ({dy:.2f}%).")
+            elif 0 <= dy < 2: justificativas_negativas.append(f"Dividend Yield baixo ({dy:.2f}%).")
+            elif dy < 0: justificativas_negativas.append(f"Dividend Yield negativo ({dy:.2f}%), requer atenção.")
+
+        # ROE (Retorno sobre o Patrimônio Líquido, em %)
         if pd.notna(roe):
-            if roe >= 20: justificativas_positivas.append(f"Excelente rentabilidade (ROE {roe:.2f}%).")
-            elif roe >= 15 and roe < 20 : justificativas_positivas.append(f"Boa rentabilidade (ROE {roe:.2f}%).")
-            elif roe < 10 and roe >=0 : justificativas_negativas.append(f"Rentabilidade (ROE {roe:.2f}%) pode ser melhorada.")
-            elif roe < 0: justificativas_negativas.append(f"Rentabilidade negativa (ROE {roe:.2f}%).")
+            # Filtro de Sanidade: ROE muito alto é suspeito.
+            if roe > 50:
+                justificativas_negativas.append(f"ROE extremamente alto ({roe:.2f}%), pode indicar distorção contábil ou patrimônio muito baixo.")
+            elif 20 <= roe <= 50:
+                justificativas_positivas.append(f"Excelente rentabilidade (ROE {roe:.2f}%).")
+            elif 15 <= roe < 20:
+                justificativas_positivas.append(f"Boa rentabilidade (ROE {roe:.2f}%).")
+            elif 0 <= roe < 10:
+                justificativas_negativas.append(f"Rentabilidade (ROE {roe:.2f}%) pode ser melhorada.")
+            elif roe < 0:
+                justificativas_negativas.append(f"Rentabilidade negativa (ROE {roe:.2f}%).")
+
+        # Preco_Sobre_Graham
         if pd.notna(psg):
             if psg < 0.75: justificativas_positivas.append(f"Preço atrativo pelo Valor de Graham (P/VG {psg:.2f}).")
-            elif psg >= 0.75 and psg < 1.2: justificativas_positivas.append(f"Preço razoável pelo Valor de Graham (P/VG {psg:.2f}).")
+            elif 0.75 <= psg < 1.2: justificativas_positivas.append(f"Preço razoável pelo Valor de Graham (P/VG {psg:.2f}).")
             elif psg >= 1.5: justificativas_negativas.append(f"Preço elevado pelo Valor de Graham (P/VG {psg:.2f}).")
+
+        # Variacao_12m (em %)
         if pd.notna(var12m):
             if var12m > 15: justificativas_positivas.append(f"Boa valorização recente (Variação 12M: {var12m:.2f}%).")
             elif var12m < -15: justificativas_negativas.append(f"Desvalorização considerável recente (Variação 12M: {var12m:.2f}%).")
+        
+        # Margem Líquida (em %)
         if pd.notna(margem_liq):
-            if margem_liq > 15: justificativas_positivas.append(f"Excelente margem líquida ({margem_liq:.2f}%).")
-            elif margem_liq >= 5 and margem_liq < 15: justificativas_positivas.append(f"Margem líquida razoável ({margem_liq:.2f}%).")
-            elif margem_liq < 5: justificativas_negativas.append(f"Margem líquida apertada ({margem_liq:.2f}%).")
+            # Filtro de Sanidade: Margem muito alta é suspeita.
+            if margem_liq > 40:
+                justificativas_negativas.append(f"Margem líquida extremamente alta ({margem_liq:.2f}%), pode indicar lucro não recorrente.")
+            elif 15 < margem_liq <= 40:
+                justificativas_positivas.append(f"Excelente margem líquida ({margem_liq:.2f}%).")
+            elif 5 <= margem_liq <= 15:
+                justificativas_positivas.append(f"Margem líquida razoável ({margem_liq:.2f}%).")
+            elif margem_liq < 5:
+                justificativas_negativas.append(f"Margem líquida apertada ou negativa ({margem_liq:.2f}%).")
+
+        # P/EBIT
         if pd.notna(p_ebit):
-            if 0 < p_ebit < 10: justificativas_positivas.append(f"P/EBIT atrativo ({p_ebit:.2f}).")
-            elif p_ebit >= 15: justificativas_negativas.append(f"P/EBIT elevado ({p_ebit:.2f}).")
-            elif p_ebit <=0: justificativas_negativas.append(f"EBIT negativo ou zero (P/EBIT={p_ebit:.2f}).")
+            if p_ebit <= 0:
+                justificativas_negativas.append(f"EBIT negativo ou zero (P/EBIT={p_ebit:.2f}).")
+            elif 0 < p_ebit < 10:
+                justificativas_positivas.append(f"P/EBIT atrativo ({p_ebit:.2f}).")
+            elif p_ebit >= 15:
+                justificativas_negativas.append(f"P/EBIT elevado ({p_ebit:.2f}).")
+
     except Exception as e:
         print(f"Erro ao gerar justificativas: {e}")
 
+    # A lógica de exibição abaixo já está boa e não precisa de alteração.
     print("\n--- Análise Detalhada (Baseada em Regras Heurísticas) ---")
-    # Usar o predicao_texto_modelo para o cabeçalho
-    print(f"O modelo classificou como: \"{predicao_texto_modelo}\". Observações com base em regras:")
-
+    if predicao_modelo == 1: # Se a predição binária for 1
+        print("O modelo RECOMENDOU esta ação. Observações com base em regras:")
+    else: # Se a predição binária for 0 (ou qualquer outro texto de não recomendação)
+        # Ajuste para usar o texto granular que você criou
+        print(f"O modelo classificou como: \"{predicao_modelo}\". Observações com base em regras:")
 
     if justificativas_positivas:
         print("\n  Pontos Positivos Observados:")

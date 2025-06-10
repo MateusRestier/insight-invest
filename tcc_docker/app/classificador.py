@@ -73,12 +73,12 @@ def calcular_features_graham_estrito(df_input):
     return df
 
 
+# Dentro do seu classificador.py
+
 def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_superior=0.75):
     """
-    Calcula os rótulos de desempenho futuro relativo.
-    1: Top X% (definido por q_superior)
-    0: Bottom Y% (definido por q_inferior)
-    NaN: Meio (será descartado)
+    Calcula os rótulos de desempenho futuro, adicionando um critério de
+    "Alta Qualidade + Desempenho Positivo" para a classe "Recomendada".
     """
     df = df_input.copy()
     if not isinstance(df.index, pd.MultiIndex) and not df.empty:
@@ -86,7 +86,7 @@ def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_s
              df['data_coleta'] = pd.to_datetime(df['data_coleta'])
         df = df.sort_values(by=['acao', 'data_coleta'])
 
-    print(f"Calculando rótulos de desempenho para N={n_dias} dias, q_inf={q_inferior}, q_sup={q_superior}")
+    print(f"Calculando rótulos com lógica de Alta Qualidade + Desempenho Positivo...")
     df['preco_futuro_N_dias'] = df.groupby('acao')['cotacao'].shift(-n_dias)
     df['retorno_futuro_N_dias'] = np.where(
         df['cotacao'] > 0,
@@ -97,20 +97,54 @@ def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_s
     datas_com_retorno_valido = df.dropna(subset=['retorno_futuro_N_dias'])['data_coleta'].unique()
     
     if not datas_com_retorno_valido.any():
-        print("Nenhuma data com retorno futuro válido encontrada para rotulagem. Verifique o tamanho do dataset e N.")
+        print("Nenhuma data com retorno futuro válido encontrada para rotulagem.")
         return df
 
     for data_atual in datas_com_retorno_valido:
         dia_df = df[(df['data_coleta'] == data_atual) & (df['retorno_futuro_N_dias'].notna())].copy()
         if dia_df.empty:
             continue
+        
         quantil_inf = dia_df['retorno_futuro_N_dias'].quantile(q_inferior)
         quantil_sup = dia_df['retorno_futuro_N_dias'].quantile(q_superior)
-        indices_dia = dia_df.index
-        df.loc[indices_dia[dia_df['retorno_futuro_N_dias'] <= quantil_inf], 'rotulo_desempenho_futuro'] = 0
-        df.loc[indices_dia[dia_df['retorno_futuro_N_dias'] >= quantil_sup], 'rotulo_desempenho_futuro'] = 1
-    
-    print("Contagem de rótulos de desempenho futuro:")
+
+        # 1. Rotular Piores Desempenhos (Bottom 25%) como 0
+        indices_bottom_performers = dia_df.index[dia_df['retorno_futuro_N_dias'] <= quantil_inf]
+        df.loc[indices_bottom_performers, 'rotulo_desempenho_futuro'] = 0
+
+        # 2. Identificar Top Performers (Top 25%)
+        indices_top_performers = dia_df.index[dia_df['retorno_futuro_N_dias'] >= quantil_sup]
+        
+        # 3. Aplicar filtro de QUALIDADE MÍNIMA aos top performers
+        if not indices_top_performers.empty:
+            top_performers_data = df.loc[indices_top_performers]
+            indices_top_com_qualidade = top_performers_data[
+                (top_performers_data['pl'] > 0) & 
+                (top_performers_data['roe'] > 0)
+            ].index
+            df.loc[indices_top_com_qualidade, 'rotulo_desempenho_futuro'] = 1
+        
+        # ================== NOVA LÓGICA (CAMINHO 2) ==================
+        # Identificar ações de ALTA QUALIDADE que tiveram DESEMPENHO POSITIVO (mesmo que não no top 25%)
+        
+        # Primeiro, pegamos todas as ações do dia com retorno futuro positivo
+        dia_com_retorno_positivo = dia_df[dia_df['retorno_futuro_N_dias'] > 0]
+        
+        if not dia_com_retorno_positivo.empty:
+            # DENTRO desse grupo, aplicamos um filtro de ALTA qualidade,
+            # com thresholds que você considera bons (ex: para incluir BBAS3).
+            indices_alta_qualidade = dia_com_retorno_positivo[
+                (dia_com_retorno_positivo['roe'] > 10) & # ROE acima de 10%
+                (dia_com_retorno_positivo['pvp'] < 1.5) & # P/VP não muito esticado
+                (dia_com_retorno_positivo['dividend_yield'] > 8) & # Paga bons dividendos
+                (dia_com_retorno_positivo['pl'] > 0) # Lucrativa
+            ].index
+            
+            # Adicionamos o rótulo 1 para essas ações também
+            df.loc[indices_alta_qualidade, 'rotulo_desempenho_futuro'] = 1
+        # =============================================================
+
+    print("Contagem de rótulos de desempenho futuro (com filtro de qualidade E lógica de alta qualidade):")
     print(df['rotulo_desempenho_futuro'].value_counts(dropna=False))
     return df
 
