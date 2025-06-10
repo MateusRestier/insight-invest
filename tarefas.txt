@@ -1,0 +1,18 @@
+Remover imputer do classficador, e selecionar novas features para usar no classificador e recomendador, 
+nao pode ser nenhuma dessas pq elas tem nulo no banco:
+psr
+ev_ebitda
+p_ebitda
+div_liq_patrimonio
+div_liq_ebitda
+div_liq_ebit
+div_bruta_patrimonio
+liquidez_corrente
+
+Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora
+
+Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional
+
+Entender melhor como o docker funciona
+
+Criar Site da analise do TCC (da pra usar flask, django, ou direto com bootstrap etc) e la colocar analises, graficos, etc

@@ -32,12 +32,23 @@ Este projeto realiza a coleta de dados fundamentalistas de ações listadas na B
 
 ```
 PRIVATE-TCC/
-├── tcc_docker/
-│   ├── app/
-│   │   ├── scraper_indicadores.py
-│   │   ├── db_connection.py
-│   ├── docker-compose.yml
-│   ├── Dockerfile
+├─tcc_docker/
+  ├── Dockerfile
+  ├── docker-compose.yml
+  ├── requirements.txt
+  └── app/
+      ├── analisador_graham_db.py
+      ├── backup.py
+      ├── backups/
+      │   └── backup_2025-06-10_18-37-29.dump
+      ├── classificador.py
+      ├── db_connection.py
+      ├── executar_tudo.py
+      ├── modelo/
+      │   ├── imputer.pkl
+      │   └── modelo_classificador_desempenho.pkl
+      ├── recomendador_acoes.py
+      └── scraper_indicadores.py
 ```
 
 ---
