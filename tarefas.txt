@@ -9,7 +9,9 @@ div_liq_ebit
 div_bruta_patrimonio
 liquidez_corrente
 
-Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora
+Entender se com mais dados, piora o modelo, pq vao ter varias linhas praticamente iguais da msm ação.
+
+Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora # decidindo
 
 Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional
 
