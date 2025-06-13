@@ -1,0 +1,62 @@
+1. Problema: Rotulagem Inicial Simplista e Redundância do Modelo
+A Preocupação: A primeira versão do classificador.py usava regras fixas e arbitrárias para criar os rótulos "Recomendado/Não Recomendado" (ex: P/L < 10 e ROE > 15%).
+ Você corretamente identificou que treinar um modelo de Machine Learning com esses rótulos era redundante; o modelo simplesmente aprenderia a replicar o filtro que já havíamos criado, sem gerar novos insights.
+A Solução Implementada:
+Abandonamos a rotulagem baseada em filtros.
+Implementamos no classificador.py uma estratégia de rotulagem baseada em desempenho futuro relativo.
+ Definimos um "bom resultado" (rótulo 1) como uma ação cujo preço estivesse no Top 25% de desempenho nos 10 dias seguintes,
+  e um "mau resultado" (rótulo 0) como uma ação no Bottom 25%. Isso forçou o modelo a aprender padrões preditivos reais nos dados, em vez de apenas replicar regras.
+
+2. Problema: Dependência Excessiva da variacao_12m e o Risco de "Comprar no Topo"
+A Preocupação: Após o primeiro treinamento com a nova rotulagem, você observou que a feature variacao_12m (momentum) se tornou a mais importante.
+ Você levantou a preocupação muito pertinente de que isso poderia levar o modelo a recomendar ações que já subiram muito
+ (risco de "comprar no topo") ou ações fundamentalmente fracas que tiveram uma recuperação de preço volátil (como AMER3 ou PETZ3).
+A Solução Implementada:
+Tentativa 1: Retreinamos o modelo no classificador.py removendo completamente a variacao_12m.
+ Isso provou que o modelo ainda tinha alta performance, mas você preferiu manter a informação de momentum se pudéssemos controlar sua influência.
+Tentativa 2 (Sucedida): Ajustamos o hiperparâmetro max_features do RandomForestClassifier para 0.5.
+ Isso forçou o modelo a considerar um subconjunto aleatório maior de features em cada divisão,
+ "obrigando-o" a distribuir a importância de forma mais equilibrada e a não depender excessivamente de um único indicador.
+
+3. Problema: Modelo Recomendando Ações Fundamentalmente Fracas (Caso PETZ3)
+A Preocupação: Mesmo com os ajustes, o modelo ainda recomendava fortemente ações como a PETZ3,
+ que apresentava P/L e ROE negativos. Você concluiu que o modelo estava otimizando para "repique de preços" de curto prazo,
+ ignorando a qualidade fundamental da empresa.
+A Solução Implementada:
+Refinamos a lógica de rotulagem no classificador.py mais uma vez. Em vez de apenas filtrar os dados,
+mudamos a definição de um "bom resultado" (rótulo 1). Uma ação agora só recebe o rótulo 1 se ela:
+Tiver um ótimo desempenho de preço (Top 25%);
+E atender a critérios mínimos de qualidade (P/L > 0 e ROE > 0).
+Isso ensinou o modelo a ignorar "saltos" de preço em empresas com prejuízo,
+tornando-o muito mais alinhado a uma filosofia de investimento de qualidade.
+
+4. Problema: Justificativas Heurísticas Enganosas (Caso AMER3)
+A Preocupação: O modelo, treinado com a lógica de qualidade, corretamente não recomendou a AMER3.
+No entanto, a função gerar_justificativas no recomendador_acoes.py interpretava os indicadores
+distorcidos da AMER3 (P/L extremamente baixo, ROE irrealisticamente alto) como "pontos positivos", o que era enganoso.
+A Solução Implementada:
+Adicionamos "filtros de sanidade" às regras dentro da função gerar_justificativas.
+Definimos faixas razoáveis para os indicadores. Agora, um P/L entre 0 e 2 ou um ROE acima de 50% são corretamente classificados como "pontos negativos/de atenção",
+pois indicam risco ou distorção contábil, tornando as justificativas muito mais inteligentes e alinhadas com a realidade.
+
+5. Problema: Risco de Imputação de Dados e Busca por um Modelo Mais Transparente
+A Preocupação: Você levantou a hipótese de que o SimpleImputer, ao preencher dados ausentes com a mediana,
+poderia estar prejudicando ou mascarando algo na análise. Você expressou o desejo de usar um modelo mais direto,
+baseado apenas em features comprovadamente confiáveis e sempre presentes.
+A Solução Implementada:
+Seleção Curada de Features: Definimos uma nova lista com apenas 13 features que você verificou serem as mais robustas e sempre disponíveis.
+Retreinamento sem Imputer: Modificamos o classificador.py para usar apenas essas 13 features e removemos completamente a etapa de imputação.
+Em vez disso, adotamos uma política estrita de descartar qualquer linha que, porventura, tivesse um dado ausente nessas colunas chave.
+Simplificação do Recomendador: O recomendador_acoes.py foi ajustado para também não usar mais o imputer,
+tornando a previsão mais direta e transparente. Se alguma das 13 features essenciais não for coletada, a recomendação não é feita.
+Este resumo documenta a jornada de refinamento do seu modelo, mostrando como você partiu de uma ideia inicial e,
+através de análise crítica e iteração, chegou a um sistema de recomendação muito mais sofisticado, robusto e alinhado com uma filosofia de investimento sólida.
+
+6. Problema: preocupaçao de coletar ações todos os dias viciar o modelo e prejudicar a analise:
+A Preocupação: como todo os dias o scraper indicadores entra no site do investidor 10, e sobe no banco os dados das ações,
+isso pode acabar prejudicando o modelo? pq por exemplo, se uma uma ação classificada como boa,
+tem 15% de dy e um bom pl, variação12m etc, amanha ela n vai ter mudado mt coisa,
+aí seriam duas linhas da msm ação com quase variação nenhuma sendo considerada como boas,
+então com o tempo, cada vez mais o quartil considerado bom vai ser mais dominado por linhas extramamente parecidas,
+diminuindo a eficácia do modelo em considerar oq é bom ou ruim.
+A Solução Implementada: (N/A)
