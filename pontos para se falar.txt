@@ -44,13 +44,7 @@ A Preocupação: Você levantou a hipótese de que o SimpleImputer, ao preencher
 poderia estar prejudicando ou mascarando algo na análise. Você expressou o desejo de usar um modelo mais direto,
 baseado apenas em features comprovadamente confiáveis e sempre presentes.
 A Solução Implementada:
-Seleção Curada de Features: Definimos uma nova lista com apenas 13 features que você verificou serem as mais robustas e sempre disponíveis.
-Retreinamento sem Imputer: Modificamos o classificador.py para usar apenas essas 13 features e removemos completamente a etapa de imputação.
-Em vez disso, adotamos uma política estrita de descartar qualquer linha que, porventura, tivesse um dado ausente nessas colunas chave.
-Simplificação do Recomendador: O recomendador_acoes.py foi ajustado para também não usar mais o imputer,
-tornando a previsão mais direta e transparente. Se alguma das 13 features essenciais não for coletada, a recomendação não é feita.
-Este resumo documenta a jornada de refinamento do seu modelo, mostrando como você partiu de uma ideia inicial e,
-através de análise crítica e iteração, chegou a um sistema de recomendação muito mais sofisticado, robusto e alinhado com uma filosofia de investimento sólida.
+
 
 6. Problema: preocupaçao de coletar ações todos os dias viciar o modelo e prejudicar a analise:
 A Preocupação: como todo os dias o scraper indicadores entra no site do investidor 10, e sobe no banco os dados das ações,

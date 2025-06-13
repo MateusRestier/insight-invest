@@ -1,5 +1,6 @@
 Remover imputer do classficador, e selecionar novas features para usar no classificador e recomendador, 
 nao pode ser nenhuma dessas pq elas tem nulo no banco:
+
 psr
 ev_ebitda
 p_ebitda
@@ -17,4 +18,6 @@ Criar outro código que preveja o valor das features das ações (ver como fazer
 
 Entender melhor como o docker funciona
 
-Criar Site da analise do TCC (da pra usar flask, django, ou direto com bootstrap etc) e la colocar analises, graficos, etc (conversei com o gpt ele disse sobre usar DASH para fazer td)
+Criar Site da analise do TCC (da pra usar flask, django, ou direto com bootstrap etc) e la colocar analises, graficos, etc (conversei com o gpt ele disse sobre usar DASH para fazer td e usar bootstrap dentro do dahs para ficar responsivo)
+
+imprementar Validação Cruzada Temporal pra evitar o problema 6
