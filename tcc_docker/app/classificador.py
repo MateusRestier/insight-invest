@@ -1,14 +1,9 @@
-import os
-import joblib
-import pandas as pd
-import numpy as np
-import psycopg2 # Necessário para get_connection
+import os, joblib, pandas as pd, numpy as np, psycopg2
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
 from sklearn.impute import SimpleImputer
-
-#ALTERAR PARA ELE NAO CONSIDERAR TANTO ASSIM A VARIAÇÃO 12M, PQ ISSO É MUITO VOLÁTIL E NAO É UM INDICADOR DE LONGO PRAZO
+from labeling import calcular_rotulos_desempenho_futuro
 
 # Tenta importar do local padrão do seu projeto TCC
 try:
@@ -71,83 +66,6 @@ def calcular_features_graham_estrito(df_input):
     condicao_vi_valido = df['vi_graham'].notna() & (df['vi_graham'] != 0)
     df.loc[condicao_vi_valido, 'preco_sobre_graham'] = df.loc[condicao_vi_valido, 'cotacao'] / df.loc[condicao_vi_valido, 'vi_graham']
     return df
-
-
-# Dentro do seu classificador.py
-
-def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_superior=0.75):
-    """
-    Calcula os rótulos de desempenho futuro, adicionando um critério de
-    "Alta Qualidade + Desempenho Positivo" para a classe "Recomendada".
-    """
-    df = df_input.copy()
-    if not isinstance(df.index, pd.MultiIndex) and not df.empty:
-        if 'data_coleta' in df.columns:
-             df['data_coleta'] = pd.to_datetime(df['data_coleta'])
-        df = df.sort_values(by=['acao', 'data_coleta'])
-
-    print(f"Calculando rótulos com lógica de Alta Qualidade + Desempenho Positivo...")
-    df['preco_futuro_N_dias'] = df.groupby('acao')['cotacao'].shift(-n_dias)
-    df['retorno_futuro_N_dias'] = np.where(
-        df['cotacao'] > 0,
-        (df['preco_futuro_N_dias'] - df['cotacao']) / df['cotacao'],
-        np.nan
-    )
-    df['rotulo_desempenho_futuro'] = np.nan
-    datas_com_retorno_valido = df.dropna(subset=['retorno_futuro_N_dias'])['data_coleta'].unique()
-    
-    if not datas_com_retorno_valido.any():
-        print("Nenhuma data com retorno futuro válido encontrada para rotulagem.")
-        return df
-
-    for data_atual in datas_com_retorno_valido:
-        dia_df = df[(df['data_coleta'] == data_atual) & (df['retorno_futuro_N_dias'].notna())].copy()
-        if dia_df.empty:
-            continue
-        
-        quantil_inf = dia_df['retorno_futuro_N_dias'].quantile(q_inferior)
-        quantil_sup = dia_df['retorno_futuro_N_dias'].quantile(q_superior)
-
-        # 1. Rotular Piores Desempenhos (Bottom 25%) como 0
-        indices_bottom_performers = dia_df.index[dia_df['retorno_futuro_N_dias'] <= quantil_inf]
-        df.loc[indices_bottom_performers, 'rotulo_desempenho_futuro'] = 0
-
-        # 2. Identificar Top Performers (Top 25%)
-        indices_top_performers = dia_df.index[dia_df['retorno_futuro_N_dias'] >= quantil_sup]
-        
-        # 3. Aplicar filtro de QUALIDADE MÍNIMA aos top performers
-        if not indices_top_performers.empty:
-            top_performers_data = df.loc[indices_top_performers]
-            indices_top_com_qualidade = top_performers_data[
-                (top_performers_data['pl'] > 0) & 
-                (top_performers_data['roe'] > 0)
-            ].index
-            df.loc[indices_top_com_qualidade, 'rotulo_desempenho_futuro'] = 1
-        
-        # ================== NOVA LÓGICA (CAMINHO 2) ==================
-        # Identificar ações de ALTA QUALIDADE que tiveram DESEMPENHO POSITIVO (mesmo que não no top 25%)
-        
-        # Primeiro, pegamos todas as ações do dia com retorno futuro positivo
-        dia_com_retorno_positivo = dia_df[dia_df['retorno_futuro_N_dias'] > 0]
-        
-        if not dia_com_retorno_positivo.empty:
-            # DENTRO desse grupo, aplicamos um filtro de ALTA qualidade,
-            # com thresholds que você considera bons (ex: para incluir BBAS3).
-            indices_alta_qualidade = dia_com_retorno_positivo[
-                (dia_com_retorno_positivo['roe'] > 10) & # ROE acima de 10%
-                (dia_com_retorno_positivo['pvp'] < 1.5) & # P/VP não muito esticado
-                (dia_com_retorno_positivo['dividend_yield'] > 8) & # Paga bons dividendos
-                (dia_com_retorno_positivo['pl'] > 0) # Lucrativa
-            ].index
-            
-            # Adicionamos o rótulo 1 para essas ações também
-            df.loc[indices_alta_qualidade, 'rotulo_desempenho_futuro'] = 1
-        # =============================================================
-
-    print("Contagem de rótulos de desempenho futuro (com filtro de qualidade E lógica de alta qualidade):")
-    print(df['rotulo_desempenho_futuro'].value_counts(dropna=False))
-    return df
-
 
 def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path): # Adicionado modelo_base_path como argumento
     """Prepara X (features) e y (target) para o modelo e salva o imputer."""
@@ -259,6 +177,7 @@ def executar_pipeline_classificador():
 
     df_com_graham = calcular_features_graham_estrito(df_bruto)
     df_com_rotulos = calcular_rotulos_desempenho_futuro(df_com_graham, n_dias=10, q_inferior=0.25, q_superior=0.75)
+
 
     # Define o caminho base para salvar o modelo e o imputer
     script_dir = os.path.dirname(os.path.abspath(__file__))
