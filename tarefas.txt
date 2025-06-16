@@ -1,6 +1,6 @@
+#FEITO 
 Remover imputer do classficador, e selecionar novas features para usar no classificador e recomendador, 
 nao pode ser nenhuma dessas pq elas tem nulo no banco:
-
 psr
 ev_ebitda
 p_ebitda
@@ -12,6 +12,10 @@ liquidez_corrente
 
 Entender se com mais dados, piora o modelo, pq vao ter varias linhas praticamente iguais da msm ação.
 
+imprementar Validação Cruzada Temporal pra evitar o problema 5
+
+
+# A FAZER
 Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora # decidindo
 
 Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional

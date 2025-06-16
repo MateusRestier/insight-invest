@@ -79,7 +79,11 @@ def restaurar_backup():
     print("♻️ Restaurando o banco de dados...")
     subprocess.run([
         "docker", "exec", "-t", CONTAINER_NAME,
-        "pg_restore", "-U", DB_USER, "-d", DB_NAME,
+        "pg_restore",
+        "-U", DB_USER,
+        "-d", DB_NAME,
+        "--clean",        # remove objetos existentes antes de restaurar
+        "--if-exists",    # só tenta dropar se o objeto já existir
         f"/var/lib/postgresql/data/{arquivo.name}"
     ], check=True)
 
