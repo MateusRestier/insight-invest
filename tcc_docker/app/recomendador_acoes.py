@@ -7,7 +7,7 @@ FEATURES_ESPERADAS_PELO_MODELO = [
     'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
     'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
     'giro_ativos','roe','roic','roa','patrimonio_ativos',
-    'passivos_ativos','variacao_12m','preco_sobre_graham'
+    'passivos_ativos','variacao_12m','preco_sobre_graham','fund_bad'
 ]
 
 FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR = [

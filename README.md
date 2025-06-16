@@ -48,6 +48,7 @@ PRIVATE-TCC/
       │   ├── imputer.pkl
       │   └── modelo_classificador_desempenho.pkl
       ├── recomendador_acoes.py
+      ├── regressor_preco.py
       └── scraper_indicadores.py
 ```
 

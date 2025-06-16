@@ -7,6 +7,7 @@ import time
 # Diretório base
 BASE_DIR = Path(__file__).parent
 scraper_path = BASE_DIR / "scraper_indicadores.py"
+regressor_path = BASE_DIR / "regressor_preco.py"
 backup_path = BASE_DIR / "backup.py"
 
 def executar_comando_chcp():
@@ -30,6 +31,7 @@ def executar_script(script_path):
 def main():
     executar_comando_chcp()
     executar_script(scraper_path)
+    executar_script(regressor_path)
     executar_script(backup_path)
 
 # Agendar execução

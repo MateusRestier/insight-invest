@@ -14,14 +14,11 @@ Entender se com mais dados, piora o modelo, pq vao ter varias linhas praticament
 
 imprementar Validação Cruzada Temporal pra evitar o problema 5
 
+Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional (ele ve o preço futuro)
 
 # A FAZER
 Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora # decidindo
 
-Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional
-
 Entender melhor como o docker funciona
 
 Criar Site da analise do TCC (da pra usar flask, django, ou direto com bootstrap etc) e la colocar analises, graficos, etc (conversei com o gpt ele disse sobre usar DASH para fazer td e usar bootstrap dentro do dahs para ficar responsivo)
-
-imprementar Validação Cruzada Temporal pra evitar o problema 6
