@@ -39,18 +39,18 @@ Adicionamos "filtros de sanidade" às regras dentro da função gerar_justificat
 Definimos faixas razoáveis para os indicadores. Agora, um P/L entre 0 e 2 ou um ROE acima de 50% são corretamente classificados como "pontos negativos/de atenção",
 pois indicam risco ou distorção contábil, tornando as justificativas muito mais inteligentes e alinhadas com a realidade.
 
-5. Problema: Risco de Imputação de Dados e Busca por um Modelo Mais Transparente
-A Preocupação: Você levantou a hipótese de que o SimpleImputer, ao preencher dados ausentes com a mediana,
-poderia estar prejudicando ou mascarando algo na análise. Você expressou o desejo de usar um modelo mais direto,
-baseado apenas em features comprovadamente confiáveis e sempre presentes.
+5. Problema: Risco de Imputação de Dados e Vício por Coletas Diárias
+
+A Preocupação:
+Imputação de Dados: no início, optamos por usar o SimpleImputer para preencher com a mediana as lacunas de informação de algumas ações no Investidor10 (já que nem todas traziam todos os indicadores).
+Contudo, percebemos que esse preenchimento poderia mascarar cenários reais — por exemplo, uma empresa sem Dividend Yield reportado acabaria “recebendo” um valor mediano e passando como se tivesse histórico concreto.
+Coleta Diária Viciada: além disso, o scraper roda todo dia para inserir no banco múltiplas observações da mesma ação com variações ínfimas.
+Com isso, os quartis que separam os 25 % melhores e 25 % piores passaram a se “encher” de linhas quase idênticas,
+reduzindo drasticamente a diversidade de exemplos e prejudicando a capacidade do modelo de aprender padrões genuínos de valorização ou queda.
 A Solução Implementada:
-
-
-6. Problema: preocupaçao de coletar ações todos os dias viciar o modelo e prejudicar a analise:
-A Preocupação: como todo os dias o scraper indicadores entra no site do investidor 10, e sobe no banco os dados das ações,
-isso pode acabar prejudicando o modelo? pq por exemplo, se uma uma ação classificada como boa,
-tem 15% de dy e um bom pl, variação12m etc, amanha ela n vai ter mudado mt coisa,
-aí seriam duas linhas da msm ação com quase variação nenhuma sendo considerada como boas,
-então com o tempo, cada vez mais o quartil considerado bom vai ser mais dominado por linhas extramamente parecidas,
-diminuindo a eficácia do modelo em considerar oq é bom ou ruim.
-A Solução Implementada: (N/A)
+Descartamos o Imputer e removemos colunas instáveis: em vez de mascarar valores faltantes, eliminamos as features que apresentavam muitos missing e mantivemos apenas aquelas com cobertura consistente, garantindo que o modelo trabalhe só com dados reais.
+Eliminação de duplicatas exatas: antes de qualquer divisão de treino/teste, removemos linhas perfeitamente idênticas para impedir que coletas repetidas viciem os quartis de classificação.
+Hold-out temporal verdadeiro (últimos 20 %): separamos os 20 % mais recentes dos dados para avaliação final, simulando um cenário real de previsão sem jamais “espionar” o futuro.
+Validação Cruzada Temporal (TimeSeriesSplit): substituímos o train_test_split aleatório por k-fold temporal, garantindo que cada fold de teste contenha apenas observações posteriores às de treino.
+RandomizedSearchCV com folds temporais: todo o tuning de hiperparâmetros foi feito exclusivamente sobre o conjunto de treino temporal, preservando o hold-out para avaliação out-of-sample.
+Com isso, eliminamos o vazamento temporal, mantivemos o modelo focado em padrões robustos e asseguramos que nem a coleta diária nem a imputação artificial prejudiquem a qualidade ou a transparência da análise.

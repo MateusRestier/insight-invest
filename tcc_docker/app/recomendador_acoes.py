@@ -210,10 +210,6 @@ def recomendar_acao(ticker):
         print(f"Erro ao carregar modelo: {e}")
         return
 
-    if X_para_previsao.isnull().any().any():
-        print("\nErro: Ainda existem valores faltantes após remover colunas nulas.")
-        return
-
     X_final = X_para_previsao[FEATURES_ESPERADAS_PELO_MODELO]
 
     print("Realizando previsão...")

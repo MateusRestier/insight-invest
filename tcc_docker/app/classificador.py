@@ -2,6 +2,7 @@ import os, joblib, pandas as pd, numpy as np, psycopg2
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
+from sklearn.model_selection import TimeSeriesSplit, RandomizedSearchCV
 from labeling import calcular_rotulos_desempenho_futuro
 
 # Tenta importar do local padrão do seu projeto TCC
@@ -66,17 +67,20 @@ def calcular_features_graham_estrito(df_input):
     df.loc[condicao_vi_valido, 'preco_sobre_graham'] = df.loc[condicao_vi_valido, 'cotacao'] / df.loc[condicao_vi_valido, 'vi_graham']
     return df
 
-def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path): # Adicionado modelo_base_path como argumento
-    """Prepara X (features) e y (target) para o modelo, removendo colunas com nulos."""
-    print("Preparando X e y para o modelo...")
+def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path):
+    """Prepara X (features), y (target) e dates (data_coleta) para o modelo, removendo colunas com nulos."""
+    print("Preparando X, y e dates para o modelo...")
+    # Filtra apenas linhas com rótulo definido
     df_para_treino = df_com_tudo.dropna(subset=['rotulo_desempenho_futuro']).copy()
-    
     if df_para_treino.empty:
         print("Nenhum dado restou após remover NaNs dos rótulos. O modelo não pode ser treinado.")
-        return None, None, None, None
+        return None, None, None, None, None
 
+    # Extrai y e dates
     y = df_para_treino['rotulo_desempenho_futuro'].astype(int)
+    dates = df_para_treino['data_coleta']
 
+    # Define as features a usar
     features_colunas = [
         'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',
         'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
@@ -84,98 +88,120 @@ def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path): # Adicionado modelo
         'giro_ativos','roe','roic','roa','patrimonio_ativos',
         'passivos_ativos','variacao_12m','preco_sobre_graham'
     ]
-    
     features_existentes = [col for col in features_colunas if col in df_para_treino.columns]
     if len(features_existentes) < len(features_colunas):
         ausentes = set(features_colunas) - set(features_existentes)
-        print(f"Aviso: As seguintes colunas de features esperadas não foram encontradas no DataFrame: {list(ausentes)}. Usando apenas as existentes: {features_existentes}")
-    
+        print(f"Aviso: colunas ausentes: {list(ausentes)}. Usando: {features_existentes}")
     if not features_existentes:
-        print("Nenhuma das features esperadas foi encontrada no DataFrame. Não é possível criar X.")
-        return None, None, None, None
+        print("Nenhuma das features esperadas foi encontrada. Não é possível criar X.")
+        return None, None, None, None, None
 
+    # Constrói X e trata infinitos
     X = df_para_treino[features_existentes].copy()
-
     X.replace([np.inf, -np.inf], np.nan, inplace=True)
-    
-    if X.empty:
-        print("DataFrame X está vazio antes da imputação. Verifique a seleção de features.")
-        return None, None, None, None
-        
-    if X.isnull().all().all():
-        print("Todas as colunas de features (X) são NaN. Não é possível treinar o modelo.")
-        return None, None, None, None
+    if X.empty or X.isnull().all().all():
+        print("X está vazio ou todas as features são NaN. Não é possível treinar o modelo.")
+        return None, None, None, None, None
 
     print(f"Shape de X: {X.shape}, Shape de y: {y.shape}")
-    return X, y, X.columns, None
+    # Retorna também a série de datas alinhada a X.index
+    return X, y, X.columns, None, dates
 
 
-def treinar_avaliar_e_salvar_modelo(X, y, X_colunas_nomes, modelo_base_path):
-    """Treina, avalia e salva o modelo de classificação."""
-    print("Dividindo dados em treino e teste...")
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+def treinar_avaliar_e_salvar_modelo(X_train, y_train, X_colunas_nomes, modelo_base_path):
+    """Tuna hiperparâmetros via RandomizedSearchCV com TimeSeriesSplit e salva o modelo."""
+    print("⚙️  Iniciando RandomizedSearchCV com TimeSeriesSplit…")
+    tscv = TimeSeriesSplit(n_splits=5)
 
-    print("Treinando o modelo RandomForestClassifier...")
-    modelo = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
-    modelo.fit(X_train, y_train)
+    param_dist = { # Serve para fazer uma busca aleatória de hiperparâmetros, e ver quais são os melhores
+        'n_estimators': [50, 100, 200, 300, 400, 500],
+        'max_depth': [None, 5, 10, 20, 30],
+        'min_samples_leaf': [1, 2, 5],
+        'max_features': ['sqrt', 'log2', 0.3, 0.5, 0.7],
+        'class_weight': ['balanced', None]
+    }
 
-    print("\nAvaliando o modelo...")
-    y_pred = modelo.predict(X_test)
-    y_proba = modelo.predict_proba(X_test)[:, 1]
+    search = RandomizedSearchCV(
+        RandomForestClassifier(random_state=42),
+        param_distributions=param_dist,
+        n_iter=20, cv=tscv, scoring='roc_auc',
+        n_jobs=-1, verbose=2, random_state=42
+    )
+    search.fit(X_train, y_train)
 
-    print("Acurácia:", accuracy_score(y_test, y_pred)) #
-    print("\nMatriz de Confusão:\n", confusion_matrix(y_test, y_pred))
-    print("\nRelatório de Classificação:\n", classification_report(y_test, y_pred)) #
-    
-    if len(np.unique(y_test)) > 1: # AUC requer mais de uma classe no y_test
-        print("\nAUC-ROC:", roc_auc_score(y_test, y_proba))
-    else:
-        print("\nAUC-ROC não pode ser calculado (apenas uma classe presente no conjunto de teste).")
+    print("\n🔑 Melhores parâmetros encontrados:", search.best_params_)
+    print(f"🏆 Melhor AUC-ROC (CV): {search.best_score_:.4f}")
 
-    print("\nImportância das Features (Top 15):")
-    importancias = pd.Series(modelo.feature_importances_, index=X_colunas_nomes).sort_values(ascending=False)
-    print(importancias.head(15))
+    modelo = search.best_estimator_
+
+    # Importância das features
+    importancias = pd.Series(modelo.feature_importances_, index=X_colunas_nomes)\
+                      .sort_values(ascending=False)
+    print("\nImportância das Features (Top 23):")
+    print(importancias.head(23))
 
     # Salvar o modelo
-    modelo_path = os.path.join(modelo_base_path, "modelo_classificador_desempenho.pkl") # Nome diferente para o novo modelo
-    os.makedirs(modelo_base_path, exist_ok=True) # Garante que o diretório 'modelo' exista
-    joblib.dump(modelo, modelo_path) #
-    print(f"\nModelo salvo com sucesso em {modelo_path}")
+    modelo_path = os.path.join(modelo_base_path, "modelo_classificador_desempenho.pkl")
+    os.makedirs(modelo_base_path, exist_ok=True)
+    joblib.dump(modelo, modelo_path)
+    print(f"\n✅ Modelo final (tuneado) salvo em {modelo_path}")
+
     return modelo
 
-
 def executar_pipeline_classificador():
-    """Executa todo o pipeline de classificação."""
-    print("Iniciando pipeline do classificador...")
+    """Executa todo o pipeline de classificação, com split temporal hold-out antes do tuning."""
+    print("Iniciando pipeline do classificador…")
     
+    # 1) Carrega dados
     df_bruto = carregar_dados_completos_do_banco()
     if df_bruto.empty:
         print("Pipeline encerrado devido à falha no carregamento dos dados.")
         return
 
+    # 2) Calcula Graham e rótulos
     df_com_graham = calcular_features_graham_estrito(df_bruto)
-    df_com_rotulos = calcular_rotulos_desempenho_futuro(df_com_graham, n_dias=10, q_inferior=0.25, q_superior=0.75)
+    df_com_rotulos = calcular_rotulos_desempenho_futuro(
+        df_com_graham,
+        n_dias=10, q_inferior=0.25, q_superior=0.75
+    )
 
-
-    # Define o caminho base para salvar o modelo e o imputer
+    # 3) Monta X, y e dates
     script_dir = os.path.dirname(os.path.abspath(__file__))
     modelo_base_path = os.path.join(script_dir, "modelo")
-
-    X, y, X_colunas_nomes, _ = preparar_X_y_para_modelo(df_com_rotulos, modelo_base_path)
-    
+    X, y, X_colunas_nomes, _, dates = preparar_X_y_para_modelo(
+        df_com_rotulos, modelo_base_path
+    )
     if X is None or y is None or X.empty or y.empty:
         print("Pipeline encerrado devido à falha na preparação de X ou y.")
         return
-    
-    # Define o caminho base para salvar o modelo (igual ao seu script original)
-    modelo_base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "modelo") #
 
-    modelo_treinado = treinar_avaliar_e_salvar_modelo(X, y, X_colunas_nomes, modelo_base_path) #
-    
-    if modelo_treinado:
-        print("\nPipeline do classificador concluído com sucesso!")
-    else:
-        print("\nFalha no treinamento ou salvamento do modelo.")
+    # 4) Hold-out temporal: últimos 20% das datas → teste
+    limite = dates.quantile(0.80)
+    mask_train = dates <= limite
+    mask_hold  = dates  > limite
+
+    X_train, y_train = X[mask_train], y[mask_train]
+    X_hold,  y_hold  = X[mask_hold],  y[mask_hold]
+
+    # 5) Treina e faz cross-validation temporal só no treino
+    modelo = treinar_avaliar_e_salvar_modelo(
+        X_train, y_train,
+        X_colunas_nomes,
+        modelo_base_path
+    )
+
+    # 6) Avalia no hold-out que ficou de fora de todo o processo de tuning/refit
+    print("\n📊 Avaliação final no hold-out (20% mais recentes):")
+    y_pred = modelo.predict(X_hold)
+    y_proba = modelo.predict_proba(X_hold)[:, 1]
+
+    print("Acurácia (hold-out):", accuracy_score(y_hold, y_pred))
+    print("\nMatriz de Confusão (hold-out):\n", confusion_matrix(y_hold, y_pred))
+    print("\nRelatório de Classificação (hold-out):\n", classification_report(y_hold, y_pred))
+    print("\nAUC-ROC (hold-out):", roc_auc_score(y_hold, y_proba))
+
+    print("\nPipeline do classificador concluído com sucesso!")
+
 
 if __name__ == "__main__":
     executar_pipeline_classificador()
