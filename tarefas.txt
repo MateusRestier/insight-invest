@@ -14,11 +14,10 @@ Entender se com mais dados, piora o modelo, pq vao ter varias linhas praticament
 
 imprementar Validação Cruzada Temporal pra evitar o problema 5
 
+Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional (ele ve o preço futuro)
 
 # A FAZER
 Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora # decidindo
-
-Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional
 
 Entender melhor como o docker funciona
 
