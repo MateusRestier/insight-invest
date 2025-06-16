@@ -86,7 +86,7 @@ def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path):
         'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
         'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
         'giro_ativos','roe','roic','roa','patrimonio_ativos',
-        'passivos_ativos','variacao_12m','preco_sobre_graham'
+        'passivos_ativos','variacao_12m','preco_sobre_graham', 'fund_bad'
     ]
     features_existentes = [col for col in features_colunas if col in df_para_treino.columns]
     if len(features_existentes) < len(features_colunas):
@@ -160,17 +160,20 @@ def executar_pipeline_classificador():
 
     # 2) Calcula Graham e rótulos
     df_com_graham = calcular_features_graham_estrito(df_bruto)
-    df_com_rotulos = calcular_rotulos_desempenho_futuro(
-        df_com_graham,
-        n_dias=10, q_inferior=0.25, q_superior=0.75
-    )
+    df_com_rotulos = calcular_rotulos_desempenho_futuro(df_com_graham,n_dias=10, q_inferior=0.25, q_superior=0.75)
+
+    # Qualquer ação com PL ou ROE negativos vira rótulo 0
+    mask_bad = (df_com_rotulos['pl'] <= 0) | (df_com_rotulos['roe'] <= 0)
+    df_com_rotulos['fund_bad'] = mask_bad.astype(int)
+    df_com_rotulos.loc[mask_bad, 'rotulo_desempenho_futuro'] = 0
+    
+
 
     # 3) Monta X, y e dates
     script_dir = os.path.dirname(os.path.abspath(__file__))
     modelo_base_path = os.path.join(script_dir, "modelo")
-    X, y, X_colunas_nomes, _, dates = preparar_X_y_para_modelo(
-        df_com_rotulos, modelo_base_path
-    )
+    X, y, X_colunas_nomes, _, dates = preparar_X_y_para_modelo(df_com_rotulos, modelo_base_path)
+
     if X is None or y is None or X.empty or y.empty:
         print("Pipeline encerrado devido à falha na preparação de X ou y.")
         return
