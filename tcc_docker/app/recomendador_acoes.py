@@ -1,18 +1,13 @@
-import os
-import pandas as pd
-import numpy as np
-import joblib
+import os, pandas as pd, numpy as np, joblib
 from scraper_indicadores import coletar_indicadores
 
 # Lista de features EXATAMENTE como o modelo foi treinado
 FEATURES_ESPERADAS_PELO_MODELO = [
-    'pl', 'psr', 'pvp', 'dividend_yield', 'payout', 'margem_liquida', 'margem_bruta',
-    'margem_ebit', 'margem_ebitda', 'ev_ebitda', 'ev_ebit', 'p_ebitda', 'p_ebit',
-    'p_ativo', 'p_cap_giro', 'p_ativo_circ_liq', 'vpa', 'lpa',
-    'giro_ativos', 'roe', 'roic', 'roa', 'div_liq_patrimonio', 'div_liq_ebitda',
-    'div_liq_ebit', 'div_bruta_patrimonio', 'patrimonio_ativos', 'passivos_ativos',
-    'liquidez_corrente', 'variacao_12m',
-    'preco_sobre_graham'
+    'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',
+    'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
+    'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
+    'giro_ativos','roe','roic','roa','patrimonio_ativos',
+    'passivos_ativos','variacao_12m','preco_sobre_graham'
 ]
 
 FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR = [
@@ -42,15 +37,14 @@ def calcular_preco_sobre_graham_para_recomendacao(dados_acao_dict):
 def carregar_artefatos_modelo():
     base_path = os.path.dirname(os.path.abspath(__file__))
     modelo_path = os.path.join(base_path, "modelo", "modelo_classificador_desempenho.pkl")
-    imputer_path = os.path.join(base_path, "modelo", "imputer.pkl")
     if not os.path.exists(modelo_path):
-        raise FileNotFoundError(f"Modelo não encontrado em {modelo_path}. Execute o classificador.py primeiro.")
-    if not os.path.exists(imputer_path):
-        raise FileNotFoundError(f"Imputer não encontrado em {imputer_path}. Execute o classificador.py para gerá-lo e salvá-lo.")
+        raise FileNotFoundError(
+            f"Modelo não encontrado em {modelo_path}. Execute o classificador.py primeiro."
+        )
     modelo = joblib.load(modelo_path)
-    imputer = joblib.load(imputer_path)
-    print("Modelo e Imputer carregados com sucesso.")
-    return modelo, imputer
+    print("Modelo carregado com sucesso.")
+    return modelo
+
 
 def gerar_justificativas(dados_acao_df, predicao_modelo):
     justificativas_positivas = []
@@ -189,93 +183,76 @@ def recomendar_acao(ticker):
         print(f"Não foi possível coletar dados para {ticker.upper()}.")
         return
 
-    dados_brutos, _ = resultado_scraper 
+    dados_brutos, _ = resultado_scraper
     print("Calculando feature 'preco_sobre_graham'...")
     dados_com_graham = calcular_preco_sobre_graham_para_recomendacao(dados_brutos)
     df_para_previsao_raw = pd.DataFrame([dados_com_graham])
 
     print("Preparando features para o modelo...")
     X_para_previsao = pd.DataFrame(columns=FEATURES_ESPERADAS_PELO_MODELO, index=[0])
-    
     faltando_do_scraper = []
     for col in FEATURES_ESPERADAS_PELO_MODELO:
         if col in df_para_previsao_raw.columns:
             X_para_previsao.loc[0, col] = pd.to_numeric(df_para_previsao_raw.loc[0, col], errors='coerce')
-        else:
-             if col != 'preco_sobre_graham':
-                 faltando_do_scraper.append(col)
+        elif col != 'preco_sobre_graham':
+            faltando_do_scraper.append(col)
 
     if faltando_do_scraper:
-        print(f"Aviso: As seguintes features esperadas não foram encontradas nos dados do scraper (serão imputadas se possível): {faltando_do_scraper}")
+        print(f"Aviso: Features não encontradas no scraper: {faltando_do_scraper}")
 
-    print("Carregando modelo e imputer treinados...")
+    print("Carregando modelo treinado...")
     try:
-        modelo, imputer = carregar_artefatos_modelo()
+        modelo = carregar_artefatos_modelo()
     except FileNotFoundError as e:
         print(e)
         return
     except Exception as e:
-        print(f"Erro ao carregar artefatos do modelo: {e}")
+        print(f"Erro ao carregar modelo: {e}")
         return
 
-    print("Imputando valores ausentes (se houver)...")
-    try:
-        X_para_previsao_ordenado = X_para_previsao[FEATURES_ESPERADAS_PELO_MODELO]
-        X_imputado_array = imputer.transform(X_para_previsao_ordenado)
-        X_imputado_df = pd.DataFrame(X_imputado_array, columns=FEATURES_ESPERADAS_PELO_MODELO)
-    except Exception as e:
-        print(f"Erro durante a imputação de dados: {e}")
+    if X_para_previsao.isnull().any().any():
+        print("\nErro: Ainda existem valores faltantes após remover colunas nulas.")
         return
 
-    if X_imputado_df.isnull().any().any():
-        print("\nAviso CRÍTICO: Mesmo após a imputação, ainda existem valores NaN.")
-        print("Não é possível fazer uma recomendação confiável.")
-        return
-        
+    X_final = X_para_previsao[FEATURES_ESPERADAS_PELO_MODELO]
+
     print("Realizando previsão...")
     try:
-        # pred_binaria = modelo.predict(X_imputado_df)[0] # Previsão binária 0 ou 1
-        proba = modelo.predict_proba(X_imputado_df)[0]  # Probabilidades [prob_classe_0, prob_classe_1]
+        proba = modelo.predict_proba(X_final)[0]
     except Exception as e:
-        print(f"Um erro inesperado ocorreu durante a previsão: {e}")
+        print(f"Erro durante a previsão: {e}")
         return
 
-    # --- LÓGICA PARA RECOMENDAÇÃO GRANULAR BASEADA EM PROBABILIDADES ---
-    prob_recomendada = proba[1] # Probabilidade da classe 1 (Recomendada)
-    
+    prob_recomendada = proba[1]
     if prob_recomendada >= 0.75:
-        recomendacao_final_texto = "FORTEMENTE RECOMENDADA para compra"
+        recomendacao_texto = "FORTEMENTE RECOMENDADA para compra"
     elif prob_recomendada >= 0.60:
-        recomendacao_final_texto = "RECOMENDADA para compra"
-    elif prob_recomendada >= 0.50: # Limiar padrão do .predict()
-        recomendacao_final_texto = "PARCIALMENTE RECOMENDADA (Neutro com viés positivo)"
+        recomendacao_texto = "RECOMENDADA para compra"
+    elif prob_recomendada >= 0.50:
+        recomendacao_texto = "PARCIALMENTE RECOMENDADA (Viés positivo)"
     elif prob_recomendada >= 0.40:
-        recomendacao_final_texto = "PARCIALMENTE NÃO RECOMENDADA (Neutro com viés negativo)"
+        recomendacao_texto = "PARCIALMENTE NÃO RECOMENDADA (Viés negativo)"
     elif prob_recomendada >= 0.25:
-        recomendacao_final_texto = "NÃO RECOMENDADA para compra"
-    else: # prob_recomendada < 0.25
-        recomendacao_final_texto = "FORTEMENTE NÃO RECOMENDADA para compra"
-    # --------------------------------------------------------------------
+        recomendacao_texto = "NÃO RECOMENDADA para compra"
+    else:
+        recomendacao_texto = "FORTEMENTE NÃO RECOMENDADA para compra"
 
     print("\n===================================================")
-    print(f"Relatório de Recomendação para: {ticker.upper()}")
+    print(f"Relatório para: {ticker.upper()}")
     print("===================================================")
+    print(f"Resultado do Modelo: {recomendacao_texto.upper()}!")
+    print(f"Probabilidades - Não Recomendada: {proba[0]:.2%}, Recomendada: {proba[1]:.2%}")
 
-    print(f"Resultado do Modelo: {recomendacao_final_texto.upper()}!") # Usar o texto granular
-    print(f"Probabilidade (calculada pelo modelo): Não Recomendada={proba[0]:.2%}, Recomendada={proba[1]:.2%}")
-
-    print("\n--- Indicadores Chave Utilizados na Análise (Valores que o Modelo Viu Após Imputação) ---")
-    for feature_nome in FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR:
-        if feature_nome in X_imputado_df.columns:
-            valor = X_imputado_df[feature_nome].iloc[0]
-            if feature_nome in ['dividend_yield', 'roe', 'variacao_12m', 'margem_liquida']:
-                print(f"  {feature_nome.replace('_',' ').capitalize()}: {valor:.2f}%")
-            else:
-                print(f"  {feature_nome.replace('_',' ').capitalize()}: {valor:.2f}")
+    print("\n--- Indicadores Chave ---")
+    for feat in FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR:
+        if feat in X_final.columns:
+            val = X_final[feat].iloc[0]
+            suf = '%' if feat in ['dividend_yield','roe','variacao_12m','margem_liquida'] else ''
+            print(f"  {feat.replace('_',' ').capitalize()}: {val:.2f}{suf}")
         else:
-            print(f"  {feature_nome.replace('_',' ').capitalize()}: Dado não disponível para exibição.")
-            
-    gerar_justificativas(X_imputado_df, recomendacao_final_texto) # Passar o texto da predição granular
+            print(f"  {feat.replace('_',' ').capitalize()}: Não disponível")
+
+    gerar_justificativas(X_final, recomendacao_texto)
     print("\n===================================================")
 
 if __name__ == "__main__":

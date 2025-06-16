@@ -2,7 +2,6 @@ import os, joblib, pandas as pd, numpy as np, psycopg2
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
-from sklearn.impute import SimpleImputer
 from labeling import calcular_rotulos_desempenho_futuro
 
 # Tenta importar do local padrão do seu projeto TCC
@@ -68,24 +67,22 @@ def calcular_features_graham_estrito(df_input):
     return df
 
 def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path): # Adicionado modelo_base_path como argumento
-    """Prepara X (features) e y (target) para o modelo e salva o imputer."""
+    """Prepara X (features) e y (target) para o modelo, removendo colunas com nulos."""
     print("Preparando X e y para o modelo...")
     df_para_treino = df_com_tudo.dropna(subset=['rotulo_desempenho_futuro']).copy()
     
     if df_para_treino.empty:
         print("Nenhum dado restou após remover NaNs dos rótulos. O modelo não pode ser treinado.")
-        return None, None, None, None # Retornar None para o imputer também
+        return None, None, None, None
 
     y = df_para_treino['rotulo_desempenho_futuro'].astype(int)
 
     features_colunas = [
-        'pl', 'psr', 'pvp', 'dividend_yield', 'payout', 'margem_liquida', 'margem_bruta',
-        'margem_ebit', 'margem_ebitda', 'ev_ebitda', 'ev_ebit', 'p_ebitda', 'p_ebit',
-        'p_ativo', 'p_cap_giro', 'p_ativo_circ_liq', 'vpa', 'lpa',
-        'giro_ativos', 'roe', 'roic', 'roa', 'div_liq_patrimonio', 'div_liq_ebitda',
-        'div_liq_ebit', 'div_bruta_patrimonio', 'patrimonio_ativos', 'passivos_ativos',
-        'liquidez_corrente', 'variacao_12m',
-        'preco_sobre_graham'
+        'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',
+        'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
+        'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
+        'giro_ativos','roe','roic','roa','patrimonio_ativos',
+        'passivos_ativos','variacao_12m','preco_sobre_graham'
     ]
     
     features_existentes = [col for col in features_colunas if col in df_para_treino.columns]
@@ -109,27 +106,8 @@ def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path): # Adicionado modelo
         print("Todas as colunas de features (X) são NaN. Não é possível treinar o modelo.")
         return None, None, None, None
 
-    imputer = SimpleImputer(strategy='median')
-    # Ajustar o imputer APENAS nos dados que serão usados para TREINAR o modelo (X)
-    # Se você faz o train_test_split ANTES da imputação, ajuste o imputer no X_train
-    # e transforme tanto X_train quanto X_test.
-    # Assumindo por enquanto que X aqui é o conjunto completo que será dividido depois:
-    X_imputado = imputer.fit_transform(X) 
-    X = pd.DataFrame(X_imputado, columns=X.columns, index=X.index)
-    
-    # Salvar o imputer ajustado
-    # Garante que o diretório 'modelo' exista (modelo_base_path é o diretório 'modelo')
-    os.makedirs(modelo_base_path, exist_ok=True) 
-    imputer_path = os.path.join(modelo_base_path, "imputer.pkl")
-    try:
-        joblib.dump(imputer, imputer_path)
-        print(f"Imputer salvo com sucesso em {imputer_path}")
-    except Exception as e:
-        print(f"Erro ao salvar o imputer: {e}")
-        # Você pode decidir se quer interromper ou continuar mesmo se o imputer não for salvo
-    
-    print(f"Shape de X (após imputação): {X.shape}, Shape de y: {y.shape}")
-    return X, y, X.columns, imputer # Retornar o imputer também, caso precise dele na sequência
+    print(f"Shape de X: {X.shape}, Shape de y: {y.shape}")
+    return X, y, X.columns, None
 
 
 def treinar_avaliar_e_salvar_modelo(X, y, X_colunas_nomes, modelo_base_path):
@@ -183,7 +161,7 @@ def executar_pipeline_classificador():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     modelo_base_path = os.path.join(script_dir, "modelo")
 
-    X, y, X_colunas_nomes, imputer_ajustado = preparar_X_y_para_modelo(df_com_rotulos, modelo_base_path)
+    X, y, X_colunas_nomes, _ = preparar_X_y_para_modelo(df_com_rotulos, modelo_base_path)
     
     if X is None or y is None or X.empty or y.empty:
         print("Pipeline encerrado devido à falha na preparação de X ou y.")
@@ -200,10 +178,4 @@ def executar_pipeline_classificador():
         print("\nFalha no treinamento ou salvamento do modelo.")
 
 if __name__ == "__main__":
-    # Configurar variáveis de ambiente para teste local, se necessário.
-    # os.environ["DB_HOST"] = "localhost"
-    # os.environ["DB_NAME"] = "stocks"
-    # os.environ["DB_USER"] = "user"
-    # os.environ["DB_PASS"] = "password"
-    # os.environ["DB_PORT"] = "5432"
     executar_pipeline_classificador()
