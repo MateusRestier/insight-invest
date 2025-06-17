@@ -184,6 +184,7 @@ def executar_pipeline_regressor(n_dias=10, data_calculo=None):
 
 if __name__ == "__main__":
     try:
+        n_dias = 10
         n_dias = int(input("Digite o número de dias futuros que deseja prever (ex: 10): "))
     except ValueError:
         print("Valor inválido para n_dias. Encerrando...")
@@ -192,10 +193,11 @@ if __name__ == "__main__":
     data_maxima = obter_data_calculo_maxima()
 
     print("\nEscolha uma opção:")
-    print("1 - Prever N dias no futuro a partir de HOJE")
-    print("2 - Prever N dias no futuro a partir de uma data manual (X)")
-    print("3 - Prever N dias no futuro para um intervalo de datas_calculo (de X até Y)")
+    print(f"1 - Prever {n_dias} dias no futuro a partir de HOJE")
+    print(f"2 - Prever {n_dias} dias no futuro a partir de uma data manual (X)")
+    print(f"3 - Prever {n_dias} dias no futuro para um intervalo de datas_calculo (de X até Y)")
 
+    escolha = 1
     escolha = input("\nDigite 1, 2 ou 3: ").strip()
 
     if escolha == "1":
