@@ -54,3 +54,17 @@ Hold-out temporal verdadeiro (últimos 20 %): separamos os 20 % mais recentes do
 Validação Cruzada Temporal (TimeSeriesSplit): substituímos o train_test_split aleatório por k-fold temporal, garantindo que cada fold de teste contenha apenas observações posteriores às de treino.
 RandomizedSearchCV com folds temporais: todo o tuning de hiperparâmetros foi feito exclusivamente sobre o conjunto de treino temporal, preservando o hold-out para avaliação out-of-sample.
 Com isso, eliminamos o vazamento temporal, mantivemos o modelo focado em padrões robustos e asseguramos que nem a coleta diária nem a imputação artificial prejudiquem a qualidade ou a transparência da análise.
+
+6. Problema: Quero uma regressão para prever o preço futuro das ações e comparar com o valor real.
+A Preocupação:
+Ter uma previsão quantitativa de preços futuros pode ajudar a avaliar o potencial de valorização das ações ao longo de um curto prazo (exemplo: 10 dias).
+No entanto, é importante evitar previsões ilusórias ou muito desconectadas da realidade,
+por isso a ideia é sempre comparar a previsão com o valor que realmente aconteceu no mercado.
+Além disso, era necessário garantir que o modelo fosse treinado de forma temporalmente coerente, sem "vazamento de dados futuros".
+
+A Solução Implementada:
+Foi desenvolvido um pipeline de regressão usando o algoritmo RandomForestRegressor. O modelo utiliza como entrada os indicadores fundamentalistas das ações
+(ex: PL, PVP, ROE, entre outros). O target é o preço da ação em um horizonte futuro de N dias, calculado a partir da base histórica armazenada no banco de dados.
+O processo de treino respeitou uma divisão hold-out temporal, separando os últimos N dias para teste, simulando o cenário real de uma previsão futura. Após o treinamento,
+o modelo gera previsões para o período de teste e os resultados (preço real, preço previsto e erro percentual) são armazenados na tabela resultados_precos.
+Isso permite validar a assertividade da regressão ao longo do tempo e alimentar análises comparativas entre valor previsto e valor real de mercado.
