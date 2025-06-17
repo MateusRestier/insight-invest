@@ -66,33 +66,31 @@ def preparar_dados_regressao(df, n_dias):
     return X, y, dates, acoes
 
 # 4) Salvar no banco
-def salvar_resultados_no_banco(comp, data_calculo):
+def salvar_resultados_no_banco(comp, n_dias):
     conn = None
     try:
-        # Remover duplicatas por ação + data_previsao
-        comp_filtrado = comp.sort_values('data').groupby(['acao', 'data'], as_index=False).last()
+        # Para cada ação, manter apenas a última linha (última data disponível no hold-out)
+        comp_filtrado = comp.sort_values('data').groupby('acao', as_index=False).last()
 
         conn = get_connection()
         cur = conn.cursor()
 
         for idx, row in comp_filtrado.iterrows():
             sql = """
-                INSERT INTO resultados_precos (acao, data_calculo, data_previsao, preco_previsto)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (acao, data_previsao) DO UPDATE SET
-                    preco_previsto = EXCLUDED.preco_previsto,
-                    data_calculo = EXCLUDED.data_calculo
+                INSERT INTO resultados_precos (acao, data_previsao, preco_real, preco_previsto, erro_pct, data_coleta)
+                VALUES (%s, %s, %s, %s, %s, CURRENT_DATE)
             """
             values = (
                 row['acao'],
-                data_calculo,
-                row['data'],  # AQUI É A DATA PREVISTA (do próprio hold-out)
-                float(row['predito'])
+                row['data'] + pd.Timedelta(days=n_dias),
+                float(row['real']),
+                float(row['predito']),
+                float(row['erro_pct']) if pd.notna(row['erro_pct']) else None
             )
             cur.execute(sql, values)
 
         conn.commit()
-        print(f"\n✅ Resultados salvos/atualizados na tabela resultados_precos. Total de ações: {len(comp_filtrado)}")
+        print(f"\n✅ Resultados salvos na tabela resultados_precos. Total de ações inseridas: {len(comp_filtrado)}")
 
     except Exception as e:
         print(f"❌ Erro ao inserir resultados no banco: {e}")
@@ -101,7 +99,7 @@ def salvar_resultados_no_banco(comp, data_calculo):
             conn.close()
 
 # 5) Pipeline completo
-def executar_pipeline_regressor(n_dias=10):
+def executar_pipeline_regressor(n_dias):
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM indicadores_fundamentalistas", conn)
     conn.close()
@@ -109,10 +107,7 @@ def executar_pipeline_regressor(n_dias=10):
 
     X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
 
-    # Definir o cutoff temporal (data limite de treino)
     cutoff = dates.max() - pd.Timedelta(days=n_dias)
-    data_calculo = pd.to_datetime(cutoff).date()
-
     mask_train = dates <= cutoff
     mask_test  = dates  > cutoff
 
@@ -131,23 +126,23 @@ def executar_pipeline_regressor(n_dias=10):
 
     comp = pd.DataFrame({
         'acao': acoes_test.values,
-        'data': dates_test.values,        # Isso é a data_previsao
+        'data': dates_test.values,
         'real': y_test.values,
         'predito': preds
     }).sort_values('data')
 
     comp['erro_pct'] = (comp['predito'] - comp['real']) / comp['real'] * 100
 
-    # Garantir que não existam duplicatas por ação + data_previsao
+    # Remove duplicadas por ação + data
     comp = comp.drop_duplicates(subset=['acao', 'data'])
 
     print(comp.head(10))
     print("\nErro % (descrição):\n", comp['erro_pct'].describe())
 
-    salvar_resultados_no_banco(comp, data_calculo)
+    # Nova parte: salvar no banco
+    salvar_resultados_no_banco(comp, n_dias)
 
     return model, comp
-
 
 if __name__ == "__main__":
     executar_pipeline_regressor(n_dias=10)
