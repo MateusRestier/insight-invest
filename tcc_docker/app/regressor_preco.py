@@ -66,12 +66,10 @@ def preparar_dados_regressao(df, n_dias):
     return X, y, dates, acoes
 
 # 4) Salvar no banco
-def salvar_resultados_no_banco(comp, n_dias):
-    from datetime import date
-
+def salvar_resultados_no_banco(comp, data_calculo):
     conn = None
     try:
-        data_calculo = date.today()
+        # Remover duplicatas por ação + data_previsao
         comp_filtrado = comp.sort_values('data').groupby(['acao', 'data'], as_index=False).last()
 
         conn = get_connection()
@@ -88,7 +86,7 @@ def salvar_resultados_no_banco(comp, n_dias):
             values = (
                 row['acao'],
                 data_calculo,
-                row['data'] + pd.Timedelta(days=n_dias),
+                row['data'],  # AQUI É A DATA PREVISTA (do próprio hold-out)
                 float(row['predito'])
             )
             cur.execute(sql, values)
@@ -103,8 +101,9 @@ def salvar_resultados_no_banco(comp, n_dias):
             conn.close()
 
 
+
 # 5) Pipeline completo
-def executar_pipeline_regressor(n_dias):
+def executar_pipeline_regressor(n_dias=10):
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM indicadores_fundamentalistas", conn)
     conn.close()
@@ -112,7 +111,10 @@ def executar_pipeline_regressor(n_dias):
 
     X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
 
+    # Definir o cutoff temporal (data limite de treino)
     cutoff = dates.max() - pd.Timedelta(days=n_dias)
+    data_calculo = pd.to_datetime(cutoff).date()
+
     mask_train = dates <= cutoff
     mask_test  = dates  > cutoff
 
@@ -131,23 +133,23 @@ def executar_pipeline_regressor(n_dias):
 
     comp = pd.DataFrame({
         'acao': acoes_test.values,
-        'data': dates_test.values,
+        'data': dates_test.values,        # Isso é a data_previsao
         'real': y_test.values,
         'predito': preds
     }).sort_values('data')
 
     comp['erro_pct'] = (comp['predito'] - comp['real']) / comp['real'] * 100
 
-    # Remove duplicadas por ação + data
+    # Garantir que não existam duplicatas por ação + data_previsao
     comp = comp.drop_duplicates(subset=['acao', 'data'])
 
     print(comp.head(10))
     print("\nErro % (descrição):\n", comp['erro_pct'].describe())
 
-    # Nova parte: salvar no banco
-    salvar_resultados_no_banco(comp, n_dias)
+    salvar_resultados_no_banco(comp, data_calculo)
 
     return model, comp
+
 
 if __name__ == "__main__":
     executar_pipeline_regressor(n_dias=10)
