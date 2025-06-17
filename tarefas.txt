@@ -16,6 +16,12 @@ imprementar Validação Cruzada Temporal pra evitar o problema 5
 
 Criar outro código que preveja o valor das features das ações (ver como fazer) # opcional (ele ve o preço futuro)
 
+O regressor atualmente preve dias q ja passaram, agr quero efetivamente prever o futuro, ou seja, prever o preço da ação daqui 10 dias e salvar isso de alguma forma pra exibir dps no site
+
+data da previsao no regressor acho q ta errado, ela fica igual a data da coleta, a intenção é ver q dia q a previsao "foi feita" e o dia q ela está prevendo,
+além da data da coleta em si (a data da coleta n é pra ter nd haver com o codigo, ela vai preencher automatico), tem q ter a data da previsão (q está simulando q ta rodando) e a data q tentou prever
+5518	ABEV3	2025-06-16	13.640000	14.053893	3.0344	2025-06-16
+
 # A FAZER
 Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora # decidindo
 
@@ -23,8 +29,3 @@ Entender melhor como o docker funciona
 
 Criar Site da analise do TCC (da pra usar flask, django, ou direto com bootstrap etc) e la colocar analises, graficos, etc (conversei com o gpt ele disse sobre usar DASH para fazer td e usar bootstrap dentro do dahs para ficar responsivo)
 
-O regressor atualmente preve dias q ja passaram, agr quero efetivamente prever o futuro, ou seja, prever o preço da ação daqui 10 dias e salvar isso de alguma forma pra exibir dps no site
-
-data da previsao no regressor acho q ta errado, ela fica igual a data da coleta, a intenção é ver q dia q a previsao "foi feita" e o dia q ela está prevendo,
-além da data da coleta em si (a data da coleta n é pra ter nd haver com o codigo, ela vai preencher automatico), tem q ter a data da previsão (q está simulando q ta rodando) e a data q tentou prever
-5518	ABEV3	2025-06-16	13.640000	14.053893	3.0344	2025-06-16
