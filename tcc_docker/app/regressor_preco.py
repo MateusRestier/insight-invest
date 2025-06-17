@@ -67,36 +67,41 @@ def preparar_dados_regressao(df, n_dias):
 
 # 4) Salvar no banco
 def salvar_resultados_no_banco(comp, n_dias):
+    from datetime import date
+
     conn = None
     try:
-        # Para cada ação, manter apenas a última linha (última data disponível no hold-out)
-        comp_filtrado = comp.sort_values('data').groupby('acao', as_index=False).last()
+        data_calculo = date.today()
+        comp_filtrado = comp.sort_values('data').groupby(['acao', 'data'], as_index=False).last()
 
         conn = get_connection()
         cur = conn.cursor()
 
         for idx, row in comp_filtrado.iterrows():
             sql = """
-                INSERT INTO resultados_precos (acao, data_previsao, preco_real, preco_previsto, erro_pct, data_coleta)
-                VALUES (%s, %s, %s, %s, %s, CURRENT_DATE)
+                INSERT INTO resultados_precos (acao, data_calculo, data_previsao, preco_previsto)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (acao, data_previsao) DO UPDATE SET
+                    preco_previsto = EXCLUDED.preco_previsto,
+                    data_calculo = EXCLUDED.data_calculo
             """
             values = (
                 row['acao'],
+                data_calculo,
                 row['data'] + pd.Timedelta(days=n_dias),
-                float(row['real']),
-                float(row['predito']),
-                float(row['erro_pct']) if pd.notna(row['erro_pct']) else None
+                float(row['predito'])
             )
             cur.execute(sql, values)
 
         conn.commit()
-        print(f"\n✅ Resultados salvos na tabela resultados_precos. Total de ações inseridas: {len(comp_filtrado)}")
+        print(f"\n✅ Resultados salvos/atualizados na tabela resultados_precos. Total de ações: {len(comp_filtrado)}")
 
     except Exception as e:
         print(f"❌ Erro ao inserir resultados no banco: {e}")
     finally:
         if conn:
             conn.close()
+
 
 # 5) Pipeline completo
 def executar_pipeline_regressor(n_dias):
