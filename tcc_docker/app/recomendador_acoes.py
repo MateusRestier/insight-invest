@@ -67,12 +67,11 @@ def gerar_justificativas(dados_acao_df, predicao_modelo):
         p_ebit = get_numeric_feature(dados_acao_df,'p_ebit')
 
         # ================== LÓGICA DE JUSTIFICATIVAS REFINADA COM FILTROS DE SANIDADE ==================
-        
+
         # P/L (Preço/Lucro)
         if pd.notna(pl):
             if pl <= 0:
                 justificativas_negativas.append(f"Empresa com prejuízo (P/L={pl:.2f}).")
-            # Filtro de Sanidade: P/L muito baixo pode ser um sinal de risco.
             elif 0 < pl < 2:
                 justificativas_negativas.append(f"P/L excessivamente baixo ({pl:.2f}), pode indicar alto risco ou distorções.")
             elif 2 <= pl < 10:
@@ -102,7 +101,6 @@ def gerar_justificativas(dados_acao_df, predicao_modelo):
 
         # ROE (Retorno sobre o Patrimônio Líquido, em %)
         if pd.notna(roe):
-            # Filtro de Sanidade: ROE muito alto é suspeito.
             if roe > 50:
                 justificativas_negativas.append(f"ROE extremamente alto ({roe:.2f}%), pode indicar distorção contábil ou patrimônio muito baixo.")
             elif 20 <= roe <= 50:
@@ -127,7 +125,6 @@ def gerar_justificativas(dados_acao_df, predicao_modelo):
         
         # Margem Líquida (em %)
         if pd.notna(margem_liq):
-            # Filtro de Sanidade: Margem muito alta é suspeita.
             if margem_liq > 40:
                 justificativas_negativas.append(f"Margem líquida extremamente alta ({margem_liq:.2f}%), pode indicar lucro não recorrente.")
             elif 15 < margem_liq <= 40:
@@ -149,27 +146,13 @@ def gerar_justificativas(dados_acao_df, predicao_modelo):
     except Exception as e:
         print(f"Erro ao gerar justificativas: {e}")
 
-    # A lógica de exibição abaixo já está boa e não precisa de alteração.
-    print("\n--- Análise Detalhada (Baseada em Regras Heurísticas) ---")
-    if predicao_modelo == 1: # Se a predição binária for 1
-        print("O modelo RECOMENDOU esta ação. Observações com base em regras:")
-    else: # Se a predição binária for 0 (ou qualquer outro texto de não recomendação)
-        # Ajuste para usar o texto granular que você criou
-        print(f"O modelo classificou como: \"{predicao_modelo}\". Observações com base em regras:")
+    # Garantir que sempre haverá texto a ser retornado
+    if not justificativas_positivas and not justificativas_negativas:
+        justificativas_positivas.append("Não há justificativas disponíveis.")
 
-    if justificativas_positivas:
-        print("\n  Pontos Positivos Observados:")
-        for just in justificativas_positivas:
-            print(f"    ✅ {just}")
-    else:
-        print("\n  Nenhum ponto positivo destacado pelas regras heurísticas atuais para esta ação.")
+    return "\n".join(justificativas_positivas + justificativas_negativas)
 
-    if justificativas_negativas:
-        print("\n  Pontos Negativos / de Atenção Observados:")
-        for just in justificativas_negativas:
-            print(f"    ❌ {just}")
-    else:
-        print("\n  Nenhum ponto negativo/de atenção destacado pelas regras heurísticas atuais para esta ação.")
+
 
 
 def recomendar_acao(ticker):
@@ -177,12 +160,11 @@ def recomendar_acao(ticker):
     resultado_scraper = coletar_indicadores(ticker)
     
     if isinstance(resultado_scraper, str):
-        print(resultado_scraper)
-        return
-    elif resultado_scraper is None:
-        print(f"Não foi possível coletar dados para {ticker.upper()}.")
-        return
-
+        return resultado_scraper  # Retorna o erro de coleta se houver
+    
+    if resultado_scraper is None:
+        return f"Não foi possível coletar dados para {ticker.upper()}."
+    
     dados_brutos, _ = resultado_scraper
     print("Calculando feature 'preco_sobre_graham'...")
     dados_com_graham = calcular_preco_sobre_graham_para_recomendacao(dados_brutos)
@@ -204,11 +186,9 @@ def recomendar_acao(ticker):
     try:
         modelo = carregar_artefatos_modelo()
     except FileNotFoundError as e:
-        print(e)
-        return
+        return f"Erro: {e}"
     except Exception as e:
-        print(f"Erro ao carregar modelo: {e}")
-        return
+        return f"Erro ao carregar modelo: {e}"
 
     X_final = X_para_previsao[FEATURES_ESPERADAS_PELO_MODELO]
 
@@ -216,8 +196,7 @@ def recomendar_acao(ticker):
     try:
         proba = modelo.predict_proba(X_final)[0]
     except Exception as e:
-        print(f"Erro durante a previsão: {e}")
-        return
+        return f"Erro durante a previsão: {e}"
 
     prob_recomendada = proba[1]
     if prob_recomendada >= 0.75:
@@ -233,23 +212,14 @@ def recomendar_acao(ticker):
     else:
         recomendacao_texto = "FORTEMENTE NÃO RECOMENDADA para compra"
 
-    print("\n===================================================")
-    print(f"Relatório para: {ticker.upper()}")
-    print("===================================================")
-    print(f"Resultado do Modelo: {recomendacao_texto.upper()}!")
-    print(f"Probabilidades - Não Recomendada: {proba[0]:.2%}, Recomendada: {proba[1]:.2%}")
+    # Construir a explicação detalhada
+    justificativas = gerar_justificativas(X_final, recomendacao_texto)
 
-    print("\n--- Indicadores Chave ---")
-    for feat in FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR:
-        if feat in X_final.columns:
-            val = X_final[feat].iloc[0]
-            suf = '%' if feat in ['dividend_yield','roe','variacao_12m','margem_liquida'] else ''
-            print(f"  {feat.replace('_',' ').capitalize()}: {val:.2f}{suf}")
-        else:
-            print(f"  {feat.replace('_',' ').capitalize()}: Não disponível")
+    # Retorna o resumo e a explicação completa
+    resultado_resumido = f"O modelo classificou como: {recomendacao_texto}. Probabilidades - Não Recomendada: {proba[0]:.2%}, Recomendada: {proba[1]:.2%}"
+    
+    return f"{resultado_resumido}\n\nJustificativas:\n{justificativas}"
 
-    gerar_justificativas(X_final, recomendacao_texto)
-    print("\n===================================================")
 
 if __name__ == "__main__":
     ticker_input = input("Digite o ticker da ação (ex: PETR4): ").strip()
