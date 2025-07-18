@@ -1,9 +1,7 @@
-# dashboard/app.py
-
 import os
 import sys
 
-# 1) Garante que "tcc_docker/app" esteja no path antes de qualquer import interno
+# Garante que "tcc_docker/app" esteja no path para importações internas
 ROOT = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
@@ -15,15 +13,17 @@ from dashboard.callbacks import register_callbacks
 
 # -----------------------------------------------------------------------------
 # Configuração da aplicação Dash
+# -----------------------------------------------------------------------------
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=True,
 )
-server = app.server  # Exposto para WSGI
+server = app.server  # Expondo servidor para WSGI
 
 # -----------------------------------------------------------------------------
 # Layout principal
+# -----------------------------------------------------------------------------
 app.layout = dbc.Container(
     [
         dbc.NavbarSimple(
@@ -31,26 +31,27 @@ app.layout = dbc.Container(
             color="primary",
             dark=True,
         ),
-
-        # As três abas
+        
+        # Abas de navegação
         dbc.Tabs(
             [
-                dbc.Tab(label="Indicadores", tab_id="tab-indicadores"),
+                dbc.Tab(label="Indicadores",       tab_id="tab-indicadores"),
                 dbc.Tab(label="Previsões de Preço", tab_id="tab-regressor"),
-                dbc.Tab(label="Recomendações", tab_id="tab-recomendador"),
+                dbc.Tab(label="Recomendações",      tab_id="tab-recomendador"),
             ],
             id="tabs",
             active_tab="tab-indicadores",
         ),
 
-        # Aqui o conteúdo de cada aba será injetado pelo callback
+        # Conteúdo das abas será injetado aqui
         html.Div(id="tab-content", className="p-4"),
     ],
     fluid=True,
 )
 
 # -----------------------------------------------------------------------------
-# Registra todos os callbacks (em dashboard/callbacks.py)
+# Registra callbacks importados de dashboard/callbacks.py
+# -----------------------------------------------------------------------------
 register_callbacks(app)
 
 # -----------------------------------------------------------------------------
