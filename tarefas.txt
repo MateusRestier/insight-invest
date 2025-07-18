@@ -29,3 +29,4 @@ Entender melhor como o docker funciona
 
 Criar Site da analise do TCC (da pra usar flask, django, ou direto com bootstrap etc) e la colocar analises, graficos, etc (conversei com o gpt ele disse sobre usar DASH para fazer td e usar bootstrap dentro do dahs para ficar responsivo)
 
+fazer um novo backend do regressor, pra poder escolher uma ação específica para fazer a previsão
