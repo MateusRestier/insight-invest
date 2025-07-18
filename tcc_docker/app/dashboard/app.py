@@ -17,7 +17,8 @@ from dashboard.callbacks import register_callbacks
 # Configuração da aplicação Dash
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP]
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    suppress_callback_exceptions=True,
 )
 server = app.server  # Exposto para WSGI
 

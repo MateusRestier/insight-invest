@@ -1,17 +1,10 @@
 # dashboard/callbacks.py
 
-import os
-import sys
-
-# Garante que "tcc_docker/app" esteja no path
-ROOT = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
-
 from dash import Input, Output, State, no_update, dash_table, html, dcc
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 
 # Importa seus módulos de backend
 from scraper_indicadores import coletar_indicadores
@@ -58,38 +51,47 @@ def register_callbacks(app):
                 ], width=12)
             ])
 
+
         elif tab == "tab-regressor":
-            # busca datas de cálculo no banco
+            # pega a última data_calculo só para exibir
             conn = get_connection()
-            df_dates = pd.read_sql_query(
-                "SELECT DISTINCT data_calculo FROM resultados_precos ORDER BY data_calculo",
+            df_date = pd.read_sql_query(
+                "SELECT MAX(data_calculo) AS ultima_data FROM resultados_precos",
                 conn
             )
             conn.close()
-            options = [
-                {"label": d.strftime("%Y-%m-%d"), "value": d.strftime("%Y-%m-%d")}
-                for d in df_dates["data_calculo"]
-            ]
+            ultima_calc = df_date["ultima_data"].iloc[0].strftime("%Y-%m-%d")
 
             return dbc.Row([
                 dbc.Col([
                     html.H5("Previsão de Preço - 10 dias à frente"),
-                    dcc.Dropdown(
-                        id="dropdown-data-calculo",
-                        options=options,
-                        value=options[-1]["value"] if options else None,
-                        style={"width": "200px"}
-                    ),
-                    dbc.Button(
-                        "Prever",
-                        id="btn-predict-price",
-                        color="success",
-                        className="mt-2"
-                    ),
+
+                    # botão único de disparo
+                    dbc.Button("Carregar", id="btn-load-pred", color="success", className="mb-3"),
+
+                    # exibe apenas a data de cálculo usada
+                    html.Div([
+                        html.Strong("Data de Cálculo: "),
+                        html.Span(ultima_calc)
+                    ], className="mb-2"),
+
                     html.Hr(),
-                    dcc.Graph(id="graf-previsao")
+
+                    # tabela onde virão todas as 10 datas e todas as ações
+                    dash_table.DataTable(
+                        id="table-previsao",
+                        columns=[],
+                        data=[],
+                        page_size=20,
+                        sort_action="native",
+                        filter_action="native",    # ativa filtros por coluna
+                        style_table={"overflowX": "auto"},
+                        style_cell={"textAlign": "left", "minWidth": "100px"},
+                    )
                 ], width=12)
             ])
+
+        
 
         elif tab == "tab-recomendador":
             return dbc.Row([
@@ -141,41 +143,51 @@ def register_callbacks(app):
 
         return data, columns
 
+
     @app.callback(
-        Output("graf-previsao", "figure"),
-        Input("btn-predict-price", "n_clicks"),
-        State("dropdown-data-calculo", "value")
+        Output("table-previsao", "data"),
+        Output("table-previsao", "columns"),
+        Input("btn-load-pred", "n_clicks")
     )
-    def update_regressor(n_clicks, data_calculo):
-        if not n_clicks or not data_calculo:
-            return no_update
+    def update_regressor_table(n_clicks):
+        if not n_clicks:
+            return no_update, no_update
 
-        # Executa regressão e retorna DataFrame de comparação
-        _, comp = executar_pipeline_regressor(n_dias=10, data_calculo=data_calculo)
-        # Garante colunas corretas
-        if comp.empty:
-            fig = px.scatter(title="Nenhum dado para essa data de cálculo.")
-            return fig
-
-        fig = px.scatter(
-            comp,
-            x="preco_real",
-            y="predito",
-            color="acao",
-            title=f"Preço Previsto vs Real ({data_calculo})",
-            labels={"predito": "Previsto", "preco_real": "Real"}
+        # 1) pega última data_calculo
+        conn = get_connection()
+        df_date = pd.read_sql_query(
+            "SELECT MAX(data_coleta) AS ultima_data FROM indicadores_fundamentalistas",
+            conn
         )
-        # Linha diagonal de referência
-        fig.add_shape(
-            type="line",
-            x0=comp.preco_real.min(),
-            y0=comp.preco_real.min(),
-            x1=comp.preco_real.max(),
-            y1=comp.preco_real.max(),
-            line=dict(dash="dash")
-        )
-        return fig
+        conn.close()
+        ultima_calc = df_date["ultima_data"].iloc[0]
+        if isinstance(ultima_calc, str):
+            ultima_calc = datetime.strptime(ultima_calc, "%Y-%m-%d").date()
 
+        # 2) para cada horizonte de 1 a 10 dias, roda o pipeline e coleta o comp
+        all_comps = []
+        for dias in range(1, 11):
+            _, comp = executar_pipeline_regressor(n_dias=dias, data_calculo=ultima_calc)
+            # vamos usar apenas as colunas acao, data (previsao) e predito
+            comp_slice = comp[["acao", "data", "predito"]].copy()
+            all_comps.append(comp_slice)
+
+        # concatena tudo: terá 150 ações × 10 datas = 1500 linhas (se não houver faltantes)
+        df_all = pd.concat(all_comps, ignore_index=True)
+        df_all.sort_values(["data", "acao"], inplace=True)
+
+        # 3) prepara colunas e dados
+        columns = [
+            {"name": "Ação",           "id": "acao"},
+            {"name": "Data Previsão",  "id": "data",    "type":"datetime"},
+            {"name": "Preço Previsto","id": "predito","type":"numeric", "format":{"specifier":".2f"}},
+        ]
+        data = df_all.to_dict("records")
+
+        return data, columns
+
+
+    
     @app.callback(
         Output("recomendation-output", "children"),
         Input("btn-recommend", "n_clicks"),
