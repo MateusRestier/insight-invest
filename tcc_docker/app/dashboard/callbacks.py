@@ -51,66 +51,102 @@ def register_callbacks(app):
             ])
 
 
-        if tab == "tab-regressor":
-            # --- 1) Busca última data_calculo e prepara as opções
+        elif tab == "tab-regressor":
+            # 1) Pega última data_calculo
             conn = get_connection()
             df_date = pd.read_sql_query(
-                "SELECT MAX(data_calculo) AS ultima_data FROM resultados_precos", conn
+                "SELECT MAX(data_calculo) AS ultima_data FROM resultados_precos",
+                conn
             )
+
+            # 2) Pega as próximas 10 datas de previsão (data_previsao)
             df_prevs = pd.read_sql_query(
                 """
                 SELECT DISTINCT data_previsao
                 FROM resultados_precos
                 WHERE data_calculo = %s
-                ORDER BY data_previsao DESC
+                ORDER BY data_previsao ASC
                 LIMIT 10
                 """,
                 conn,
                 params=[df_date["ultima_data"].iloc[0]]
             )
+
+            # 3) Pega todas as ações para esse data_calculo
             df_acao = pd.read_sql_query(
-                "SELECT DISTINCT acao FROM resultados_precos WHERE data_calculo = %s ORDER BY acao",
+                """
+                SELECT DISTINCT acao
+                FROM resultados_precos
+                WHERE data_calculo = %s
+                ORDER BY acao
+                """,
                 conn,
                 params=[df_date["ultima_data"].iloc[0]]
             )
             conn.close()
 
+            # 4) Formata para string
             ultima_calc = df_date["ultima_data"].iloc[0].strftime("%Y-%m-%d")
+
+            # 5) Monta as opções dos dropdowns
             opts_prevs = [
                 {"label": d.strftime("%Y-%m-%d"), "value": d.strftime("%Y-%m-%d")}
                 for d in pd.to_datetime(df_prevs["data_previsao"])
             ]
-            opts_acoes = [{"label": a, "value": a} for a in df_acao["acao"]]
+            opts_acoes = [
+                {"label": a, "value": a}
+                for a in df_acao["acao"]
+            ]
 
             return dbc.Row([
                 dbc.Col([
                     html.H5("Previsão de Preço - 10 dias à frente"),
                     dcc.Store(id="store-previsao-data"),
                     dbc.Button("Carregar", id="btn-load-pred", color="success", className="mb-3"),
-                    html.Div([html.Strong("Data de Cálculo: "), html.Span(ultima_calc)], className="mb-2"),
+                    html.Div([
+                        html.Strong("Data de Cálculo: "),
+                        html.Span(ultima_calc)
+                    ], className="mb-2"),
+
+                    # dropdown de data_previsao (as 10 próximas)
                     html.Div([
                         html.Label("Data Previsão:"),
-                        dcc.Dropdown(id="filter-previsao", options=opts_prevs,
-                                     placeholder="Selecione um dia", clearable=False, style={"width":"180px"}),
-                    ], style={"display":"inline-block","margin-right":"20px"}),
+                        dcc.Dropdown(
+                            id="filter-previsao",
+                            options=opts_prevs,
+                            placeholder="Selecione um dia",
+                            clearable=False,
+                            style={"width": "180px"}
+                        )
+                    ], style={"display": "inline-block", "margin-right": "20px"}),
+
+                    # dropdown de ação
                     html.Div([
                         html.Label("Filtrar Ação:"),
-                        dcc.Dropdown(id="filter-acao", options=opts_acoes,
-                                     multi=True, placeholder="Todas", style={"width":"180px"}),
-                    ], style={"display":"inline-block"}),
+                        dcc.Dropdown(
+                            id="filter-acao",
+                            options=opts_acoes,
+                            multi=True,
+                            placeholder="Todas",
+                            style={"width": "180px"}
+                        )
+                    ], style={"display": "inline-block"}),
+
                     html.Hr(),
+
                     dash_table.DataTable(
                         id="table-previsao",
                         columns=[],
                         data=[],
                         page_size=20,
                         sort_action="native",
-                        filter_action="none",  # usaremos filtros via callbacks
-                        style_table={"overflowX":"auto"},
-                        style_cell={"textAlign":"left","minWidth":"100px"},
+                        filter_action="none",
+                        style_table={"overflowX": "auto"},
+                        style_cell={"textAlign": "left", "minWidth": "100px"},
                     )
                 ], width=12)
             ])
+
 
         
 
@@ -175,7 +211,7 @@ def register_callbacks(app):
         if not n_clicks:
             return no_update, no_update
 
-        # 1) Pega última data_calculo
+        # Pega última data_calculo
         conn = get_connection()
         df_date = pd.read_sql_query(
             "SELECT MAX(data_calculo) AS ultima_data FROM resultados_precos",
@@ -184,36 +220,63 @@ def register_callbacks(app):
         ultima_calc = pd.to_datetime(df_date["ultima_data"].iloc[0]).date()
         conn.close()
 
-        # 2) Intervalo 1–10 dias
+        # Intervalo de 1 a 10 dias após essa data
         start = ultima_calc + timedelta(days=1)
         end   = ultima_calc + timedelta(days=10)
 
-        # 3) Consulta tudo de uma vez
+        # Consulta todas as previsões nesse intervalo
         query = """
-            SELECT acao,
-                   data_previsao AS data,
-                   preco_previsto AS predito
+            SELECT
+                acao,
+                data_previsao   AS data,
+                preco_previsto AS predito
             FROM resultados_precos
-            WHERE data_calculo = %s
-              AND data_previsao BETWEEN %s AND %s
+            WHERE data_previsao BETWEEN %s AND %s
             ORDER BY data_previsao, acao
         """
         conn = get_connection()
-        df = pd.read_sql_query(query, conn, params=[ultima_calc, start, end])
+        df = pd.read_sql_query(query, conn, params=[start, end])
         conn.close()
 
-        # 4) Prepara colunas (são fixas após o load)
+        # Define as colunas fixas
         columns = [
-            {"name":"Ação",           "id":"acao"},
-            {"name":"Data Previsão",  "id":"data",    "type":"datetime"},
-            {"name":"Preço Previsto","id":"predito", "type":"numeric", "format":{"specifier":".2f"}},
+            {"name": "Ação",           "id": "acao"},
+            {"name": "Data Previsão",  "id": "data",    "type": "datetime"},
+            {"name": "Preço Previsto", "id": "predito","type": "numeric", "format": {"specifier": ".2f"}},
         ]
 
-        # 5) Guarda tudo no Store
+        # Armazena todo o dataset no Store
         data = df.to_dict("records")
         return data, columns
 
+    # 3) Callback para preencher opções de Data Previsão
+    @app.callback(
+        Output("filter-previsao", "options"),
+        Output("filter-previsao", "value"),
+        Input("store-previsao-data", "data"),
+    )
+    def update_date_filter_options(stored):
+        if not stored:
+            return [], None
+        df = pd.DataFrame(stored)
+        dates = sorted(df["data"].unique())
+        opts = [{"label": d, "value": d} for d in dates]
+        return opts, None  # sem valor selecionado para mostrar todas
 
+    # 4) Callback para preencher opções de Ação
+    @app.callback(
+        Output("filter-acao", "options"),
+        Input("store-previsao-data", "data"),
+    )
+    def update_action_filter_options(stored):
+        if not stored:
+            return []
+        df = pd.DataFrame(stored)
+        acs = sorted(df["acao"].unique())
+        opts = [{"label": a, "value": a} for a in acs]
+        return opts
+
+    # 5) Callback que aplica os filtros na tabela (sem reexecutar backend)
     @app.callback(
         Output("table-previsao", "data"),
         Input("store-previsao-data", "data"),
@@ -221,19 +284,14 @@ def register_callbacks(app):
         Input("filter-acao", "value"),
     )
     def filter_predictions(stored, date_pref, acoes_sel):
-        if stored is None:
+        if not stored:
             return no_update
-
         df = pd.DataFrame(stored)
-
-        # aplica filtros em memória
         if date_pref:
             df = df[df["data"] == date_pref]
         if acoes_sel:
             df = df[df["acao"].isin(acoes_sel)]
-
         return df.to_dict("records")
-
 
     
     @app.callback(
