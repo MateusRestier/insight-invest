@@ -10,24 +10,29 @@ from recomendador_acoes import recomendar_acao
 def layout_recomendador():
     return dbc.Row([
         dbc.Col([
-            html.H5("Recomendador de Ações"),
-            dcc.Input(
-                id="input-ticker-rec",
-                value="ITUB4",
-                type="text",
-                style={"width": "150px"}
-            ),
-            dbc.Button(
-                "Recomendar",
-                id="btn-recommend",
-                color="warning",
-                className="mt-2"
-            ),
-            html.Hr(),
-            html.Pre(
-                id="recomendation-output",
-                style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"}
-            )
+            dbc.Card([
+                dbc.CardHeader("📝 Recomendador de Ações"),
+                dbc.CardBody([
+                    html.Div([
+                        dcc.Input(
+                            id="input-ticker-rec",
+                            value="ITUB4",
+                            type="text",
+                            placeholder="Ex: ITUB4",
+                            style={"width": "150px", "margin-right": "10px"}
+                        ),
+                        dbc.Button(
+                            "Recomendar",
+                            id="btn-recommend",
+                            color="warning"
+                        )
+                    ], className="mb-3"),
+                    html.Pre(
+                        id="recomendation-output",
+                        style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"}
+                    )
+                ])
+            ], className="shadow-sm mb-4")
         ], width=12)
     ])
 
@@ -42,7 +47,7 @@ def register_callbacks_recomendador(app):
         if not n_clicks:
             return no_update
 
-        # Captura saída do recomendador no buffer
+        # Captura saída do recomendador em buffer para exibir no html.Pre
         from io import StringIO
         import sys
         buffer = StringIO()

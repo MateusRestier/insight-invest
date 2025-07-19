@@ -24,18 +24,26 @@ def layout_indicadores():
                 className="mt-2"
             ),
             html.Hr(),
-            dash_table.DataTable(
-                id="table-indicadores",
-                columns=[],    # preenchidas pelo callback
-                data=[],       # preenchidas pelo callback
-                page_size=10,
-                style_table={"overflowX": "auto"},
-                style_cell={
-                    "textAlign": "left",
-                    "minWidth": "80px",
-                    "whiteSpace": "normal"
-                },
+            
+            html.Hr(),
+            dbc.Card(
+                [
+                    dbc.CardHeader("📊 Indicadores Fundamentalistas"),
+                    dbc.CardBody(
+                        dash_table.DataTable(
+                            id="table-indicadores",
+                            columns=[],
+                            data=[],
+                            page_size=10,
+                            sort_action="native",
+                            style_table={"overflowX": "auto"},
+                            style_cell={"textAlign": "left", "minWidth": "80px"},
+                        )
+                    ),
+                ],
+                className="shadow-sm mb-4"
             )
+
         ], width=12)
     ])
 

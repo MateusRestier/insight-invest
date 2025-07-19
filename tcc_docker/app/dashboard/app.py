@@ -12,48 +12,58 @@ from dash import html, dcc
 from dashboard.callbacks import register_callbacks
 
 # -----------------------------------------------------------------------------
-# Configuração da aplicação Dash
+# Inicialização da aplicação Dash com tema Litera
 # -----------------------------------------------------------------------------
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.LITERA],  # tema mais clean e moderno
     suppress_callback_exceptions=True,
 )
-server = app.server  # Expondo servidor para WSGI
+server = app.server  # Exposto para WSGI
 
 # -----------------------------------------------------------------------------
-# Layout principal
+# Layout principal com fundo cinza e padding
 # -----------------------------------------------------------------------------
-app.layout = dbc.Container(
-    [
-        dbc.NavbarSimple(
-            brand="TCC: Sistema de Análise e Recomendação de Ações",
-            color="primary",
-            dark=True,
-        ),
-        
-        # Abas de navegação
-        dbc.Tabs(
+app.layout = html.Div(
+    style={
+        "backgroundColor": "#f8f9fa",  # cinza claro de fundo
+        "minHeight": "100vh",          # preenche a altura da janela
+        "paddingTop": "1rem"           # espaçamento superior
+    },
+    children=[
+        dbc.Container(
             [
-                dbc.Tab(label="Indicadores",       tab_id="tab-indicadores"),
-                dbc.Tab(label="Previsões de Preço", tab_id="tab-regressor"),
-                dbc.Tab(label="Recomendações",      tab_id="tab-recomendador"),
-            ],
-            id="tabs",
-            active_tab="tab-indicadores",
-        ),
+                dbc.NavbarSimple(
+                    brand="TCC: Sistema de Análise e Recomendação de Ações",
+                    color="primary",
+                    dark=True,
+                    className="mb-4"
+                ),
 
-        # Conteúdo das abas será injetado aqui
-        html.Div(id="tab-content", className="p-4"),
-    ],
-    fluid=True,
+                # Abas de navegação
+                dbc.Tabs(
+                    [
+                        dbc.Tab(label="Indicadores",       tab_id="tab-indicadores"),
+                        dbc.Tab(label="Previsões de Preço", tab_id="tab-regressor"),
+                        dbc.Tab(label="Recomendações",      tab_id="tab-recomendador"),
+                    ],
+                    id="tabs",
+                    active_tab="tab-indicadores",
+                ),
+
+                # Container para injetar o conteúdo de cada aba
+                html.Div(id="tab-content", className="p-4"),
+            ],
+            fluid=True,
+        )
+    ]
 )
 
 # -----------------------------------------------------------------------------
-# Registra callbacks importados de dashboard/callbacks.py
-# -----------------------------------------------------------------------------
+# Registro de callbacks centralizados
+# ----------------------------------------------------------------------------
 register_callbacks(app)
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
