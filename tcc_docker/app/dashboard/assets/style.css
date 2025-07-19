@@ -1,0 +1,106 @@
+/* ======================= */
+/* DARK MODE ESTRUTURAL    */
+/* ======================= */
+
+body {
+    background-color: #1e1e2f;
+    color: #e0e0e0;
+}
+
+/* Navbar escura */
+.navbar {
+    background-color: #2c2c3e !important;
+    margin-bottom: 0.5rem;
+}
+
+/* Abas personalizadas */
+.nav-tabs .nav-link {
+    background-color: #2c2c3e;
+    color: #ccc;
+    border: none;
+    margin-right: 2px;
+}
+.nav-tabs .nav-link.active {
+    background-color: #1e1e2f;
+    color: #fff;
+    font-weight: bold;
+    border-bottom: 3px solid #5561ff;
+}
+
+/* Cartões */
+.card {
+    background-color: #2c2c3e;
+    color: #e0e0e0;
+    border: none;
+    border-radius: 8px;
+}
+.card-title {
+    color: #bbb;
+}
+.card-text {
+    color: #fff;
+}
+
+/* DataTable */
+.dash-table-container .dash-spreadsheet-container {
+    background-color: #1e1e2f;
+    color: #e0e0e0;
+}
+.dash-table-container .dash-spreadsheet-container .dash-cell {
+    background-color: #2c2c3e !important;
+    color: #e0e0e0 !important;
+    border: 1px solid #444;
+}
+.dash-table-container .dash-header {
+    background-color: #3a3a50 !important;
+    color: #ffffff !important;
+    font-weight: bold;
+}
+
+/* Inputs */
+input[type="text"],
+select,
+textarea {
+    background-color: #2c2c3e;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+/* Scrollbar opcional */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 4px;
+}
+
+/* ======================= */
+/* BOTÕES DE AÇÃO          */
+/* ======================= */
+
+.btn-botaoacao {
+    background-color: #5561ff !important;
+    border-color: #5561ff !important;
+    color: #ffffff !important;
+    transition: filter 0.15s ease, border-color 0.15s ease;
+}
+.btn-botaoacao:hover {
+    filter: brightness(1.1);
+    border-color: #6c75ff !important; /* leve clareamento na borda */
+}
+.btn-botaoacao:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+
+/* ======================= */
+/* GERAL / GLOBAL          */
+/* ======================= */
+
+hr {
+    border-top: 1px solid #444;
+}

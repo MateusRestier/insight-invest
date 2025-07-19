@@ -1,0 +1,7 @@
+dash
+dash-table
+dash-bootstrap-components
+pandas
+psycopg2-binary
+joblib
+plotly
