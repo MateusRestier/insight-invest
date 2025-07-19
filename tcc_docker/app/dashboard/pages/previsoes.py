@@ -65,24 +65,16 @@ def layout_previsoes():
 
             html.Hr(),
 
-            # Card contendo a tabela de previsões
-            dbc.Card(
-                [
-                    dbc.CardHeader("📈 Previsões de Preço"),
-                    dbc.CardBody(
-                        dash_table.DataTable(
-                            id="table-previsao",
-                            columns=[],
-                            data=[],
-                            page_size=20,
-                            sort_action="native",
-                            filter_action="none",
-                            style_table={"overflowX": "auto"},
-                            style_cell={"textAlign": "left", "minWidth": "100px"},
-                        )
-                    ),
-                ],
-                className="shadow-sm mb-4"
+            # Tabela de previsões
+            dash_table.DataTable(
+                id="table-previsao",
+                columns=[],
+                data=[],
+                page_size=20,
+                sort_action="native",
+                filter_action="none",
+                style_table={"overflowX": "auto"},
+                style_cell={"textAlign": "left", "minWidth": "100px"},
             )
         ], width=12)
     ])

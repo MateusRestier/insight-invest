@@ -1,34 +1,110 @@
-/* assets/style.css */
+/* assets/style.css - Dark Mode Customization */
 
-/* 1. Reset básico e fonte mais limpa */
+/* 1. Global Style */
 body {
   margin: 0;
   padding: 0;
   font-family: "Segoe UI", sans-serif;
-  background-color: #f8f9fa; /* cinza claro de fundo */
+  background-color: #1e1e2f; /* Dark background */
+  color: #e0e0e0;           /* Light text */
 }
 
-/* 2. Navbar com sombra suave */
+/* 2. Navbar and Tabs */
 .navbar {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #282840 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  margin-bottom: 0.5rem;
 }
-
-/* 3. Cartões para agrupar seções */
-.card, .dbc-card {
-  margin-bottom: 1rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.nav-tabs {
+  border-bottom: 1px solid #44445e;
 }
-
-/* 4. Estilização da DataTable */
-.dash-table-container .dash-spreadsheet {
-  background-color: #ffffff;
-  border-radius: 0.5rem;
+.nav-tabs .nav-link {
+  color: #a8a8c0;
+  background-color: transparent;
   border: none;
 }
+.nav-tabs .nav-link:hover {
+  color: #ffffff;
+}
+.nav-tabs .nav-link.active {
+  background-color: #34344e !important;
+  color: #ffffff !important;
+  border: 1px solid #44445e !important;
+  border-bottom-color: transparent !important;
+  border-radius: 0.25rem 0.25rem 0 0;
+}
 
-/* 5. Cabeçalhos e títulos mais destacados */
-h5 {
-  color: #343a40;
-  margin-bottom: 0.75rem;
+/* 3. Cards */
+.card,
+.dbc-card {
+  background-color: #2a2a3d;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  color: #e0e0e0;
+}
+
+/* 4. DataTable */
+.dash-table-container .dash-spreadsheet {
+  background-color: #2a2a3d !important;
+  border-radius: 0.5rem;
+  border: none;
+  color: #e0e0e0;
+}
+.dash-table-container .dash-spreadsheet .column-header,
+.dash-table-container .dash-spreadsheet .column-header--sort {
+  background-color: #34344e !important;
+  color: #ffffff !important;
+}
+.dash-table-container .dash-spreadsheet .cell--odd {
+  background-color: #252535;
+}
+
+/* 5. Inputs and Selects */
+input,
+.form-control,
+.Select-control,
+.Select-menu-outer {
+  background-color: #3a3a4f !important;
+  color: #e0e0e0 !important;
+  border: 1px solid #44445e;
+}
+
+/* 6. Default Buttons */
+.btn,
+button {
+  background-color: #44445e !important;
+  color: #e0e0e0 !important;
+  border-color: #55556f !important;
+  transition: filter 0.15s ease;
+}
+.btn:hover,
+button:hover {
+  filter: brightness(1.1);
+  text-decoration: none;
+}
+
+/* 8. Titles and Subtitles */
+h1,
+h2,
+h3,
+h4,
+h5,
+.card-title {
+  color: #ffffff;
+}
+
+/* 9. Horizontal Rule */
+hr {
+  border-top: 1px solid #44445e;
+}
+
+/* 10. Links */
+a,
+.nav-link {
+  color: #a8a8c0 !important;
+}
+a:hover,
+.nav-link:hover {
+  color: #ffffff !important;
 }
