@@ -23,10 +23,237 @@ além da data da coleta em si (a data da coleta n é pra ter nd haver com o codi
 5518	ABEV3	2025-06-16	13.640000	14.053893	3.0344	2025-06-16
 
 # A FAZER
-Remover o bgl de ver dias pra frente do codigo do graham, n precisa disso pq tem mais dias agora # decidindo
 
 Entender melhor como o docker funciona
 
-Criar Site da analise do TCC (da pra usar flask, django, ou direto com bootstrap etc) e la colocar analises, graficos, etc (conversei com o gpt ele disse sobre usar DASH para fazer td e usar bootstrap dentro do dahs para ficar responsivo)
+na pagina do recomendador, colocar pra mostrar tb o scraping igual atualmente ta no indicadores
 
-fazer um novo backend do regressor, pra poder escolher uma ação específica para fazer a previsão
+a intenção é transofrmar a pagina do indicadores em um dashboard mesmo(provavelmente trocar o nome da aba tb), e as outras explorando mais o regressor e recomendador
+
+descobrir oq colocar de informação no indicadores alem do grafico com dropdown, derrepente cards q viram quando passa o mouse, ou algo assim
+
+mostrar as infos q tenho do banco, pra outro chat de gpt e pedir oq ele faria num power bi, e tentar aplicar no dash de python,
+usar consultas personalizadas q eu tinha feito tb (ABAIXO)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--- CONSULTA PRA COMPARAR O PREÇO PREVISTO, COM O PREÇO REAL
+
+SELECT
+    r.acao,
+    r.data_calculo,
+    r.data_previsao,
+    r.preco_previsto,
+    i.cotacao AS preco_real,
+    CASE
+        WHEN i.cotacao IS NOT NULL AND i.cotacao <> 0 THEN
+            ROUND((r.preco_previsto - i.cotacao) / i.cotacao * 100, 4)
+        ELSE NULL
+    END AS erro_pct
+FROM
+    resultados_precos r
+LEFT JOIN
+    indicadores_fundamentalistas i
+    ON r.acao = i.acao
+    AND r.data_previsao = i.data_coleta
+ORDER BY
+    r.data_calculo,
+    r.acao;
+
+delete from resultados_precos where 1=1;
+
+--- CONSULTA PARA CALCULAR O MAE, MSE E R2 REAL DA TABELA TOTAL
+
+WITH comparacao AS (
+    SELECT
+        r.acao,
+        r.data_calculo,
+        r.data_previsao,
+        r.preco_previsto,
+        i.cotacao AS preco_real,
+        (r.preco_previsto - i.cotacao) AS erro,
+        POWER(r.preco_previsto - i.cotacao, 2) AS erro_quadrado
+    FROM
+        resultados_precos r
+    LEFT JOIN
+        indicadores_fundamentalistas i
+        ON r.acao = i.acao
+        AND r.data_previsao = i.data_coleta
+    WHERE
+        i.cotacao IS NOT NULL
+)
+SELECT
+    COUNT(*) AS total_registros,
+    ROUND(AVG(ABS(erro)), 6) AS mae_real,
+    ROUND(AVG(erro_quadrado), 6) AS mse_real,
+    ROUND(
+        1 - SUM(erro_quadrado) / NULLIF(SUM(POWER(preco_real - (SELECT AVG(preco_real) FROM comparacao), 2)), 0),
+        6
+    ) AS r2_real
+FROM
+    comparacao;
+
+
+--- ✅ 1) MAE, MSE e R² por data_previsao (dia previsto):
+
+WITH comparacao AS (
+    SELECT
+        r.acao,
+        r.data_calculo,
+        r.data_previsao,
+        r.preco_previsto,
+        i.cotacao AS preco_real,
+        (r.preco_previsto - i.cotacao) AS erro,
+        POWER(r.preco_previsto - i.cotacao, 2) AS erro_quadrado
+    FROM
+        resultados_precos r
+    LEFT JOIN
+        indicadores_fundamentalistas i
+        ON r.acao = i.acao
+        AND r.data_previsao = i.data_coleta
+),
+datas AS (
+    SELECT DISTINCT data_previsao FROM resultados_precos
+),
+media_por_previsao AS (
+    SELECT
+        data_previsao,
+        AVG(preco_real) AS media_preco_real
+    FROM
+        comparacao
+    GROUP BY
+        data_previsao
+)
+SELECT
+    d.data_previsao,
+    COUNT(c.acao) AS total_registros,
+    ROUND(AVG(ABS(c.erro)), 6) AS mae_real,
+    ROUND(AVG(c.erro_quadrado), 6) AS mse_real,
+    ROUND(
+        1 - SUM(c.erro_quadrado) / NULLIF(SUM(POWER(c.preco_real - m.media_preco_real, 2)), 0),
+        6
+    ) AS r2_real
+FROM
+    datas d
+LEFT JOIN comparacao c
+    ON d.data_previsao = c.data_previsao
+LEFT JOIN media_por_previsao m
+    ON d.data_previsao = m.data_previsao
+GROUP BY
+    d.data_previsao, m.media_preco_real
+ORDER BY
+    d.data_previsao;
+
+
+
+--- ✅ 2) MAE, MSE e R² por data_calculo (dia em que a previsão foi feita):
+
+WITH comparacao AS (
+    SELECT
+        r.acao,
+        r.data_calculo,
+        r.data_previsao,
+        r.preco_previsto,
+        i.cotacao AS preco_real,
+        (r.preco_previsto - i.cotacao) AS erro,
+        POWER(r.preco_previsto - i.cotacao, 2) AS erro_quadrado
+    FROM
+        resultados_precos r
+    LEFT JOIN
+        indicadores_fundamentalistas i
+        ON r.acao = i.acao
+        AND r.data_previsao = i.data_coleta
+),
+datas AS (
+    SELECT DISTINCT data_calculo FROM resultados_precos
+),
+media_por_calculo AS (
+    SELECT
+        data_calculo,
+        AVG(preco_real) AS media_preco_real
+    FROM
+        comparacao
+    GROUP BY
+        data_calculo
+)
+SELECT
+    d.data_calculo,
+    COUNT(c.acao) AS total_registros,
+    ROUND(AVG(ABS(c.erro)), 6) AS mae_real,
+    ROUND(AVG(c.erro_quadrado), 6) AS mse_real,
+    ROUND(
+        1 - SUM(c.erro_quadrado) / NULLIF(SUM(POWER(c.preco_real - m.media_preco_real, 2)), 0),
+        6
+    ) AS r2_real
+FROM
+    datas d
+LEFT JOIN comparacao c
+    ON d.data_calculo = c.data_calculo
+LEFT JOIN media_por_calculo m
+    ON d.data_calculo = m.data_calculo
+GROUP BY
+    d.data_calculo, m.media_preco_real
+ORDER BY
+    d.data_calculo;
+
+
+
+--- ✅ 3) MAE, MSE e R² por ação (ticker):
+
+WITH comparacao AS (
+    SELECT
+        r.acao,
+        r.data_calculo,
+        r.data_previsao,
+        r.preco_previsto,
+        i.cotacao AS preco_real,
+        (r.preco_previsto - i.cotacao) AS erro,
+        POWER(r.preco_previsto - i.cotacao, 2) AS erro_quadrado
+    FROM
+        resultados_precos r
+    LEFT JOIN
+        indicadores_fundamentalistas i
+        ON r.acao = i.acao
+        AND r.data_previsao = i.data_coleta
+    WHERE
+        i.cotacao IS NOT NULL
+),
+media_por_acao AS (
+    SELECT
+        acao,
+        AVG(preco_real) AS media_preco_real
+    FROM
+        comparacao
+    GROUP BY
+        acao
+)
+SELECT
+    c.acao,
+    COUNT(*) AS total_registros,
+    ROUND(AVG(ABS(c.erro)), 6) AS mae_real,
+    ROUND(AVG(c.erro_quadrado), 6) AS mse_real,
+    ROUND(
+        1 - SUM(c.erro_quadrado) / NULLIF(SUM(POWER(c.preco_real - m.media_preco_real, 2)), 0),
+        6
+    ) AS r2_real
+FROM
+    comparacao c
+JOIN
+    media_por_acao m
+    ON c.acao = m.acao
+GROUP BY
+    c.acao, m.media_preco_real
+ORDER BY
+    c.acao;
