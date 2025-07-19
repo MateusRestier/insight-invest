@@ -14,49 +14,55 @@ from db_connection import get_connection
 def layout_indicadores():
     return dbc.Container(
         [
-            # ------------------------------------------------------------------
             html.H3("📊 Indicadores Fundamentalistas", className="mb-4"),
 
-            # ------------------------- GRÁFICOS --------------------------------
+            # ----------------------- DROPDOWN + GRÁFICO ----------------------
             dbc.Row(
                 [
                     dbc.Col(
-                        html.H5(
-                            "🔻 Top 10 ações com maior Dividend Yield "
-                            "(PL e ROE positivos)",
-                            className="mb-2",
+                        dcc.Dropdown(
+                            id="metric-picker",
+                            value="graham",
+                            clearable=False,
+                            options=[
+                                {
+                                    "label": "Top 10 ações com maior desconto segundo Graham "
+                                             "(PL e ROE positivos)",
+                                    "value": "graham",
+                                },
+                                {
+                                    "label": "Top 10 ações com maior Dividend Yield "
+                                             "(PL e ROE positivos)",
+                                    "value": "dividend_yield",
+                                },
+                                {
+                                    "label": "Top 10 ações com maior ROE "
+                                             "(PL e LPA positivos)",
+                                    "value": "roe",
+                                },
+                                {
+                                    "label": "Top 10 ações com cotação mais alta",
+                                    "value": "cotacao",
+                                },
+                                {
+                                    "label": "Top 10 ações com maior Margem Líquida (%)",
+                                    "value": "margem_liquida",
+                                },
+                                {
+                                    "label": "Top 10 ações com menor Dívida Líq./Patrimônio",
+                                    "value": "div_liq_patrimonio",
+                                },
+                            ],
+                            className="mb-3",
                         ),
-                        md=6,
-                    ),
-                    dbc.Col(
-                        html.H5(
-                            "🔻 Top 10 ações com maior desconto segundo Graham "
-                            "(PL e ROE positivos)",
-                            className="mb-2",
-                        ),
-                        md=6,
-                    ),
+                        md=8,
+                    )
                 ]
             ),
             dbc.Row(
                 [
-                    dbc.Col(dcc.Graph(id="grafico-top-dy"), md=6),
-                    dbc.Col(dcc.Graph(id="grafico-top-graham"), md=6),
+                    dbc.Col(dcc.Graph(id="grafico-top-metric"), md=8),
                 ]
-            ),
-
-            dbc.Row(
-                [
-                    dbc.Col(
-                        html.H5(
-                            "🔺 Top 10 ações com maior ROE (PL e LPA positivos)",
-                            className="mt-4 mb-2",
-                        ),
-                        md=12,
-                    ),
-                    dbc.Col(dcc.Graph(id="grafico-top-roe"), md=6),
-                ],
-                className="mt-2",
             ),
 
             html.Hr(className="mt-4 mb-4"),
@@ -64,13 +70,9 @@ def layout_indicadores():
             # --------------------- SUBTÍTULO + INPUT ---------------------------
             dbc.Row(
                 dbc.Col(
-                    html.H5(
-                        "✔ Escolha um ticker para ver detalhes:",
-                        className="mb-2",
-                    ),
+                    html.H5("🪄 Escolha um ticker para ver detalhes:", className="mb-2"),
                     md=12,
-                ),
-                className="mb-1",
+                )
             ),
             dbc.Row(
                 dbc.Col(
@@ -118,7 +120,8 @@ def layout_indicadores():
 # Callbacks
 # ----------------------------------------------------------------------
 def register_callbacks_indicadores(app):
-    # 1. Cards com indicadores detalhados --------------------------------
+    # ------------------------------------------------------------------ #
+    # 1. Cards detalhados de um ticker ----------------------------------
     @app.callback(
         Output("cards-indicadores", "children"),
         Input("btn-load-ind", "n_clicks"),
@@ -132,9 +135,10 @@ def register_callbacks_indicadores(app):
         if isinstance(resultado, str):
             return dbc.Alert(resultado, color="danger", dismissable=True)
 
-        dados, _ = resultado  # dict
+        dados, _ = resultado
 
         display_names = {
+            "acao": "Ação",
             "pl": "P/L",
             "pvp": "P/VP",
             "psr": "P/SR",
@@ -221,127 +225,92 @@ def register_callbacks_indicadores(app):
             )
         return cards
 
-    # 2. Top-10 Dividend Yield ------------------------------------------
-    @app.callback(Output("grafico-top-dy", "figure"), Input("grafico-top-dy", "id"))
-    def plotar_top_10_dy(_):
+    # ------------------------------------------------------------------ #
+    # 2. Gráfico dinâmico (dropdown) ------------------------------------
+    @app.callback(
+        Output("grafico-top-metric", "figure"),
+        Input("metric-picker", "value"),
+    )
+    def plotar_top_10(metrico):
         try:
             conn = get_connection()
-            query = """
-                SELECT acao, dividend_yield
-                FROM indicadores_fundamentalistas
-                WHERE data_coleta = (SELECT MAX(data_coleta) FROM indicadores_fundamentalistas)
-                  AND dividend_yield IS NOT NULL
-                  AND pl >= 0 AND roe >= 0
-                ORDER BY dividend_yield DESC
-                LIMIT 10;
-            """
-            df = pd.read_sql(query, conn)
-            conn.close()
 
-            # Proteção contra valores não numéricos / vazios
-            df["dividend_yield"] = pd.to_numeric(df["dividend_yield"], errors="coerce")
-            df = df.dropna(subset=["dividend_yield"])
+            if metrico == "graham":
+                query = """
+                    SELECT acao, lpa, vpa, cotacao, pl, roe
+                    FROM indicadores_fundamentalistas
+                    WHERE data_coleta = (SELECT MAX(data_coleta)
+                                         FROM indicadores_fundamentalistas)
+                      AND lpa > 0 AND vpa > 0 AND cotacao > 0
+                      AND pl >= 0 AND roe >= 0;
+                """
+                df = pd.read_sql(query, conn)
+                conn.close()
 
-            if df.empty:
-                return px.bar(title="Sem dados de Dividend Yield no momento")
+                df[["lpa", "vpa", "cotacao"]] = df[["lpa", "vpa", "cotacao"]].apply(
+                    pd.to_numeric, errors="coerce"
+                )
+                df = df.dropna(subset=["lpa", "vpa", "cotacao"])
+                df["valor_graham"] = np.sqrt(22.5 * df["lpa"] * df["vpa"])
+                df["metrica"] = df["valor_graham"] - df["cotacao"]
+                df = df[df["metrica"] > 0].sort_values("metrica", ascending=False).head(10)
+                label_y = "Desconto vs. Valor Graham"
+                ascending = False
 
-            fig = px.bar(
-                df.sort_values("dividend_yield", ascending=False),
-                x="acao",
-                y="dividend_yield",
-                text="dividend_yield",
-                labels={"dividend_yield": "Dividend Yield (%)", "acao": "Ação"},
-            )
-            fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
-            fig.update_layout(
-                margin=dict(l=24, r=24, t=40, b=24),
-                plot_bgcolor="#1e1e2f",
-                paper_bgcolor="#1e1e2f",
-                font=dict(color="#e0e0e0"),
-            )
-            return fig
-        except Exception as e:
-            return px.bar(title=f"Erro ao carregar gráfico: {e}")
+            else:
+                coluna = metrico
+                extra_filters = ""
+                if metrico == "dividend_yield":
+                    extra_filters = "AND pl >= 0 AND roe >= 0"
+                if metrico == "roe":
+                    extra_filters = "AND pl >= 0 AND lpa > 0"
 
-    # 3. Top-10 ROE ------------------------------------------------------
-    @app.callback(Output("grafico-top-roe", "figure"), Input("grafico-top-roe", "id"))
-    def plotar_top_10_roe(_):
-        try:
-            conn = get_connection()
-            query = """
-                SELECT acao, roe
-                FROM indicadores_fundamentalistas
-                WHERE data_coleta = (SELECT MAX(data_coleta) FROM indicadores_fundamentalistas)
-                  AND roe IS NOT NULL AND pl >= 0 AND lpa > 0
-                ORDER BY roe DESC
-                LIMIT 10;
-            """
-            df = pd.read_sql(query, conn)
-            conn.close()
+                query = f"""
+                    SELECT acao, {coluna} AS metrica
+                    FROM indicadores_fundamentalistas
+                    WHERE data_coleta = (SELECT MAX(data_coleta)
+                                         FROM indicadores_fundamentalistas)
+                      AND {coluna} IS NOT NULL
+                      {extra_filters}
+                """
+                df = pd.read_sql(query, conn)
+                conn.close()
 
-            df["roe"] = pd.to_numeric(df["roe"], errors="coerce")
-            df = df.dropna(subset=["roe"])
+                df["metrica"] = pd.to_numeric(df["metrica"], errors="coerce")
+                df = df.dropna(subset=["metrica"])
 
-            if df.empty:
-                return px.bar(title="Sem dados de ROE no momento")
+                if metrico == "div_liq_patrimonio":
+                    ascending = True  # queremos as MENORES dívidas
+                else:
+                    ascending = False
 
-            fig = px.bar(
-                df.sort_values("roe", ascending=False),
-                x="acao",
-                y="roe",
-                text="roe",
-                labels={"roe": "ROE (%)", "acao": "Ação"},
-            )
-            fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
-            fig.update_layout(
-                margin=dict(l=24, r=24, t=40, b=24),
-                plot_bgcolor="#1e1e2f",
-                paper_bgcolor="#1e1e2f",
-                font=dict(color="#e0e0e0"),
-            )
-            return fig
-        except Exception as e:
-            return px.bar(title=f"Erro ao carregar gráfico: {e}")
+                df = df.sort_values("metrica", ascending=ascending).head(10)
 
-    # 4. Top-10 desconto vs. Graham --------------------------------------
-    @app.callback(Output("grafico-top-graham", "figure"), Input("grafico-top-graham", "id"))
-    def plotar_valor_graham(_):
-        try:
-            conn = get_connection()
-            query = """
-                SELECT acao, lpa, vpa, cotacao, pl, roe
-                FROM indicadores_fundamentalistas
-                WHERE data_coleta = (SELECT MAX(data_coleta) FROM indicadores_fundamentalistas)
-                  AND lpa > 0 AND vpa > 0 AND cotacao > 0
-                  AND pl >= 0 AND roe >= 0
-            """
-            df = pd.read_sql(query, conn)
-            conn.close()
-
-            df[["lpa", "vpa", "cotacao"]] = df[["lpa", "vpa", "cotacao"]].apply(
-                pd.to_numeric, errors="coerce"
-            )
-            df = df.dropna(subset=["lpa", "vpa", "cotacao"])
+                # rótulo do eixo x
+                mapping = {
+                    "dividend_yield": "Dividend Yield (%)",
+                    "roe": "ROE (%)",
+                    "cotacao": "Cotação (R$)",
+                    "margem_liquida": "Margem Líquida (%)",
+                    "div_liq_patrimonio": "Dív. Líq./Patrimônio",
+                }
+                label_y = mapping.get(metrico, coluna)
 
             if df.empty:
-                return px.bar(title="Sem dados suficientes para Graham")
-
-            df["valor_graham"] = np.sqrt(22.5 * df["lpa"] * df["vpa"])
-            df["desconto"] = df["valor_graham"] - df["cotacao"]
-            df = df[df["desconto"] > 0].sort_values("desconto", ascending=False).head(10)
+                return px.bar(title="Sem dados para este ranking no momento")
 
             fig = px.bar(
-                df,
-                x="desconto",
+                df if metrico != "div_liq_patrimonio" else df.iloc[::-1],  # invertido p/ barra h
+                x="metrica",
                 y="acao",
                 orientation="h",
-                text="desconto",
-                labels={
-                    "desconto": "Desconto vs. Valor Graham",
-                    "acao": "Ação",
-                },
+                text="metrica",
+                labels={"metrica": label_y, "acao": "Ação"},
             )
-            fig.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+            fmt = ".2f" if metrico not in {"dividend_yield", "roe", "margem_liquida"} else ".2f"
+            if metrico in {"dividend_yield", "roe", "margem_liquida"}:
+                fmt = ".2f"  # mostra %
+            fig.update_traces(texttemplate=f"%{{text:{fmt}}}", textposition="outside")
             fig.update_layout(
                 margin=dict(l=24, r=24, t=40, b=24),
                 yaxis=dict(autorange="reversed"),
@@ -351,4 +320,4 @@ def register_callbacks_indicadores(app):
             )
             return fig
         except Exception as e:
-            return px.bar(title=f"Erro ao calcular Graham: {e}")
+            return px.bar(title=f"Erro ao gerar gráfico: {e}")

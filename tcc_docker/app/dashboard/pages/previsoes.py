@@ -1,4 +1,6 @@
-from dash import html, dcc, dash_table, Input, Output, State, no_update
+# dashboard/pages/previsoes.py
+
+from dash import html, dcc, Input, Output, State, no_update, dash_table
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import timedelta
@@ -9,150 +11,143 @@ from db_connection import get_connection
 # -----------------------------------------------------------------------------
 
 def layout_previsoes():
-    # 1) Busca a última data_calculo somente para exibição
-    conn = get_connection()
-    df_date = pd.read_sql_query(
-        "SELECT MAX(data_calculo) AS ultima_data FROM resultados_precos",
-        conn
-    )
-    conn.close()
-    ultima_calc = df_date["ultima_data"].iloc[0].strftime("%Y-%m-%d")
+    return dbc.Container([
+        # Card principal
+        dbc.Card([
+            dbc.CardHeader("🔮 Previsão de Preço — 10 dias à frente"),
+            dbc.CardBody([
+                # Botão Carregar
+                dbc.Button(
+                    "Carregar",
+                    id="btn-load-pred",
+                    className="btn-botaoacao mb-3"
+                ),
 
-    return dbc.Row([
-        dbc.Col([
-            html.H5("Previsão de Preço - 10 dias à frente"),
+                # Exibição da última data de cálculo
+                html.Div([
+                    html.Strong("Data de Cálculo: "),
+                    html.Span(id="ultima-data-calc")
+                ], className="mb-3"),
 
-            # Store para guardar o dataset carregado
-            dcc.Store(id="store-previsao-data"),
+                # Filtros em linha
+                dbc.Row([
+                    dbc.Col([
+                        html.Label("Data Previsão:", className="form-label"),
+                        dcc.Dropdown(
+                            id="filter-previsao",
+                            placeholder="Selecione…",
+                            clearable=False
+                        )
+                    ], width="auto"),
 
-            # Botão de carga inicial
-            dbc.Button(
-                "Carregar",
-                id="btn-load-pred",
-                color="success",
-                className="mb-3"
-            ),
+                    dbc.Col([
+                        html.Label("Ação:", className="form-label"),
+                        dcc.Dropdown(
+                            id="filter-acao",
+                            multi=True,
+                            placeholder="Todas"
+                        )
+                    ], width="auto"),
+                ], className="g-3 mb-4"),
 
-            # Exibe a data_calculo fixa
-            html.Div([
-                html.Strong("Data de Cálculo: "),
-                html.Span(ultima_calc)
-            ], className="mb-2"),
-
-            # Dropdown de Data Previsão (preenchido dinamicamente)
-            html.Div([
-                html.Label("Data Previsão:"),
-                dcc.Dropdown(
-                    id="filter-previsao",
-                    options=[],        # definido em callback
-                    placeholder="Selecione um dia",
-                    clearable=False,
-                    style={"width": "180px"}
+                # Tabela de resultados
+                dash_table.DataTable(
+                    id="table-previsao",
+                    columns=[],
+                    data=[],
+                    page_size=20,
+                    sort_action="native",
+                    style_table={"overflowX": "auto"},
+                    style_header={
+                        "backgroundColor": "#34344e",
+                        "color": "#ffffff",
+                        "fontWeight": "bold",
+                    },
+                    style_cell={
+                        "backgroundColor": "#2a2a3d",
+                        "color": "#e0e0e0",
+                        "padding": "5px",
+                        "minWidth": "100px",
+                    },
+                    style_data_conditional=[{
+                        "if": {"row_index": "odd"},
+                        "backgroundColor": "#252535"
+                    }]
                 )
-            ], style={"display": "inline-block", "margin-right": "20px"}),
+            ])
+        ], className="shadow-sm mb-4"),
 
-            # Dropdown de Ação (preenchido dinamicamente)
-            html.Div([
-                html.Label("Filtrar Ação:"),
-                dcc.Dropdown(
-                    id="filter-acao",
-                    options=[],        # definido em callback
-                    multi=True,
-                    placeholder="Todas",
-                    style={"width": "180px"}
-                )
-            ], style={"display": "inline-block"}),
-
-            html.Hr(),
-
-            # Tabela de previsões
-            dash_table.DataTable(
-                id="table-previsao",
-                columns=[],
-                data=[],
-                page_size=20,
-                sort_action="native",
-                filter_action="none",
-                style_table={"overflowX": "auto"},
-                style_cell={"textAlign": "left", "minWidth": "100px"},
-            )
-        ], width=12)
-    ])
+        # Store para manter os dados em memória
+        dcc.Store(id="store-previsao-data")
+    ], fluid=True)
 
 
 def register_callbacks_previsoes(app):
+
+    # 1) Carrega do banco ao clicar em "Carregar"
     @app.callback(
         Output("store-previsao-data", "data"),
-        Output("table-previsao", "columns"),
+        Output("ultima-data-calc", "children"),
         Input("btn-load-pred", "n_clicks"),
     )
     def load_all_predictions(n_clicks):
         if not n_clicks:
             return no_update, no_update
 
-        # 1) Busca última data_calculo
+        # Última data_calculo
         conn = get_connection()
         df_date = pd.read_sql_query(
             "SELECT MAX(data_calculo) AS ultima_data FROM resultados_precos",
             conn
         )
         ultima_calc = pd.to_datetime(df_date["ultima_data"].iloc[0]).date()
-        conn.close()
 
-        # 2) Define intervalo 1..10 dias após a última data_calculo
+        # Intervalo de 1 a 10 dias depois
         start = ultima_calc + timedelta(days=1)
         end   = ultima_calc + timedelta(days=10)
 
-        # 3) Consulta todas as previsões nesse intervalo
-        query = """
-            SELECT
-                acao,
-                data_previsao   AS data,
-                preco_previsto AS predito
+        # Busca previsões para esse intervalo
+        df = pd.read_sql_query(
+            """
+            SELECT acao,
+                   data_previsao AS data,
+                   preco_previsto AS predito
             FROM resultados_precos
             WHERE data_previsao BETWEEN %s AND %s
             ORDER BY data_previsao, acao
-        """
-        conn = get_connection()
-        df = pd.read_sql_query(query, conn, params=[start, end])
+            """,
+            conn,
+            params=[start, end]
+        )
         conn.close()
 
-        # 4) Define as colunas fixas da DataTable
-        columns = [
-            {"name": "Ação",           "id": "acao"},
-            {"name": "Data Previsão",  "id": "data",    "type": "datetime"},
-            {"name": "Preço Previsto", "id": "predito","type": "numeric", "format": {"specifier": ".2f"}},
-        ]
-        data = df.to_dict("records")
+        # Retorna lista de dicts e exibe a data de cálculo
+        return df.to_dict("records"), ultima_calc.strftime("%Y-%m-%d")
 
-        return data, columns
 
+    # 2) Popula opções dos filtros assim que os dados chegam
     @app.callback(
         Output("filter-previsao", "options"),
-        Output("filter-previsao", "value"),
-        Input("store-previsao-data", "data"),
-    )
-    def update_date_filter_options(stored):
-        if not stored:
-            return [], None
-        df = pd.DataFrame(stored)
-        dates = sorted(df["data"].unique())
-        opts = [{"label": d, "value": d} for d in dates]
-        return opts, None
-
-    @app.callback(
         Output("filter-acao", "options"),
         Input("store-previsao-data", "data"),
     )
-    def update_action_filter_options(stored):
+    def update_filters_options(stored):
         if not stored:
-            return []
-        df = pd.DataFrame(stored)
-        acs = sorted(df["acao"].unique())
-        opts = [{"label": a, "value": a} for a in acs]
-        return opts
+            return [], []
 
+        df = pd.DataFrame(stored)
+        prevs = sorted(df["data"].unique())
+        prev_opts = [{"label": d, "value": d} for d in prevs]
+
+        acoes = sorted(df["acao"].unique())
+        acao_opts = [{"label": a, "value": a} for a in acoes]
+
+        return prev_opts, acao_opts
+
+
+    # 3) Renderiza a tabela aplicando filtros em memória
     @app.callback(
+        Output("table-previsao", "columns"),
         Output("table-previsao", "data"),
         Input("store-previsao-data", "data"),
         Input("filter-previsao", "value"),
@@ -160,10 +155,23 @@ def register_callbacks_previsoes(app):
     )
     def filter_predictions(stored, date_pref, acoes_sel):
         if not stored:
-            return no_update
+            return [], []
+
         df = pd.DataFrame(stored)
+
+        # Aplica filtro de data_previsao
         if date_pref:
             df = df[df["data"] == date_pref]
+
+        # Aplica filtro de ação
         if acoes_sel:
             df = df[df["acao"].isin(acoes_sel)]
-        return df.to_dict("records")
+
+        # Define colunas fixas
+        columns = [
+            {"name": "Ação",           "id": "acao"},
+            {"name": "Data Previsão",  "id": "data",    "type": "datetime"},
+            {"name": "Preço Previsto","id": "predito","type": "numeric","format":{"specifier":".2f"}},
+        ]
+
+        return columns, df.to_dict("records")
