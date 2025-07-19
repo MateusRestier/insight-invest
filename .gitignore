@@ -1,2 +1,3 @@
 tcc_docker/app/__pycache__/
 tcc_docker/app/dashboard/__pycache__/
+tcc_docker/app/dashboard/pages/__pycache__/
