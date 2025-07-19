@@ -3,9 +3,9 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from scraper_indicadores import coletar_indicadores
 
-# -----------------------------------------------------------------------------
-# Layout e callbacks para a página "Indicadores"
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Layout da página "Indicadores"
+# ----------------------------------------------------------------------
 
 def layout_indicadores():
     return dbc.Container([
@@ -24,15 +24,24 @@ def layout_indicadores():
                 className="btn-botaoacao"
             )
         ], style={"display": "flex", "alignItems": "center", "marginBottom": "1rem"}),
+
         html.Hr(),
-        # Container onde os cards serão renderizados
-        dbc.Row(
-            id="cards-indicadores",
-            justify="start",
-            className="g-3"
+
+        dcc.Loading(
+            id="loading-cards-indicadores",
+            type="circle",
+            children=dbc.Row(
+                id="cards-indicadores",
+                justify="start",
+                className="g-3"
+            )
         )
     ], fluid=True)
 
+
+# ----------------------------------------------------------------------
+# Callback da página
+# ----------------------------------------------------------------------
 
 def register_callbacks_indicadores(app):
     @app.callback(
@@ -46,10 +55,10 @@ def register_callbacks_indicadores(app):
 
         resultado = coletar_indicadores(ticker)
         if isinstance(resultado, str):
-            return dbc.Alert(resultado, color="danger")
+            return dbc.Alert(resultado, color="danger", dismissable=True)
 
         dados, _ = resultado
-        # Mapeamento de nomes originais para rótulos amigáveis
+
         display_names = {
             'acao': 'Ação',
             'pl': 'P/L',
@@ -87,11 +96,11 @@ def register_callbacks_indicadores(app):
 
         cards = []
         for nome, valor in dados.items():
-            # Define rótulo amigável
             label = display_names.get(nome, nome.replace('_', ' ').title())
-            # formata valor numérico
-            if isinstance(valor, (int, float)):
-                # adiciona símbolo % quando aplicável
+
+            if valor is None:
+                display_val = "–"
+            elif isinstance(valor, (int, float)):
                 if nome in ['dividend_yield', 'payout', 'margem_liquida', 'margem_bruta',
                             'margem_ebit', 'margem_ebitda', 'roe', 'roic', 'roa', 'variacao_12m']:
                     display_val = f"{valor:.2f}%"
@@ -105,11 +114,14 @@ def register_callbacks_indicadores(app):
                     dbc.Card(
                         dbc.CardBody([
                             html.H6(label, className="card-title", style={"fontSize": "0.9rem"}),
-                            html.H5(display_val, className="card-text", style={"fontSize": "1.25rem"})
+                            html.H5(display_val, className="card-text", style={
+                                "fontSize": "1.25rem", "minHeight": "2rem"
+                            })
                         ]),
                         className="h-100 shadow-sm"
                     ),
-                    width=2, className="mb-4"
+                    xs=12, sm=6, md=4, lg=3, xl=2,
+                    className="mb-4"
                 )
             )
         return cards
