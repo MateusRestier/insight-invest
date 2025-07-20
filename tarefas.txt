@@ -22,18 +22,27 @@ data da previsao no regressor acho q ta errado, ela fica igual a data da coleta,
 além da data da coleta em si (a data da coleta n é pra ter nd haver com o codigo, ela vai preencher automatico), tem q ter a data da previsão (q está simulando q ta rodando) e a data q tentou prever
 5518	ABEV3	2025-06-16	13.640000	14.053893	3.0344	2025-06-16
 
+
+
+
+na pagina do recomendador, colocar pra mostrar tb o scraping igual atualmente ta no indicadores
+
+mostrar as infos q tenho do banco, pra outro chat de gpt e pedir oq ele faria num power bi, e tentar aplicar no dash de python
+
+
 # A FAZER
 
 Entender melhor como o docker funciona
-
-na pagina do recomendador, colocar pra mostrar tb o scraping igual atualmente ta no indicadores
 
 a intenção é transofrmar a pagina do indicadores em um dashboard mesmo(provavelmente trocar o nome da aba tb), e as outras explorando mais o regressor e recomendador
 
 descobrir oq colocar de informação no indicadores alem do grafico com dropdown, derrepente cards q viram quando passa o mouse, ou algo assim
 
-mostrar as infos q tenho do banco, pra outro chat de gpt e pedir oq ele faria num power bi, e tentar aplicar no dash de python,
-usar consultas personalizadas q eu tinha feito tb (ABAIXO)
+usar consultas personalizadas q eu tinha feito tb (ABAIXO) #fazendo
+
+pedir pra tabela do indicadores ficar so metade da pagina, pq ao lado vou querer colocar cards com algumas métricas em relação à ela, os cards podem rodar mostrando alguma coisa quando passa o mouse em cima
+(media de acerto do preço real e previsto, quantidade de dias previstos, quantidade de acertos exatos erro_pct = 0, quantidade de erros pra cima erro_pct > 0, quantidade de erros pra baixo erro_pct < 0)
+
 
 
 
