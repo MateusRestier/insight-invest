@@ -101,6 +101,73 @@ textarea {
 /* GERAL / GLOBAL          */
 /* ======================= */
 
+
+
 hr {
     border-top: 1px solid #444;
+}
+
+
+/* ========================= */
+/* Estilo unificado para todos os filtros */
+/* ========================= */
+
+/* Conteiner do Bootstrap Select (dbc.Select) */
+.dropdown-dark select {
+  background-color: #1e1e2f !important;
+  color: #e0e0e0 !important;
+  border: 1px solid #444 !important;
+}
+
+/* Opções do Bootstrap Select */
+.dropdown-dark option {
+  background-color: #1e1e2f !important;
+  color: #e0e0e0 !important;
+}
+
+/* Destaque da opção selecionada no Bootstrap Select */
+.dropdown-dark option:checked {
+  background-color: #5561ff !important;
+  color: #ffffff !important;
+}
+
+/* ========================= */
+/* React-Select v1 (usado internamente por dcc.Dropdown) */
+/* ========================= */
+
+/* Container do react-select (input) */
+.dropdown-dark .Select-control {
+  background-color: #1e1e2f !important;
+  border-color: #444 !important;
+}
+
+/* Placeholder e valor selecionado */
+.dropdown-dark .Select-placeholder,
+.dropdown-dark .Select-value,
+.dropdown-dark .Select-value-label {
+  color: #e0e0e0 !important;
+}
+
+/* Menu suspenso */
+.dropdown-dark .Select-menu-outer {
+  background-color: #1e1e2f !important;
+  color: #e0e0e0 !important;
+}
+
+/* Cada opção */
+.dropdown-dark .Select-option {
+  background-color: #1e1e2f !important;
+  color: #e0e0e0 !important;
+}
+
+/* Hover/focus */
+.dropdown-dark .Select-option.is-focused {
+  background-color: #3a3a50 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Opção selecionada */
+.dropdown-dark .Select-option.is-selected {
+  background-color: #5561ff !important;
+  color: #ffffff !important;
 }
