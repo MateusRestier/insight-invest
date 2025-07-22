@@ -43,44 +43,44 @@ def layout_indicadores():
                 dbc.Col(html.H5("📈 Comparação Preço Previsto x Real", className="mt-4 mb-2"), width=12)
             ]),
 
-            # FILTROS TABELA (abaixo do título)
+            # FILTROS TABELA (abaixo do título) — agora com filtro de erro_pct
             dbc.Row([
-                dbc.Col(
-                    dcc.Dropdown(
-                        id='filter-data-previsao',
-                        options=[],
-                        placeholder='Data Previsão',
-                        clearable=True,
-                        searchable=True,
-                        className='dropdown-dark',
-                        style={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "borderColor": "#444"}
-                    ), width=2
-                ),
-                dbc.Col(
-                    dcc.Dropdown(
-                        id='filter-data-calculo',
-                        options=[],
-                        placeholder='Data Cálculo',
-                        clearable=True,
-                        searchable=True,
-                        className='dropdown-dark',
-                        style={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "borderColor": "#444"}
-                    ), width=2
-                ),
-                dbc.Col(
-                    dcc.Dropdown(
-                        id='filter-acao-ind',
-                        options=[],
-                        placeholder='Selecione Ação',
-                        clearable=True,
-                        searchable=True,
-                        className='dropdown-dark',
-                        style={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "borderColor": "#444"}
-                    ), width=4
-                )
+                dbc.Col(dcc.Dropdown(
+                    id='filter-data-previsao',
+                    options=[], placeholder='Data Previsão', clearable=True, searchable=True,
+                    className='dropdown-dark',
+                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
+                ), width=2),
+
+                dbc.Col(dcc.Dropdown(
+                    id='filter-data-calculo',
+                    options=[], placeholder='Data Cálculo', clearable=True, searchable=True,
+                    className='dropdown-dark',
+                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
+                ), width=2),
+
+                dbc.Col(dcc.Dropdown(
+                    id='filter-acao-ind',
+                    options=[], placeholder='Selecione Ação', clearable=True, searchable=True,
+                    className='dropdown-dark',
+                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
+                ), width=2),
+
+                dbc.Col(dcc.Dropdown(
+                    id='filter-erro-pct',
+                    options=[
+                        {"label":"Maior que 0", "value":"gt0"},
+                        {"label":"Menor que 0", "value":"lt0"},
+                        {"label":"Igual a 0",   "value":"eq0"}
+                    ],
+                    placeholder='Erro %', multi=True,
+                    className='dropdown-dark',
+                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
+                ), width=2)
             ], className='mb-4'),
 
-            # TABELA E PIE CHART
+
+            # TABELA E PIE CHART alinhados no topo
             dbc.Row([
                 dbc.Col(
                     dash_table.DataTable(
@@ -91,8 +91,13 @@ def layout_indicadores():
                         style_data_conditional=[{"if": {"state": "selected"}, "backgroundColor": "#5561ff", "color": "#ffffff"}]
                     ), width=8
                 ),
-                dbc.Col(dcc.Graph(id='pie-error-dist', config={'displayModeBar': False}), width=4)
-            ], className='mb-5')
+                dbc.Col(
+                    dcc.Graph(
+                        id='pie-error-dist',
+                        config={'displayModeBar': False},
+                        style={'marginTop': '-50px'}  # eleva um pouco o pie-chart
+                    ), width=4)
+            ], className='mb-5 align-items-start')
         ],
         fluid=True,
         style={"padding": "0 1rem"}
@@ -191,18 +196,36 @@ def register_callbacks_indicadores(app):
         Output('table-previsto-real', 'columns'),
         Input('filter-data-previsao', 'value'),
         Input('filter-data-calculo', 'value'),
-        Input('filter-acao-ind', 'value')
+        Input('filter-acao-ind', 'value'),
+        Input('filter-erro-pct', 'value')
     )
-    def update_table(data_prev, data_calc, acao_sel):
+    def update_table(data_prev, data_calc, acao_sel, erro_sel):
         df = _get_comparison_df()
         df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d')
         df['data_calculo'] = df['data_calculo'].dt.strftime('%Y-%m-%d')
+
+        # Filtros existentes
         if data_prev:
-            df = df[df['data_previsao']==data_prev]
+            df = df[df['data_previsao'] == data_prev]
         if data_calc:
-            df = df[df['data_calculo']==data_calc]
+            df = df[df['data_calculo'] == data_calc]
         if acao_sel:
-            df = df[df['acao']==acao_sel]
+            df = df[df['acao'] == acao_sel]
+
+        # Novo filtro erro_pct
+        if erro_sel:
+            masks = []
+            if 'gt0' in erro_sel:
+                masks.append(df['erro_pct'] > 0)
+            if 'lt0' in erro_sel:
+                masks.append(df['erro_pct'] < 0)
+            if 'eq0' in erro_sel:
+                masks.append(df['erro_pct'] == 0)
+            df = df[np.logical_or.reduce(masks)]
+
+        # Ordena por data_previsao crescente
+        df = df.sort_values('data_previsao', ascending=True)
+
         data = df.to_dict('records')
         cols = [{'name': col.replace('_',' ').title(), 'id': col} for col in df.columns]
         return data, cols
@@ -211,23 +234,42 @@ def register_callbacks_indicadores(app):
         Output('pie-error-dist', 'figure'),
         Input('filter-data-previsao', 'value'),
         Input('filter-data-calculo', 'value'),
-        Input('filter-acao-ind', 'value')
+        Input('filter-acao-ind', 'value'),
+        Input('filter-erro-pct', 'value')
     )
-    def plot_error_distribution(data_prev, data_calc, acao_sel):
+    def plot_error_distribution(data_prev, data_calc, acao_sel, erro_sel):
         df = _get_comparison_df()
         df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d')
         df['data_calculo'] = df['data_calculo'].dt.strftime('%Y-%m-%d')
+
         if data_prev:
-            df = df[df['data_previsao']==data_prev]
+            df = df[df['data_previsao'] == data_prev]
         if data_calc:
-            df = df[df['data_calculo']==data_calc]
+            df = df[df['data_calculo'] == data_calc]
         if acao_sel:
-            df = df[df['acao']==acao_sel]
-        counts = {'Igual a 0': int((df['erro_pct']==0).sum()), 'Maior que 0': int((df['erro_pct']>0).sum()), 'Menor que 0': int((df['erro_pct']<0).sum())}
+            df = df[df['acao'] == acao_sel]
+
+        if erro_sel:
+            masks = []
+            if 'gt0' in erro_sel: masks.append(df['erro_pct'] >  0)
+            if 'lt0' in erro_sel: masks.append(df['erro_pct'] <  0)
+            if 'eq0' in erro_sel: masks.append(df['erro_pct'] == 0)
+            df = df[np.logical_or.reduce(masks)]
+
+        counts = {
+            'Igual a 0': (df['erro_pct'] == 0).sum(),
+            'Maior que 0': (df['erro_pct'] > 0).sum(),
+            'Menor que 0': (df['erro_pct'] < 0).sum()
+        }
         pie_df = pd.DataFrame({'Status': list(counts.keys()), 'Count': list(counts.values())})
         fig = px.pie(pie_df, names='Status', values='Count', title='Distribuição Erro Pct')
         fig.update_traces(textinfo='label+percent')
-        fig.update_layout(plot_bgcolor='#1e1e2f', paper_bgcolor='#1e1e2f', font=dict(color='#e0e0e0'), margin=dict(l=20,r=20,t=40,b=20))
+        fig.update_layout(
+            plot_bgcolor='#1e1e2f',
+            paper_bgcolor='#1e1e2f',
+            font=dict(color='#e0e0e0'),
+            margin=dict(l=20, r=20, t=50, b=20)
+        )
         return fig
 
 

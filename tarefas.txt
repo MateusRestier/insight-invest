@@ -40,16 +40,7 @@ descobrir oq colocar de informação no indicadores alem do grafico com dropdown
 
 usar consultas personalizadas q eu tinha feito tb (ABAIXO) #fazendo
 
-pedir pra tabela do indicadores ficar so metade da pagina, pq ao lado vou querer colocar cards com algumas métricas em relação à ela, os cards podem rodar mostrando alguma coisa quando passa o mouse em cima
-(media de acerto do preço real e previsto, quantidade de dias previstos, quantidade de acertos exatos erro_pct = 0, quantidade de erros pra cima erro_pct > 0, quantidade de erros pra baixo erro_pct < 0)
-
-fazer os filtros da elgenda do grafico de pizza sincronziar coma tabela
-
-ordenar a tabela por data calculo ASC
-
-alinhar o grafico de pizza
-
-trocar pizza pra rosca e colocar cards no meio mostrando a média de erro pra cima e pra baixo
+trocar pizza pra rosca e colocar cards no meio mostrando a média de erro pra cima e pra baixo # decidindo
 
 
 
