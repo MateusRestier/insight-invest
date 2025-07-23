@@ -171,3 +171,60 @@ hr {
   background-color: #5561ff !important;
   color: #ffffff !important;
 }
+
+/* Forçando a cor de fundo e borda para a aba ativa com maior especificidade */
+.navbar .nav-link.active {
+    background-color: #5561ff !important; /* Cor de fundo personalizada para a aba ativa */
+    color: white !important; /* Texto em branco */
+    border: 2px solid #5561ff !important; /* Borda roxa ao redor da aba ativa */
+}
+
+/* Ajuste para as abas que não estão ativas */
+.navbar .nav-link {
+    background-color: #2c2c3e; /* Cor de fundo das abas não ativas */
+    color: #ccc; /* Cor do texto das abas não ativas */
+    border: none;
+    margin-right: 2px;
+}
+
+/* Efeito de brilho quando o mouse passa por cima das abas não ativas */
+.navbar .nav-link:hover {
+    box-shadow: 0 0 10px 2px #5561ff; /* Brilho roxo ao redor */
+    transition: box-shadow 0.3s ease-in-out; /* Efeito suave */
+}
+
+/* Efeito de brilho nas abas ativas para dar um destaque extra */
+.navbar .nav-link.active:hover {
+    box-shadow: 0 0 10px 4px #5561ff; /* Brilho roxo mais forte na aba ativa */
+    transition: box-shadow 0.3s ease-in-out; /* Efeito suave */
+}
+
+/* Responsividade do título */
+.navbar .navbar-brand {
+    word-wrap: break-word; /* Quebra a palavra caso não haja espaço */
+    white-space: normal; /* Permite a quebra de linha */
+    text-align: center;  /* Centraliza o texto */
+    font-size: 1.2rem;    /* Ajusta o tamanho da fonte para dispositivos móveis */
+}
+
+/* Ajusta o tamanho do título em telas pequenas */
+@media (max-width: 576px) {
+    .navbar .navbar-brand {
+        font-size: 1rem; /* Reduz o tamanho da fonte em telas pequenas */
+    }
+}
+
+/* Adiciona um pequeno espaço ao redor do texto das abas no menu hamburguer (versão de telefone) */
+@media (max-width: 576px) {
+    .navbar .nav-link {
+        padding-left: 10px; /* Ajusta o espaço à esquerda */
+        padding-right: 10px; /* Ajusta o espaço à direita */
+    }
+}
+
+/* Adiciona margem inferior ao ícone de hambúrguer nas versões de telefone */
+@media (max-width: 576px) {
+    .navbar-toggler {
+        margin-bottom: 10px; /* Adiciona um pequeno espaço entre o hambúrguer e as abas */
+    }
+}

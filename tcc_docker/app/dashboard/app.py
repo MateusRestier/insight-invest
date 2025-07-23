@@ -26,22 +26,34 @@ server = app.server  # Expondo servidor para WSGI
 # -----------------------------------------------------------------------------
 app.layout = dbc.Container(
     [
-        dbc.NavbarSimple(
-            brand="TCC: Sistema de Análise e Recomendação de Ações",
-            color="primary",
-            dark=True,
-        ),
-        
-        # Abas de navegação
-        dbc.Tabs(
+
+    dbc.NavbarSimple(
+        brand="TCC: Sistema de Análise e Recomendação de Ações",
+        color="primary",
+        dark=True,
+        children=[
+        dbc.Nav(
             [
-                dbc.Tab(label="Indicadores",       tab_id="tab-indicadores"),
-                dbc.Tab(label="Previsões de Preço", tab_id="tab-regressor"),
-                dbc.Tab(label="Recomendações",      tab_id="tab-recomendador"),
+                dbc.NavItem(dbc.NavLink("Indicadores", href="#tab-indicadores", id="tab-indicadores-link", className="nav-link")),
+                dbc.NavItem(dbc.NavLink("Previsões de Preço", href="#tab-regressor", id="tab-regressor-link", className="nav-link")),
+                dbc.NavItem(dbc.NavLink("Recomendações", href="#tab-recomendador", id="tab-recomendador-link", className="nav-link")),
             ],
-            id="tabs",
-            active_tab="tab-indicadores",
-        ),
+            pills=True,
+            className="ml-auto",  # Garante que as abas fiquem à direita no menu hamburguer
+        )
+        ],
+        fluid=True,
+        className="navbar-expand-lg",  # Responsividade
+        id="navbar",
+        brand_href="#",
+        expand="lg",  # Transição para hambúrguer em telas pequenas
+        style={
+            "backgroundColor": "#2c2c3e",  # Ajuste a cor de fundo
+            "width": "100%",  # Faz com que o fundo se estenda por toda a largura
+            "marginLeft": "0",  # Remove margem à esquerda
+            "marginRight": "0",  # Remove margem à direita
+        },
+    ),
 
         # Conteúdo das abas será injetado aqui
         html.Div(id="tab-content", className="p-4"),
