@@ -36,6 +36,17 @@ def layout_indicadores():
             ]),
             dbc.Row([
                 dbc.Col(dcc.Graph(id="grafico-top-metric"), md=8),
+                dbc.Col(
+                    html.Div(
+                        id="cards-top3-recs",
+                        style={
+                            "maxHeight": "500px",    # altura similar ao gráfico
+                            "overflowY": "auto",     # habilita scroll se necessário
+                            "paddingRight": "1rem"
+                        }
+                    ),
+                    md=4
+                ),
             ]),
 
             # TÍTULO DA TABELA
@@ -129,7 +140,7 @@ def register_callbacks_indicadores(app):
                 df = df.dropna(subset=['lpa','vpa','cotacao'])
                 df['valor_graham'] = np.sqrt(22.5 * df['lpa'] * df['vpa'])
                 df['metrica'] = df['valor_graham'] - df['cotacao']
-                df = df[df['metrica']>0].sort_values('metrica', ascending=False).head(10)
+                df = df[df['metrica'] > 0].sort_values('metrica', ascending=False).head(10)
                 y_label = 'Desconto vs. Valor Graham'
             else:
                 query = f"""
@@ -151,16 +162,33 @@ def register_callbacks_indicadores(app):
                     df = tmp.sort_values('metrica', ascending=False)
                 else:
                     df = df.sort_values('metrica', ascending=False).head(10)
-                labels = {"dividend_yield": "Dividend Yield (%)", "roe": "ROE (%)", "cotacao": "Cotação (R$)",
-                          "margem_liquida": "Margem Líquida (%)", "div_liq_patrimonio": "Dív. Líq./Patrimônio"}
+                labels = {
+                    "dividend_yield": "Dividend Yield (%)",
+                    "roe": "ROE (%)",
+                    "cotacao": "Cotação (R$)",
+                    "margem_liquida": "Margem Líquida (%)",
+                    "div_liq_patrimonio": "Dív. Líq./Patrimônio"
+                }
                 y_label = labels.get(metrico, metrico)
             conn.close()
+
             if df.empty:
                 return px.bar(title="Sem dados para este ranking no momento")
-            fig = px.bar(df, x='acao', y='metrica', text='metrica', labels={'acao':'Ação','metrica':y_label}, category_orders={'acao':df['acao'].tolist()})
+
+            fig = px.bar(
+                df,
+                x='acao', y='metrica', text='metrica',
+                labels={'acao':'Ação', 'metrica': y_label},
+                category_orders={'acao': df['acao'].tolist()}
+            )
             fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-            fig.update_layout(margin=dict(l=24,r=24,t=40,b=24), plot_bgcolor='#1e1e2f', paper_bgcolor='#1e1e2f', font=dict(color='#e0e0e0'))
+            fig.update_layout(
+                margin=dict(l=24, r=24, t=40, b=24),
+                plot_bgcolor='#1e1e2f', paper_bgcolor='#1e1e2f',
+                font=dict(color='#e0e0e0')
+            )
             return fig
+
         except Exception as e:
             return px.bar(title=f"Erro ao gerar gráfico: {e}")
 
@@ -204,7 +232,6 @@ def register_callbacks_indicadores(app):
         df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d')
         df['data_calculo'] = df['data_calculo'].dt.strftime('%Y-%m-%d')
 
-        # Filtros existentes
         if data_prev:
             df = df[df['data_previsao'] == data_prev]
         if data_calc:
@@ -212,7 +239,6 @@ def register_callbacks_indicadores(app):
         if acao_sel:
             df = df[df['acao'] == acao_sel]
 
-        # Novo filtro erro_pct
         if erro_sel:
             masks = []
             if 'gt0' in erro_sel:
@@ -223,7 +249,6 @@ def register_callbacks_indicadores(app):
                 masks.append(df['erro_pct'] == 0)
             df = df[np.logical_or.reduce(masks)]
 
-        # Ordena por data_previsao crescente
         df = df.sort_values('data_previsao', ascending=True)
 
         data = df.to_dict('records')
@@ -250,32 +275,31 @@ def register_callbacks_indicadores(app):
             df = df[df['acao'] == acao_sel]
         if erro_sel:
             masks = []
-            if 'gt0' in erro_sel: masks.append(df['erro_pct'] > 0)
-            if 'lt0' in erro_sel: masks.append(df['erro_pct'] < 0)
-            if 'eq0' in erro_sel: masks.append(df['erro_pct'] == 0)
+            if 'gt0' in erro_sel:
+                masks.append(df['erro_pct'] > 0)
+            if 'lt0' in erro_sel:
+                masks.append(df['erro_pct'] < 0)
+            if 'eq0' in erro_sel:
+                masks.append(df['erro_pct'] == 0)
             df = df[np.logical_or.reduce(masks)]
 
-        # conta quantidades
         counts = {
             'Igual a 0': (df['erro_pct'] == 0).sum(),
             'Maior que 0': (df['erro_pct'] > 0).sum(),
             'Menor que 0': (df['erro_pct'] < 0).sum()
         }
-        # calcula médias
         means = {
             'Igual a 0': df.loc[df['erro_pct'] == 0, 'erro_pct'].mean() or 0,
             'Maior que 0': df.loc[df['erro_pct'] > 0, 'erro_pct'].mean() or 0,
             'Menor que 0': df.loc[df['erro_pct'] < 0, 'erro_pct'].mean() or 0
         }
 
-        # monta DataFrame com contagem e média
         pie_df = pd.DataFrame({
             'Status': list(counts.keys()),
             'Count': list(counts.values()),
             'Mean':  [means[k] for k in counts.keys()]
         })
 
-        # cria o pie com custom_data para a média
         fig = px.pie(
             pie_df,
             names='Status',
@@ -294,6 +318,84 @@ def register_callbacks_indicadores(app):
             margin=dict(l=20, r=20, t=50, b=20)
         )
         return fig
+
+    @app.callback(
+        Output("cards-top3-recs", "children"),
+        Input("metric-picker", "value")
+    )
+    def render_top_recommendations(_):
+        conn = get_connection()
+        sql = """
+        SELECT acao, recomendada, nao_recomendada, resultado
+        FROM (
+          SELECT
+            acao,
+            recomendada,
+            nao_recomendada,
+            resultado,
+            ROW_NUMBER() OVER (
+              PARTITION BY acao
+              ORDER BY data_insercao DESC
+            ) AS rn
+          FROM recomendacoes_acoes
+        ) sub
+        WHERE rn = 1
+          AND recomendada < 1
+        ORDER BY recomendada DESC
+        LIMIT 10
+        """
+        df = pd.read_sql(sql, conn)
+        conn.close()
+
+        cards = []
+        for _, row in df.iterrows():
+            cards.append(
+                dbc.Card(
+                    [
+                        dbc.CardHeader(row["acao"], className="text-center"),
+                        dbc.CardBody(
+                            [
+                                html.P(f"Recomendada: {row['recomendada']:.4f}", className="card-text"),
+                                html.P(f"Não Recomendada: {row['nao_recomendada']:.4f}", className="card-text"),
+                                html.P(
+                                    row["resultado"],
+                                    className="card-text fst-italic",
+                                    style={"whiteSpace": "pre-wrap"}
+                                )
+                            ]
+                        )
+                    ],
+                    className="mb-2",
+                    style={
+                        "backgroundColor": "#2c2c3e",
+                        "color": "#e0e0e0"
+                    }
+                )
+            )
+
+        if not cards:
+            return html.P("Sem recomendações disponíveis", className="text-muted")
+
+        return html.Div(
+            [
+                html.H5(
+                    "Top 10 ações recomendadas",
+                    style={
+                        "color": "#e0e0e0",
+                        "textAlign": "center",
+                        "marginBottom": "1rem"
+                    }
+                ),
+                *cards
+            ],
+            style={
+                "maxHeight": "450px",
+                "overflowY": "scroll",
+                "padding": "0 0.5rem"
+            }
+        )
+
+
 
 
 
