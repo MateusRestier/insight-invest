@@ -248,22 +248,45 @@ def register_callbacks_indicadores(app):
             df = df[df['data_calculo'] == data_calc]
         if acao_sel:
             df = df[df['acao'] == acao_sel]
-
         if erro_sel:
             masks = []
-            if 'gt0' in erro_sel: masks.append(df['erro_pct'] >  0)
-            if 'lt0' in erro_sel: masks.append(df['erro_pct'] <  0)
+            if 'gt0' in erro_sel: masks.append(df['erro_pct'] > 0)
+            if 'lt0' in erro_sel: masks.append(df['erro_pct'] < 0)
             if 'eq0' in erro_sel: masks.append(df['erro_pct'] == 0)
             df = df[np.logical_or.reduce(masks)]
 
+        # conta quantidades
         counts = {
             'Igual a 0': (df['erro_pct'] == 0).sum(),
             'Maior que 0': (df['erro_pct'] > 0).sum(),
             'Menor que 0': (df['erro_pct'] < 0).sum()
         }
-        pie_df = pd.DataFrame({'Status': list(counts.keys()), 'Count': list(counts.values())})
-        fig = px.pie(pie_df, names='Status', values='Count', title='Distribuição Erro Pct')
-        fig.update_traces(textinfo='label+percent')
+        # calcula médias
+        means = {
+            'Igual a 0': df.loc[df['erro_pct'] == 0, 'erro_pct'].mean() or 0,
+            'Maior que 0': df.loc[df['erro_pct'] > 0, 'erro_pct'].mean() or 0,
+            'Menor que 0': df.loc[df['erro_pct'] < 0, 'erro_pct'].mean() or 0
+        }
+
+        # monta DataFrame com contagem e média
+        pie_df = pd.DataFrame({
+            'Status': list(counts.keys()),
+            'Count': list(counts.values()),
+            'Mean':  [means[k] for k in counts.keys()]
+        })
+
+        # cria o pie com custom_data para a média
+        fig = px.pie(
+            pie_df,
+            names='Status',
+            values='Count',
+            title='Distribuição Erro Pct',
+            custom_data=['Mean']
+        )
+        fig.update_traces(
+            textinfo='label+percent',
+            hovertemplate='%{label}: %{percent}<br>Média erro: %{customdata[0]:.2f}'
+        )
         fig.update_layout(
             plot_bgcolor='#1e1e2f',
             paper_bgcolor='#1e1e2f',
@@ -271,6 +294,7 @@ def register_callbacks_indicadores(app):
             margin=dict(l=20, r=20, t=50, b=20)
         )
         return fig
+
 
 
 # ----------------------------------------------------------------------
