@@ -136,7 +136,8 @@ def layout_indicadores():
                     style_table={"overflowX":"auto"},
                     style_header={"backgroundColor":"#5561ff","color":"#ffffff","fontWeight":"bold"},
                     style_cell={"backgroundColor":"#1e1e2f","color":"#e0e0e0","textAlign":"center","padding":"5px"},
-                    style_data_conditional=[{"if":{"state":"selected"},"backgroundColor":"#5561ff","color":"#ffffff"}]
+                    style_data_conditional=[{"if":{"state":"selected"},"backgroundColor":"#5561ff","color":"#ffffff"}],
+                    sort_action='native' 
                 ), width=8
             ),
             dbc.Col(
@@ -146,6 +147,35 @@ def layout_indicadores():
         ], className='mb-5 align-items-start')
 
     ], fluid=True, style={"padding":"0 1rem"})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -339,7 +369,6 @@ def register_callbacks_indicadores(app):
             pie_df,
             names='Status',
             values='Count',
-            title='Distribuição Erro Percentual',
             custom_data=['Mean']
         )
         fig.update_traces(
@@ -347,6 +376,8 @@ def register_callbacks_indicadores(app):
             hovertemplate='%{label}: %{percent}<br>Média erro: %{customdata[0]:.2f}'
         )
         fig.update_layout(
+            title='Distribuição Erro Percentual',
+            title_font=dict(size=20), 
             plot_bgcolor='#1e1e2f',
             paper_bgcolor='#1e1e2f',
             font=dict(color='#e0e0e0'),
