@@ -36,14 +36,14 @@ Entender melhor como o docker funciona
 
 a intenção é transofrmar a pagina do indicadores em um dashboard mesmo(provavelmente trocar o nome da aba tb), e as outras explorando mais o regressor e recomendador
 
-descobrir oq colocar de informação no indicadores alem do grafico com dropdown, derrepente cards q viram quando passa o mouse, ou algo assim
-
 usar consultas personalizadas q eu tinha feito tb (ABAIXO) #fazendo
 
-trocar pizza pra rosca e colocar cards no meio mostrando a média de erro pra cima e pra baixo # decidindo
+add no dashboard algo usando a nova tabela 'select * from recomendacoes_acoes;', talvez mostrando as q são fortemente recomendadas
 
+na aba de previsões, da pra fazer um jeito do usuario escolher uma ação, e mandar prever pra frente o dia q ele quiser, por padrão no meu banco fica 10 dias,
+mas oq o usuario escolher so mostra pra ele e n salva no banco
 
-
+fazer dps uma aba de pagina inicial, com informações do projeto
 
 
 
