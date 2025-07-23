@@ -304,7 +304,7 @@ def register_callbacks_indicadores(app):
             pie_df,
             names='Status',
             values='Count',
-            title='Distribuição Erro Pct',
+            title='Distribuição Erro Percentual',
             custom_data=['Mean']
         )
         fig.update_traces(
@@ -323,45 +323,91 @@ def register_callbacks_indicadores(app):
         Output("cards-top3-recs", "children"),
         Input("metric-picker", "value")
     )
-    def render_top_recommendations(_):
+    def render_top_recommendations(metrico):
+        # 1) buscar as top 10 ações para o gráfico da métrica selecionada
         conn = get_connection()
-        sql = """
-        SELECT acao, recomendada, nao_recomendada, resultado
-        FROM (
-          SELECT
-            acao,
-            recomendada,
-            nao_recomendada,
-            resultado,
-            ROW_NUMBER() OVER (
-              PARTITION BY acao
-              ORDER BY data_insercao DESC
-            ) AS rn
-          FROM recomendacoes_acoes
-        ) sub
-        WHERE rn = 1
-          AND recomendada < 1
-        ORDER BY recomendada DESC
-        LIMIT 10
-        """
-        df = pd.read_sql(sql, conn)
+        if metrico == "graham":
+            query = """
+                SELECT acao, lpa, vpa, cotacao, pl, roe
+                FROM indicadores_fundamentalistas
+                WHERE data_coleta = (
+                    SELECT MAX(data_coleta) FROM indicadores_fundamentalistas
+                )
+                  AND lpa > 0 AND vpa > 0 AND cotacao > 0
+                  AND pl >= 0 AND roe >= 0
+            """
+            df = pd.read_sql(query, conn)
+            df[["lpa","vpa","cotacao"]] = df[["lpa","vpa","cotacao"]].apply(pd.to_numeric, errors="coerce")
+            df = df.dropna(subset=["lpa","vpa","cotacao"])
+            df["valor_graham"] = np.sqrt(22.5 * df["lpa"] * df["vpa"])
+            df["metrica"] = df["valor_graham"] - df["cotacao"]
+            top_df = df[df["metrica"] > 0].sort_values("metrica", ascending=False).head(10)
+        else:
+            base_query = f"""
+                SELECT acao, {metrico} AS metrica
+                FROM indicadores_fundamentalistas
+                WHERE data_coleta = (
+                    SELECT MAX(data_coleta) FROM indicadores_fundamentalistas
+                ) AND {metrico} IS NOT NULL
+            """
+            if metrico == "dividend_yield":
+                base_query = base_query.replace("WHERE", "WHERE pl >= 0 AND roe >= 0 AND")
+            if metrico == "roe":
+                base_query = base_query.replace("WHERE", "WHERE pl >= 0 AND lpa > 0 AND")
+            df = pd.read_sql(base_query, conn)
+            df["metrica"] = pd.to_numeric(df["metrica"], errors="coerce")
+            df = df.dropna(subset=["metrica"])
+            if metrico == "div_liq_patrimonio":
+                tmp = df.sort_values("metrica").head(10)
+                top_df = tmp.sort_values("metrica", ascending=False)
+            else:
+                top_df = df.sort_values("metrica", ascending=False).head(10)
         conn.close()
 
+        top_actions = top_df["acao"].tolist()
+        if not top_actions:
+            return html.P("Sem dados para o ranking atual", className="text-muted")
+
+        # 2) buscar as recomendações mais recentes dessas ações
+        conn2 = get_connection()
+        placeholders = ", ".join(["%s"] * len(top_actions))
+        sql_recos = f"""
+            SELECT acao, recomendada, nao_recomendada, resultado
+            FROM (
+                SELECT
+                  acao,
+                  recomendada,
+                  nao_recomendada,
+                  resultado,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY acao
+                    ORDER BY data_insercao DESC
+                  ) AS rn
+                FROM recomendacoes_acoes
+                WHERE acao IN ({placeholders})
+            ) sub
+            WHERE rn = 1
+              AND recomendada < 1
+        """
+        recos_df = pd.read_sql(sql_recos, conn2, params=top_actions)
+        conn2.close()
+
+        # 3) reordenar pelos mesmos top_actions
+        recos_df["acao"] = pd.Categorical(recos_df["acao"], categories=top_actions, ordered=True)
+        recos_df = recos_df.sort_values("acao")
+
+        # 4) montar os cards
         cards = []
-        for _, row in df.iterrows():
+        for _, row in recos_df.iterrows():
             cards.append(
                 dbc.Card(
                     [
                         dbc.CardHeader(row["acao"], className="text-center"),
                         dbc.CardBody(
                             [
-                                html.P(f"Recomendada: {row['recomendada']:.4f}", className="card-text"),
-                                html.P(f"Não Recomendada: {row['nao_recomendada']:.4f}", className="card-text"),
-                                html.P(
-                                    row["resultado"],
-                                    className="card-text fst-italic",
-                                    style={"whiteSpace": "pre-wrap"}
-                                )
+                                html.P(f"Recomendada: {row['recomendada'] * 100:.2f}%", className="card-text"),
+                                html.P(f"Não Recomendada: {row['nao_recomendada'] * 100:.2f}%", className="card-text"),
+                                html.P(row["resultado"], className="card-text fst-italic", style={"whiteSpace": "pre-wrap"})
                             ]
                         )
                     ],
@@ -373,18 +419,12 @@ def register_callbacks_indicadores(app):
                 )
             )
 
-        if not cards:
-            return html.P("Sem recomendações disponíveis", className="text-muted")
-
+        # 5) retornar com título e scroll
         return html.Div(
             [
                 html.H5(
-                    "Top 10 ações recomendadas",
-                    style={
-                        "color": "#e0e0e0",
-                        "textAlign": "center",
-                        "marginBottom": "1rem"
-                    }
+                    "Classificação das Ações à Esquerda",
+                    style={"color": "#e0e0e0", "textAlign": "center", "marginBottom": "1rem"}
                 ),
                 *cards
             ],
@@ -394,9 +434,6 @@ def register_callbacks_indicadores(app):
                 "padding": "0 0.5rem"
             }
         )
-
-
-
 
 
 # ----------------------------------------------------------------------
