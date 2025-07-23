@@ -9,3 +9,8 @@ dash==3.0.4
 dash-table==5.0.0
 dash-bootstrap-components==2.0.3
 plotly==6.1.2
+requests==2.32.3
+beautifulsoup4==4.12.3
+schedule==1.2.2
+pywin32==306
+pyodbc==5.1.0
