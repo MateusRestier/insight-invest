@@ -42,106 +42,97 @@ def layout_indicadores():
                 html.Div(
                     id="cards-top3-recs",
                     style={"maxHeight":"450px","overflowY":"scroll","padding":"0 0.5rem"}
-                ),
-                md=4
+                ), md=4
             )
         ]),
 
         # TÍTULO DA TABELA
         dbc.Row([
-            dbc.Col(html.H5("📈 Comparação Preço Previsto x Real", className="mt-4 mb-2"), width=12)
+            dbc.Col(html.H5("📈 Comparação Preço Previsto x Real", className="mb-4"), width=12)
         ]),
 
         # FILTROS TABELA
         dbc.Row([
-            dbc.Col(
-                dcc.Dropdown(
-                    id='filter-data-previsao', options=[], placeholder='Data Previsão',
-                    clearable=True, searchable=True, className='dropdown-dark',
-                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
-                ), width=2
-            ),
-            dbc.Col(
-                dcc.Dropdown(
-                    id='filter-data-calculo', options=[], placeholder='Data Cálculo',
-                    clearable=True, searchable=True, className='dropdown-dark',
-                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
-                ), width=2
-            ),
-            dbc.Col(
-                dcc.Dropdown(
-                    id='filter-acao-ind', options=[], placeholder='Selecione Ação',
-                    clearable=True, searchable=True, className='dropdown-dark',
-                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
-                ), width=2
-            ),
-            dbc.Col(
-                dcc.Dropdown(
-                    id='filter-erro-pct',
-                    options=[
-                        {"label":"Maior que 0","value":"gt0"},
-                        {"label":"Menor que 0","value":"lt0"},
-                        {"label":"Igual a 0","value":"eq0"}
-                    ],
-                    placeholder='Erro %', multi=True,
-                    className='dropdown-dark',
-                    style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}
-                ), width=2
-            )
-        ], className='mb-4'),
+            dbc.Col(dcc.Dropdown(id='filter-data-previsao', options=[], placeholder='Data Previsão', clearable=True,
+                                 searchable=True, className='dropdown-dark',
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2),
+            dbc.Col(dcc.Dropdown(id='filter-data-calculo', options=[], placeholder='Data Cálculo', clearable=True,
+                                 searchable=True, className='dropdown-dark',
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2),
+            dbc.Col(dcc.Dropdown(id='filter-acao-ind', options=[], placeholder='Selecione Ação', clearable=True,
+                                 searchable=True, className='dropdown-dark',
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2),
+            dbc.Col(dcc.Dropdown(id='filter-erro-pct',
+                                 options=[{'label':'Maior que 0','value':'gt0'},{'label':'Menor que 0','value':'lt0'},{'label':'Igual a 0','value':'eq0'}],
+                                 placeholder='Erro %', multi=True, className='dropdown-dark',
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2)
+        ], className='mb-2'),
 
-        # Performance do modelo (restrito à largura da tabela)
+        # Performance do modelo (5 cards flexíveis na largura da tabela)
         dbc.Row([
             dbc.Col(
-                dbc.Row([
-                    dbc.Col(
+                html.Div(
+                    [
                         dbc.Card(
-                            dbc.CardBody(
-                                [html.Span("MAE", className="fw-bold"), html.Span(id="card-mae")],
-                                className="d-flex justify-content-between align-items-center",
-                                style={"padding":"0 0.5rem"}
-                            ),
-                            className="mb-2",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","padding":0}
+                            dbc.CardBody([
+                                html.Span("MAE", className="fw-bold"), html.Span(id="card-mae")
+                            ], className="d-flex justify-content-between align-items-center",
+                              style={"padding":"0 1rem"}),
+                            id="card-mae-container",
+                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
                         ),
-                        width=4
-                    ),
-                    dbc.Col(
                         dbc.Card(
-                            dbc.CardBody(
-                                [html.Span("MSE", className="fw-bold"), html.Span(id="card-mse")],
-                                className="d-flex justify-content-between align-items-center",
-                                style={"padding":"0 0.5rem"}
-                            ),
-                            className="mb-2",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","padding":0}
+                            dbc.CardBody([
+                                html.Span("MSE", className="fw-bold"), html.Span(id="card-mse")
+                            ], className="d-flex justify-content-between align-items-center",
+                              style={"padding":"0 1rem"}),
+                            id="card-mse-container",
+                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
                         ),
-                        width=4
-                    ),
-                    dbc.Col(
                         dbc.Card(
-                            dbc.CardBody(
-                                [html.Span("R²", className="fw-bold"), html.Span(id="card-r2")],
-                                className="d-flex justify-content-between align-items-center",
-                                style={"padding":"0 0.5rem"}
-                            ),
-                            className="mb-2",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","padding":0}
+                            dbc.CardBody([
+                                html.Span("RMSE", className="fw-bold"), html.Span(id="card-rmse")
+                            ], className="d-flex justify-content-between align-items-center",
+                              style={"padding":"0 1rem"}),
+                            id="card-rmse-container",
+                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
                         ),
-                        width=4
-                    ),
-                ], className="g-2", align="center"),
+                        dbc.Card(
+                            dbc.CardBody([
+                                html.Span("R²", className="fw-bold"), html.Span(id="card-r2")
+                            ], className="d-flex justify-content-between align-items-center",
+                              style={"padding":"0 1rem"}),
+                            id="card-r2-container",
+                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
+                        ),
+                        dbc.Card(
+                            dbc.CardBody([
+                                html.Span("MAPE", className="fw-bold"), html.Span(id="card-mape")
+                            ], className="d-flex justify-content-between align-items-center",
+                              style={"padding":"0 1rem"}),
+                            id="card-mape-container",
+                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
+                        )
+                    ],
+                    style={"display":"flex","justifyContent":"space-between","alignItems":"center"}
+                ),
                 md=8
             ),
             dbc.Col(width=4),
-        ], className='mb-4'),
+        ], className='mb-2'),
+        # Tooltips para explicação
+        dbc.Tooltip("MAE (Mean Absolute Error): média dos erros absolutos entre preços previstos e reais.", target="card-mae-container", placement="top"),
+        dbc.Tooltip("MSE (Mean Squared Error): média dos quadrados dos erros entre preços previstos e reais.", target="card-mse-container", placement="top"),
+        dbc.Tooltip("RMSE (Root Mean Squared Error): raiz do MSE, erro médio ponderado.", target="card-rmse-container", placement="top"),
+        dbc.Tooltip("R² (Coeficiente de Determinação): proporção da variância do preço real explicada.", target="card-r2-container", placement="top"),
+        dbc.Tooltip("MAPE (Mean Absolute Percentage Error): erro percentual médio.", target="card-mape-container", placement="top"),
 
-        # TABELA E PIE CHART
+        # Tooltips para explicação
+    
         dbc.Row([
             dbc.Col(
                 dash_table.DataTable(
-                    id="table-previsto-real",
-                    page_size=10,
+                    id="table-previsto-real", page_size=10,
                     style_table={"overflowX":"auto"},
                     style_header={"backgroundColor":"#5561ff","color":"#ffffff","fontWeight":"bold"},
                     style_cell={"backgroundColor":"#1e1e2f","color":"#e0e0e0","textAlign":"center","padding":"5px"},
@@ -149,12 +140,14 @@ def layout_indicadores():
                 ), width=8
             ),
             dbc.Col(
-                dcc.Graph(id='pie-error-dist', config={'displayModeBar':False}, style={'marginTop':'-50px'}),
+                dcc.Graph(id='pie-error-dist', config={'displayModeBar': False}, style={'marginTop':'-50px'}),
                 width=4
             )
-        ], className='mb-5 align-items-start'),
+        ], className='mb-5 align-items-start')
 
     ], fluid=True, style={"padding":"0 1rem"})
+
+
 
 # ----------------------------------------------------------------------
 # Callbacks da página "Indicadores"
@@ -478,43 +471,62 @@ def register_callbacks_indicadores(app):
         )
     
     @app.callback(
-        Output("card-mae", "children"),
-        Output("card-mse", "children"),
-        Output("card-r2", "children"),
-        Input("metric-picker", "value")  # ou qualquer outro Input que dispare atualização
+        Output("card-mae",   "children"),
+        Output("card-mse",   "children"),
+        Output("card-rmse",  "children"),
+        Output("card-r2",    "children"),
+        Output("card-mape",  "children"),
+        Input("filter-data-previsao", "value"),
+        Input("filter-data-calculo",  "value"),
+        Input("filter-acao-ind",      "value"),
+        Input("filter-erro-pct",      "value")
     )
-    def update_performance_cards(_):
-        sql = """
-        WITH comparacao AS (
-            SELECT
-                r.preco_previsto - i.cotacao AS erro,
-                POWER(r.preco_previsto - i.cotacao, 2) AS erro_quadrado,
-                i.cotacao AS preco_real
-            FROM resultados_precos r
-            JOIN indicadores_fundamentalistas i
-              ON r.acao = i.acao
-             AND r.data_previsao = i.data_coleta
-            WHERE i.cotacao IS NOT NULL
+    def update_performance_cards(data_prev, data_calc, acao_sel, erro_sel):
+        # busca os dados de comparação
+        df = _get_comparison_df()
+
+        # aplica filtros iguais aos da tabela
+        if data_prev:
+            df = df[df["data_previsao"] == data_prev]
+        if data_calc:
+            df = df[df["data_calculo"]  == data_calc]
+        if acao_sel:
+            df = df[df["acao"] == acao_sel]
+        if erro_sel:
+            masks = []
+            if "gt0" in erro_sel: masks.append(df["erro_pct"] > 0)
+            if "lt0" in erro_sel: masks.append(df["erro_pct"] < 0)
+            if "eq0" in erro_sel: masks.append(df["erro_pct"] == 0)
+            df = df[np.logical_or.reduce(masks)]
+
+        # se não houver dados, exibe traço
+        if df.empty:
+            return "–", "–", "–", "–", "–"
+
+        # cálculos
+        errors = df["preco_previsto"] - df["preco_real"]
+        mae  = errors.abs().mean()
+        mse  = (errors ** 2).mean()
+        rmse = np.sqrt(mse)
+        mape = (errors.abs() / df["preco_real"]).mean() * 100
+
+        y_true = df["preco_real"]
+        y_pred = df["preco_previsto"]
+        ss_res = ((y_true - y_pred) ** 2).sum()
+        ss_tot = ((y_true - y_true.mean()) ** 2).sum()
+        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else 0
+
+        # formatação
+        return (
+            f"{mae:.6f}",
+            f"{mse:.6f}",
+            f"{rmse:.6f}",
+            f"{r2 * 100:.2f}%",
+            f"{mape:.2f}%"
         )
-        SELECT
-            ROUND(AVG(ABS(erro)), 6) AS mae_real,
-            ROUND(AVG(erro_quadrado), 6) AS mse_real,
-            ROUND(
-                1 - SUM(erro_quadrado)
-                    / NULLIF(SUM(POWER(preco_real - (SELECT AVG(preco_real) FROM comparacao), 2)), 0),
-                6
-            ) AS r2_real
-        FROM comparacao;
-        """
-        conn = get_connection()
-        perf = pd.read_sql(sql, conn).iloc[0]
-        conn.close()
 
-        mae = f"{perf.mae_real:.6f}"
-        mse = f"{perf.mse_real:.6f}"
-        r2  = f"{perf.r2_real * 100:.2f}%"
+    
 
-        return mae, mse, r2
 
 # ----------------------------------------------------------------------
 # Helpers
