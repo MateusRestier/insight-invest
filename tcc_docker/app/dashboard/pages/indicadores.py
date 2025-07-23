@@ -40,7 +40,7 @@ def layout_indicadores():
             dbc.Col(dcc.Graph(id="grafico-top-metric"), md=8),
             dbc.Col(
                 html.Div(
-                    id="cards-top3-recs",
+                    id="cards-top10-recs",
                     style={"maxHeight":"450px","overflowY":"scroll","padding":"0 0.5rem"}
                 ), md=4
             )
@@ -71,55 +71,48 @@ def layout_indicadores():
         # Performance do modelo (5 cards flexíveis na largura da tabela)
         dbc.Row([
             dbc.Col(
-                html.Div(
-                    [
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.Span("MAE", className="fw-bold"), html.Span(id="card-mae")
-                            ], className="d-flex justify-content-between align-items-center",
-                              style={"padding":"0 1rem"}),
-                            id="card-mae-container",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                        ),
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.Span("MSE", className="fw-bold"), html.Span(id="card-mse")
-                            ], className="d-flex justify-content-between align-items-center",
-                              style={"padding":"0 1rem"}),
-                            id="card-mse-container",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                        ),
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.Span("RMSE", className="fw-bold"), html.Span(id="card-rmse")
-                            ], className="d-flex justify-content-between align-items-center",
-                              style={"padding":"0 1rem"}),
-                            id="card-rmse-container",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                        ),
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.Span("R²", className="fw-bold"), html.Span(id="card-r2")
-                            ], className="d-flex justify-content-between align-items-center",
-                              style={"padding":"0 1rem"}),
-                            id="card-r2-container",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                        ),
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.Span("MAPE", className="fw-bold"), html.Span(id="card-mape")
-                            ], className="d-flex justify-content-between align-items-center",
-                              style={"padding":"0 1rem"}),
-                            id="card-mape-container",
-                            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                        )
-                    ],
-                    style={"display":"flex","justifyContent":"space-between","alignItems":"center"}
-                ),
-                md=8
+                html.Div([
+                    dbc.Card(
+                        dbc.CardBody([html.Span("MAE", className="fw-bold"), html.Span(id="card-mae")],
+                                     className="d-flex justify-content-between align-items-center",
+                                     style={"padding":"0 1rem"}),
+                        id="card-mae-container",
+                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
+                    ),
+                    dbc.Card(
+                        dbc.CardBody([html.Span("MSE", className="fw-bold"), html.Span(id="card-mse")],
+                                     className="d-flex justify-content-between align-items-center",
+                                     style={"padding":"0 1rem"}),
+                        id="card-mse-container",
+                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
+                    ),
+                    dbc.Card(
+                        dbc.CardBody([html.Span("RMSE", className="fw-bold"), html.Span(id="card-rmse")],
+                                     className="d-flex justify-content-between align-items-center",
+                                     style={"padding":"0 1rem"}),
+                        id="card-rmse-container",
+                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
+                    ),
+                    dbc.Card(
+                        dbc.CardBody([html.Span("R²", className="fw-bold"), html.Span(id="card-r2")],
+                                     className="d-flex justify-content-between align-items-center",
+                                     style={"padding":"0 1rem"}),
+                        id="card-r2-container",
+                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
+                    ),
+                    dbc.Card(
+                        dbc.CardBody([html.Span("MAPE", className="fw-bold"), html.Span(id="card-mape")],
+                                     className="d-flex justify-content-between align-items-center",
+                                     style={"padding":"0 1rem"}),
+                        id="card-mape-container",
+                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
+                    ),
+                ], style={"display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center"}),
+                md=8, sm=12  # Em telas médias e grandes, ocupará 8/12 do espaço, em telas pequenas, ocupará todo o espaço
             ),
             dbc.Col(width=4),
-        ], className='mb-2'),
+        ], className='mb-4'),
+
         # Tooltips para explicação
         dbc.Tooltip("MAE (Mean Absolute Error): média dos erros absolutos entre preços previstos e reais.", target="card-mae-container", placement="top"),
         dbc.Tooltip("MSE (Mean Squared Error): média dos quadrados dos erros entre preços previstos e reais.", target="card-mse-container", placement="top"),
@@ -386,7 +379,7 @@ def register_callbacks_indicadores(app):
         return fig
 
     @app.callback(
-        Output("cards-top3-recs", "children"),
+        Output("cards-top10-recs", "children"),
         Input("metric-picker", "value")
     )
     def render_top_recommendations(metrico):

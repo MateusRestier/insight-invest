@@ -42,33 +42,3 @@ mas oq o usuario escolher so mostra pra ele e n salva no banco
 fazer dps uma aba de pagina inicial, com informações do projeto
 
 EMBELEZAR A ABA DE ANALISE DE DADOS
-
-USAR ESSE CONSULTA NUM CARD OU ALGO DO TIPO:
-WITH comparacao AS (
-    SELECT
-        r.acao,
-        r.data_calculo,
-        r.data_previsao,
-        r.preco_previsto,
-        i.cotacao AS preco_real,
-        (r.preco_previsto - i.cotacao) AS erro,
-        POWER(r.preco_previsto - i.cotacao, 2) AS erro_quadrado
-    FROM
-        resultados_precos r
-    LEFT JOIN
-        indicadores_fundamentalistas i
-        ON r.acao = i.acao
-        AND r.data_previsao = i.data_coleta
-    WHERE
-        i.cotacao IS NOT NULL
-)
-SELECT
-    COUNT(*) AS total_registros,
-    ROUND(AVG(ABS(erro)), 6) AS mae_real,
-    ROUND(AVG(erro_quadrado), 6) AS mse_real,
-    ROUND(
-        1 - SUM(erro_quadrado) / NULLIF(SUM(POWER(preco_real - (SELECT AVG(preco_real) FROM comparacao), 2)), 0),
-        6
-    ) AS r2_real
-FROM
-    comparacao;
