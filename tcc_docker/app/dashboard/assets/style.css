@@ -6,9 +6,6 @@ body {
     color: #e0e0e0;
 }
 
-
-
-
 /* ========================================================= */
 /* NAVBAR                                                    */
 /* ========================================================= */
@@ -31,14 +28,23 @@ body {
     .navbar .navbar-brand {
         font-size: 1rem;
     }
-    /* Adiciona um pequeno espaço ao redor do texto das abas no menu hamburguer */
-    .navbar .nav-link {
-        padding-left: 10px; /* Ajusta o espaço à esquerda */
-        padding-right: 10px; /* Ajusta o espaço à direita */
+
+    /* Adiciona espaçamento adequado entre os botões de navegação no menu hamburguer */
+    .navbar .nav-item {
+        margin-bottom: 8px; /* Aumenta o espaço entre os botões */
     }
-    /* Adiciona margem inferior ao ícone de hambúrguer nas versões de telefone */
+
+    /* Ajusta o padding dos links */
+    .navbar .nav-link {
+        padding-left: 15px;
+        padding-right: 15px;
+        display: block; /* Faz com que os links se empilhem verticalmente */
+    }
+
+    /* Adiciona espaço entre o hambúrguer e as abas quando o menu é aberto */
     .navbar-toggler {
-        margin-bottom: 10px; /* Adiciona um pequeno espaço entre o hambúrguer e as abas */
+        margin-bottom: 10px;
+        margin-right: 10px;
     }
 }
 
@@ -54,7 +60,7 @@ body {
     }
 
     .navbar-toggler {
-        margin-left: 0;  /* Remove qualquer margem à esquerda do botão hamburguer */
+        margin-left: 0;  /* Remove qualquer margem à esquerda do botão hambúrguer */
     }
 }
 
@@ -96,6 +102,9 @@ body {
     box-shadow: 0 0 10px 4px #5561ff;
     transition: box-shadow 0.3s ease-in-out;
 }
+
+
+
 
 
 
