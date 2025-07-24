@@ -141,37 +141,6 @@ def layout_indicadores():
 
     ], fluid=True, style={"padding":"0 1rem"})
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ----------------------------------------------------------------------
 # Callbacks da página "Indicadores"
 # ----------------------------------------------------------------------
@@ -236,14 +205,18 @@ def register_callbacks_indicadores(app):
             fig = px.bar(
                 df,
                 x='acao', y='metrica', text='metrica',
-                labels={'acao':'Ação', 'metrica': y_label},
+                labels={'acao':'', 'metrica': y_label},
                 category_orders={'acao': df['acao'].tolist()}
             )
             fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
             fig.update_layout(
                 margin=dict(l=24, r=24, t=40, b=24),
                 plot_bgcolor='#1e1e2f', paper_bgcolor='#1e1e2f',
-                font=dict(color='#e0e0e0')
+                font=dict(color='#e0e0e0'),
+                yaxis=dict(
+                    showgrid=True,
+                    gridcolor='rgba(255,255,255,0.2)'  # linhas horizontais com transparência
+                )
             )
             return fig
 

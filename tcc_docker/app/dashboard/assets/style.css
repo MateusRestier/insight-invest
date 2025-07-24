@@ -12,110 +12,121 @@ body {
 .navbar {
     background-color: #2c2c3e !important;
     margin-bottom: 0.5rem;
-    width: 100%;  /* Garante que a navbar ocupe 100% da largura da tela */
-    padding: 0 1rem;  /* Define o padding para o interior da navbar */
+    width: 100%;
+    padding: 0 1rem;
 }
-
-/* Responsividade do título */
 .navbar .navbar-brand {
     word-wrap: break-word;
     white-space: normal;
     text-align: center;
     font-size: 1.2rem;
 }
-
 @media (max-width: 576px) {
     .navbar .navbar-brand {
         font-size: 1rem;
     }
-
-    /* Adiciona espaçamento adequado entre os botões de navegação no menu hamburguer */
     .navbar .nav-item {
-        margin-bottom: 8px; /* Aumenta o espaço entre os botões */
+        margin-bottom: 8px;
     }
-
-    /* Ajusta o padding dos links */
     .navbar .nav-link {
         padding-left: 15px;
         padding-right: 15px;
-        display: block; /* Faz com que os links se empilhem verticalmente */
+        display: block;
     }
-
-    /* Adiciona espaço entre o hambúrguer e as abas quando o menu é aberto */
     .navbar-toggler {
         margin-bottom: 10px;
         margin-right: 10px;
     }
 }
-
-/* Ajusta a posição dos itens do menu hamburguer para a esquerda */
 @media (max-width: 576px) {
     .navbar-collapse {
-        justify-content: flex-start !important;  /* Alinha os itens à esquerda */
-        width: 100%;  /* Garante que os itens ocupem toda a largura disponível */
+        justify-content: flex-start !important;
+        width: 100%;
     }
-    
     .navbar-nav {
-        width: 100%;  /* Garante que os itens ocupem toda a largura disponível */
+        width: 100%;
     }
-
     .navbar-toggler {
-        margin-left: 0;  /* Remove qualquer margem à esquerda do botão hambúrguer */
+        margin-left: 0;
     }
 }
 
-/* ABAS PERSONALIZADAS */
+/* ========================================================= */
+/* ABAS PERSONALIZADAS                                       */
+/* ========================================================= */
 .nav-tabs .nav-link {
     background-color: #2c2c3e;
     color: #ccc;
     border: none;
     margin-right: 2px;
 }
-
 .nav-tabs .nav-link.active {
     background-color: #1e1e2f;
     color: #fff;
     font-weight: bold;
     border-bottom: 3px solid #5561ff;
 }
-
-/* Forçando cor de fundo/borda para aba ativa */
 .navbar .nav-link.active {
     background-color: #5561ff !important;
     color: white !important;
     border: 2px solid #5561ff !important;
 }
-
 .navbar .nav-link {
     background-color: #2c2c3e;
     color: #ccc;
     border: none;
     margin-right: 2px;
 }
-
 .navbar .nav-link:hover {
     box-shadow: 0 0 10px 2px #5561ff;
     transition: box-shadow 0.3s ease-in-out;
 }
-
 .navbar .nav-link.active:hover {
     box-shadow: 0 0 10px 4px #5561ff;
     transition: box-shadow 0.3s ease-in-out;
 }
 
+/* ========================================================= */
+/* GRÁFICOS - Responsividade para gráficos                   */
+/* ========================================================= */
+@media (max-width: 576px) {
+    .graph-container {
+        width: 100%;
+    }
+    .dash-graph-container .dcc-graph {
+        height: 300px;
+    }
+}
+@media (max-width: 768px) {
+    .dash-graph-container {
+        height: 350px;
+    }
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
+/* ========================================================= */
+/* CARDS - Responsividade para os cards de recomendação      */
+/* ========================================================= */
+@media (max-width: 576px) {
+    .cards-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .card {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}
+@media (max-width: 768px) {
+    .cards-top10-recs {
+        width: 100%;
+        margin-top: 20px;
+    }
+    .card {
+        flex: 1;
+        margin-right: 0;
+    }
+}
 
 /* ========================================================= */
 /* CARTÕES                                                   */
