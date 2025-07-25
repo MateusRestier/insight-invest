@@ -136,6 +136,7 @@ body {
     color: #e0e0e0;
     border: none;
     border-radius: 8px;
+    min-height: 40px; /* Garante altura mínima, mas permite ajuste automático */
 }
 .card-title {
     color: #bbb;
@@ -255,4 +256,67 @@ hr {
 .dropdown-dark .Select-option.is-selected {
   background-color: #5561ff !important;
   color: #ffffff !important;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 576px) {
+  .filtros-indicadores .col {
+    padding: 0.25rem;
+  }
+  #pie-error-dist {
+    height: 250px !important;
+  }
+}
+
+/* ========================================================= */
+/* CARTÕES DE PERFORMANCE                                     */
+/* ========================================================= */
+.performance-cards-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    box-sizing: border-box;
+}
+.performance-cards-row .col {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box;
+}
+.performance-cards-row .card {
+    flex: 1 1 0;
+    margin: 0;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+/* Empilhar em telas pequenas */
+@media (max-width: 900px) {
+    .performance-cards-row {
+        flex-wrap: wrap;
+    }
+    .performance-cards-row .col {
+        flex: 1 1 50%;
+        min-width: 200px;
+        margin-bottom: 1rem;
+    }
+}
+@media (max-width: 600px) {
+    .performance-cards-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .performance-cards-row .col {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
 }

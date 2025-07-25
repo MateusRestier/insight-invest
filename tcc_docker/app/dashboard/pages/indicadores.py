@@ -11,7 +11,51 @@ from db_connection import get_connection
 # Layout da página "Indicadores"
 # ----------------------------------------------------------------------
 def layout_indicadores():
-    return dbc.Container([
+    # Cards de performance para facilitar grid responsivo
+    performance_cards = [
+        dbc.Card(
+            dbc.CardBody([
+                html.Span("MAE", className="fw-bold"),
+                html.Span(id="card-mae")
+            ], className="d-flex justify-content-between align-items-center", style={"padding":"0 1rem"}),
+            id="card-mae-container",
+            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px"}
+        ),
+        dbc.Card(
+            dbc.CardBody([
+                html.Span("MSE", className="fw-bold"),
+                html.Span(id="card-mse")
+            ], className="d-flex justify-content-between align-items-center", style={"padding":"0 1rem"}),
+            id="card-mse-container",
+            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px"}
+        ),
+        dbc.Card(
+            dbc.CardBody([
+                html.Span("RMSE", className="fw-bold"),
+                html.Span(id="card-rmse")
+            ], className="d-flex justify-content-between align-items-center", style={"padding":"0 1rem"}),
+            id="card-rmse-container",
+            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px"}
+        ),
+        dbc.Card(
+            dbc.CardBody([
+                html.Span("R²", className="fw-bold"),
+                html.Span(id="card-r2")
+            ], className="d-flex justify-content-between align-items-center", style={"padding":"0 1rem"}),
+            id="card-r2-container",
+            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px"}
+        ),
+        dbc.Card(
+            dbc.CardBody([
+                html.Span("MAPE", className="fw-bold"),
+                html.Span(id="card-mape")
+            ], className="d-flex justify-content-between align-items-center", style={"padding":"0 1rem"}),
+            id="card-mape-container",
+            style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px"}
+        ),
+    ]
+
+    return dbc.Container(fluid=True, children=[
         html.H3("📊 Indicadores Fundamentalistas", className="mb-4"),
 
         # SELECT + GRÁFICO
@@ -31,87 +75,52 @@ def layout_indicadores():
                     className="mb-3 dropdown-dark",
                     style={"color":"#e0e0e0","backgroundColor":"#1e1e2f","borderColor":"#444"}
                 ),
-                md=4
+                xs=12, sm=12, md=4
             )
         ]),
 
-        # Gráfico + Cards de recomendações
+        # Top-10 e recomendações
         dbc.Row([
-            dbc.Col(dcc.Graph(id="grafico-top-metric"), md=8),
+            dbc.Col(dcc.Graph(id="grafico-top-metric"), xs=12, md=8),
             dbc.Col(
                 html.Div(
                     id="cards-top10-recs",
                     style={"maxHeight":"450px","overflowY":"scroll","padding":"0 0.5rem"}
-                ), md=4
+                ), xs=12, md=4
             )
-        ]),
+        ], className="mb-4"),
 
         # TÍTULO DA TABELA
         dbc.Row([
             dbc.Col(html.H5("📈 Comparação Preço Previsto x Real", className="mb-4"), width=12)
         ]),
 
-        # FILTROS TABELA
+        # FILTROS TABELA (logo abaixo do título da tabela)
         dbc.Row([
             dbc.Col(dcc.Dropdown(id='filter-data-previsao', options=[], placeholder='Data Previsão', clearable=True,
                                  searchable=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2),
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3),
             dbc.Col(dcc.Dropdown(id='filter-data-calculo', options=[], placeholder='Data Cálculo', clearable=True,
                                  searchable=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2),
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3),
             dbc.Col(dcc.Dropdown(id='filter-acao-ind', options=[], placeholder='Selecione Ação', clearable=True,
                                  searchable=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2),
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3),
             dbc.Col(dcc.Dropdown(id='filter-erro-pct',
                                  options=[{'label':'Maior que 0','value':'gt0'},{'label':'Menor que 0','value':'lt0'},{'label':'Igual a 0','value':'eq0'}],
                                  placeholder='Erro %', multi=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), width=2)
-        ], className='mb-2'),
+                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3)
+        ], className='g-2 filtros-indicadores mb-4'),
 
-        # Performance do modelo (5 cards flexíveis na largura da tabela)
-        dbc.Row([
-            dbc.Col(
-                html.Div([
-                    dbc.Card(
-                        dbc.CardBody([html.Span("MAE", className="fw-bold"), html.Span(id="card-mae")],
-                                     className="d-flex justify-content-between align-items-center",
-                                     style={"padding":"0 1rem"}),
-                        id="card-mae-container",
-                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                    ),
-                    dbc.Card(
-                        dbc.CardBody([html.Span("MSE", className="fw-bold"), html.Span(id="card-mse")],
-                                     className="d-flex justify-content-between align-items-center",
-                                     style={"padding":"0 1rem"}),
-                        id="card-mse-container",
-                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                    ),
-                    dbc.Card(
-                        dbc.CardBody([html.Span("RMSE", className="fw-bold"), html.Span(id="card-rmse")],
-                                     className="d-flex justify-content-between align-items-center",
-                                     style={"padding":"0 1rem"}),
-                        id="card-rmse-container",
-                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                    ),
-                    dbc.Card(
-                        dbc.CardBody([html.Span("R²", className="fw-bold"), html.Span(id="card-r2")],
-                                     className="d-flex justify-content-between align-items-center",
-                                     style={"padding":"0 1rem"}),
-                        id="card-r2-container",
-                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                    ),
-                    dbc.Card(
-                        dbc.CardBody([html.Span("MAPE", className="fw-bold"), html.Span(id="card-mape")],
-                                     className="d-flex justify-content-between align-items-center",
-                                     style={"padding":"0 1rem"}),
-                        id="card-mape-container",
-                        style={"backgroundColor":"#2c2c3e","color":"#e0e0e0","height":"40px","flex":"1","margin":"0 0.25rem"}
-                    ),
-                ], style={"display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center"}),
-                md=8, sm=12  # Em telas médias e grandes, ocupará 8/12 do espaço, em telas pequenas, ocupará todo o espaço
+        # Performance do modelo (cards responsivos, ocupando toda a largura)
+        dbc.Row(
+            html.Div(
+                performance_cards,
+                className="performance-cards-row g-2 mb-4",
+                style={"width": "100%", "margin": "0"}
             ),
-            dbc.Col(width=4),
-        ], className='mb-4'),
+            className="mb-4"
+        ),
 
         # Tooltips para explicação
         dbc.Tooltip("MAE (Mean Absolute Error): média dos erros absolutos entre preços previstos e reais.", target="card-mae-container", placement="top"),
@@ -120,26 +129,28 @@ def layout_indicadores():
         dbc.Tooltip("R² (Coeficiente de Determinação): proporção da variância do preço real explicada.", target="card-r2-container", placement="top"),
         dbc.Tooltip("MAPE (Mean Absolute Percentage Error): erro percentual médio.", target="card-mape-container", placement="top"),
 
-        # Tooltips para explicação
-    
+        # Tabela e gráfico de pizza responsivos
         dbc.Row([
             dbc.Col(
-                dash_table.DataTable(
-                    id="table-previsto-real", page_size=10,
-                    style_table={"overflowX":"auto"},
-                    style_header={"backgroundColor":"#5561ff","color":"#ffffff","fontWeight":"bold"},
-                    style_cell={"backgroundColor":"#1e1e2f","color":"#e0e0e0","textAlign":"center","padding":"5px"},
-                    style_data_conditional=[{"if":{"state":"selected"},"backgroundColor":"#5561ff","color":"#ffffff"}],
-                    sort_action='native' 
-                ), width=8
+                html.Div(
+                    dash_table.DataTable(
+                        id="table-previsto-real", page_size=10,
+                        style_table={"minWidth": "100%"},
+                        style_header={"backgroundColor":"#5561ff","color":"#ffffff","fontWeight":"bold"},
+                        style_cell={"backgroundColor":"#1e1e2f","color":"#e0e0e0","textAlign":"center","padding":"5px","whiteSpace":"normal","height":"auto"},
+                        style_data_conditional=[{"if":{"state":"selected"},"backgroundColor":"#5561ff","color":"#ffffff"}],
+                        sort_action='native'
+                    ),
+                    className="table-responsive"
+                ),
+                xs=12, lg=8
             ),
             dbc.Col(
-                dcc.Graph(id='pie-error-dist', config={'displayModeBar': False}, style={'marginTop':'-50px'}),
-                width=4
+                dcc.Graph(id='pie-error-dist', config={'displayModeBar': False}, style={'marginTop':'10px'}),
+                xs=12, lg=4
             )
         ], className='mb-5 align-items-start')
-
-    ], fluid=True, style={"padding":"0 1rem"})
+    ])
 
 # ----------------------------------------------------------------------
 # Callbacks da página "Indicadores"
