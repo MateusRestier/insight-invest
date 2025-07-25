@@ -1,14 +1,48 @@
 /* ========================================================= */
-/* DARK MODE ESTRUTURAL                                      */
+/* ===================== GLOBAL ============================ */
 /* ========================================================= */
+
+/* --- Estrutura e Cores Gerais --- */
 body {
     background-color: #1e1e2f;
     color: #e0e0e0;
 }
+hr {
+    border-top: 1px solid #444;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 4px;
+}
+
+/* --- Inputs e Selects Gerais --- */
+input[type="text"],
+select,
+textarea {
+    background-color: #2c2c3e;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+/* --- Tabelas Responsivas --- */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* ========================================================= */
-/* NAVBAR                                                    */
+/* ===================== NAVBAR ============================ */
 /* ========================================================= */
+
+/* --- Navbar Principal --- */
 .navbar {
     background-color: #2c2c3e !important;
     margin-bottom: 0.5rem;
@@ -51,9 +85,7 @@ body {
     }
 }
 
-/* ========================================================= */
-/* ABAS PERSONALIZADAS                                       */
-/* ========================================================= */
+/* --- Navbar Links e Abas --- */
 .nav-tabs .nav-link {
     background-color: #2c2c3e;
     color: #ccc;
@@ -87,134 +119,10 @@ body {
 }
 
 /* ========================================================= */
-/* GRÁFICOS - Responsividade para gráficos                   */
+/* ============ INDICADORES FUNDAMENTALISTAS =============== */
 /* ========================================================= */
-@media (max-width: 576px) {
-    .graph-container {
-        width: 100%;
-    }
-    .dash-graph-container .dcc-graph {
-        height: 300px;
-    }
-}
-@media (max-width: 768px) {
-    .dash-graph-container {
-        height: 350px;
-    }
-}
 
-/* ========================================================= */
-/* CARDS - Responsividade para os cards de recomendação      */
-/* ========================================================= */
-@media (max-width: 576px) {
-    .cards-container {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-    .card {
-        width: 100%;
-        margin-bottom: 1rem;
-    }
-}
-@media (max-width: 768px) {
-    .cards-top10-recs {
-        width: 100%;
-        margin-top: 20px;
-    }
-    .card {
-        flex: 1;
-        margin-right: 0;
-    }
-}
-
-/* ========================================================= */
-/* CARTÕES                                                   */
-/* ========================================================= */
-.card {
-    background-color: #2c2c3e;
-    color: #e0e0e0;
-    border: none;
-    border-radius: 8px;
-    min-height: 40px; /* Garante altura mínima, mas permite ajuste automático */
-}
-.card-title {
-    color: #bbb;
-}
-.card-text {
-    color: #fff;
-}
-
-/* ========================================================= */
-/* DATATABLE                                                 */
-/* ========================================================= */
-.dash-table-container .dash-spreadsheet-container {
-    background-color: #1e1e2f;
-    color: #e0e0e0;
-}
-.dash-table-container .dash-spreadsheet-container .dash-cell {
-    background-color: #2c2c3e !important;
-    color: #e0e0e0 !important;
-    border: 1px solid #444;
-}
-.dash-table-container .dash-header {
-    background-color: #3a3a50 !important;
-    color: #ffffff !important;
-    font-weight: bold;
-}
-
-/* ========================================================= */
-/* INPUTS                                                    */
-/* ========================================================= */
-input[type="text"],
-select,
-textarea {
-    background-color: #2c2c3e;
-    color: #e0e0e0;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 5px;
-}
-
-/* ========================================================= */
-/* SCROLLBAR OPCIONAL                                        */
-/* ========================================================= */
-::-webkit-scrollbar {
-    width: 8px;
-}
-::-webkit-scrollbar-thumb {
-    background-color: #444;
-    border-radius: 4px;
-}
-
-/* ========================================================= */
-/* BOTÕES DE AÇÃO                                            */
-/* ========================================================= */
-.btn-botaoacao {
-    background-color: #5561ff !important;
-    border-color: #5561ff !important;
-    color: #ffffff !important;
-    transition: filter 0.15s ease, border-color 0.15s ease;
-}
-.btn-botaoacao:hover {
-    filter: brightness(1.1);
-    border-color: #6c75ff !important;
-}
-.btn-botaoacao:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* ========================================================= */
-/* GERAL / GLOBAL                                            */
-/* ========================================================= */
-hr {
-    border-top: 1px solid #444;
-}
-
-/* ========================================================= */
-/* FILTROS - BOOTSTRAP SELECT (dbc.Select)                   */
-/* ========================================================= */
+/* --- Filtros e Dropdowns --- */
 .dropdown-dark select {
   background-color: #1e1e2f !important;
   color: #e0e0e0 !important;
@@ -228,10 +136,7 @@ hr {
   background-color: #5561ff !important;
   color: #ffffff !important;
 }
-
-/* ========================================================= */
-/* FILTROS - REACT-SELECT v1 (dcc.Dropdown)                  */
-/* ========================================================= */
+/* dcc.Dropdown (react-select v1) */
 .dropdown-dark .Select-control {
   background-color: #1e1e2f !important;
   border-color: #444 !important;
@@ -257,13 +162,6 @@ hr {
   background-color: #5561ff !important;
   color: #ffffff !important;
 }
-
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 @media (max-width: 576px) {
   .filtros-indicadores .col {
     padding: 0.25rem;
@@ -273,9 +171,7 @@ hr {
   }
 }
 
-/* ========================================================= */
-/* CARTÕES DE PERFORMANCE                                     */
-/* ========================================================= */
+/* --- Cartões de Performance --- */
 .performance-cards-row {
     display: flex;
     justify-content: space-between;
@@ -298,8 +194,6 @@ hr {
     box-sizing: border-box;
     min-width: 0;
 }
-
-/* Empilhar em telas pequenas */
 @media (max-width: 900px) {
     .performance-cards-row {
         flex-wrap: wrap;
@@ -319,4 +213,104 @@ hr {
         flex: 1 1 100%;
         min-width: 0;
     }
+}
+
+/* --- Cartões de Recomendação (Top 10) --- */
+@media (max-width: 576px) {
+    .cards-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .card {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}
+@media (max-width: 768px) {
+    .cards-top10-recs {
+        width: 100%;
+        margin-top: 20px;
+    }
+    .card {
+        flex: 1;
+        margin-right: 0;
+    }
+}
+
+/* --- Cartões Gerais --- */
+.card {
+    background-color: #2c2c3e;
+    color: #e0e0e0;
+    border: none;
+    border-radius: 8px;
+    min-height: 40px;
+}
+.card-title {
+    color: #bbb;
+}
+.card-text {
+    color: #fff;
+}
+
+/* --- Tabela de Comparação Previsto x Real --- */
+.dash-table-container .dash-spreadsheet-container {
+    background-color: #1e1e2f;
+    color: #e0e0e0;
+}
+.dash-table-container .dash-spreadsheet-container .dash-cell {
+    background-color: #2c2c3e !important;
+    color: #e0e0e0 !important;
+    border: 1px solid #444;
+}
+.dash-table-container .dash-header {
+    background-color: #3a3a50 !important;
+    color: #ffffff !important;
+    font-weight: bold;
+}
+
+/* --- Gráficos Responsivos --- */
+@media (max-width: 576px) {
+    .graph-container {
+        width: 100%;
+    }
+    .dash-graph-container .dcc-graph {
+        height: 300px;
+    }
+}
+@media (max-width: 768px) {
+    .dash-graph-container {
+        height: 350px;
+    }
+}
+
+/* ========================================================= */
+/* ================ PREVISÕES DE PREÇO ===================== */
+/* ========================================================= */
+
+/* --- (Adicione regras específicas para a página de Previsões aqui, se necessário) --- */
+
+/* ========================================================= */
+/* ================ RECOMENDADOR DE AÇÕES ================== */
+/* ========================================================= */
+
+/* --- (Adicione regras específicas para a página de Recomendador aqui, se necessário) --- */
+
+/* ========================================================= */
+/* =================== BOTÕES GLOBAIS ====================== */
+/* ========================================================= */
+
+.btn-botaoacao {
+    background-color: #5561ff !important;
+    border-color: #5561ff !important;
+    color: #ffffff !important;
+    transition: filter 0.15s ease, border-color 0.15s ease;
+}
+.btn-botaoacao:hover {
+    filter: brightness(1.1);
+    border-color: #6c75ff !important;
+}
+.btn-botaoacao:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
