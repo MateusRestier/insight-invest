@@ -40,13 +40,12 @@ def tarefa_diaria():
     print("✅ Rotina diária concluída\n")
 
 
-# agenda para rodar todo dia às 01:00
-schedule.every().day.at("01:00").do(tarefa_diaria)
-
-print("⏱ Scheduler iniciado. Aguardando próxima execução...")
-while True:
-    schedule.run_pending()
-    time.sleep(30)
+if __name__ == "__main__":
+    schedule.every().day.at("01:00").do(tarefa_diaria)
+    print("⏱ Scheduler iniciado. Aguardando próxima execução...")
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
 '''if __name__ == "__main__":
