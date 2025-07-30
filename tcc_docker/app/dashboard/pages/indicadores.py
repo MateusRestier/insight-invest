@@ -450,7 +450,11 @@ def register_callbacks_indicadores(app):
                             [
                                 html.P(f"Recomendada: {row['recomendada'] * 100:.2f}%", className="card-text"),
                                 html.P(f"Não Recomendada: {row['nao_recomendada'] * 100:.2f}%", className="card-text"),
-                                html.P(row["resultado"], className="card-text fst-italic", style={"whiteSpace": "pre-wrap"})
+                                html.P(row["resultado"], 
+                                    className="card-text fst-italic " + (
+                                        "recomendacao-negativa" if "NÃO" in row["resultado"] else "recomendacao-positiva"
+                                       ),
+                                       style={"whiteSpace": "pre-wrap"})
                             ]
                         )
                     ],
