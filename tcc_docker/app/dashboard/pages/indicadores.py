@@ -1,11 +1,10 @@
-
-from dash import html, dcc, Input, Output
+from dash import html, dcc, Input, Output, dash_table, no_update
+import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import numpy as np
-from dash import dash_table
-
+from datetime import date, timedelta
 from db_connection import get_connection
 
 # ----------------------------------------------------------------------
@@ -97,33 +96,30 @@ def layout_indicadores():
         ]),
 
         # FILTROS TABELA (logo abaixo do título da tabela)
+        # FILTROS ATUALIZADOS COM SLIDER + VISOR DE DATAS
         dbc.Row([
-            # COLUNA PARA O SELETOR DE PERÍODO (RangeSlider)
+            # COLUNA PARA O COMPONENTE DE FILTRO DE DATA COMPLETO
             dbc.Col([
                 html.Label("Período de Cálculo:", className="form-label", style={'color': '#e0e0e0'}),
+                # Row interna para os visores de data
+                dbc.Row([
+                    dbc.Col(dbc.Input(id='date-display-start', disabled=True, className="date-display-box"), width=6),
+                    dbc.Col(dbc.Input(id='date-display-end', disabled=True, className="date-display-box"), width=6),
+                ], className="g-2 mb-2"),
+                # O RangeSlider continua aqui, logo abaixo dos visores
                 dcc.RangeSlider(
                     id='rangeslider-datacalc-indicadores',
-                    min=0,
-                    max=10,
-                    step=1,
-                    value=[],
-                    marks=None,
-                    # Tooltip para ver as datas selecionadas
-                    tooltip={"placement": "bottom", "always_visible": True}
+                    min=0, max=10, step=1, value=[], marks=None,
+                    tooltip={"placement": "bottom", "always_visible": False} # Tooltip pode ser desativado
                 )
-            ], width=12, lg=6, className="mb-3 mb-lg-0"), # Ocupa mais espaço
+            ], width=12, lg=6, className="mb-3 mb-lg-0"),
 
             # COLUNA PARA O FILTRO DE AÇÃO
             dbc.Col([
                 html.Label("Ação:", className="form-label", style={'color': '#e0e0e0'}),
                 dcc.Dropdown(
                     id='filter-acao-ind',
-                    options=[],
-                    placeholder='Selecione a Ação',
-                    clearable=True,
-                    searchable=True,
-                    className='dropdown-dark',
-                    style={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "borderColor": "#444"}
+                    # ... (suas propriedades aqui)
                 )
             ], width=6, lg=3),
 
@@ -132,15 +128,7 @@ def layout_indicadores():
                 html.Label("Erro %:", className="form-label", style={'color': '#e0e0e0'}),
                 dcc.Dropdown(
                     id='filter-erro-pct',
-                    options=[
-                        {'label': 'Maior que 0', 'value': 'gt0'},
-                        {'label': 'Menor que 0', 'value': 'lt0'},
-                        {'label': 'Igual a 0', 'value': 'eq0'}
-                    ],
-                    placeholder='Filtrar Erro %',
-                    multi=True,
-                    className='dropdown-dark',
-                    style={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "borderColor": "#444"}
+                    # ... (suas propriedades aqui)
                 )
             ], width=6, lg=3)
         ], className='g-2 filtros-indicadores mb-4 align-items-end'),
@@ -272,55 +260,77 @@ def register_callbacks_indicadores(app):
         except Exception as e:
             return px.bar(title=f"Erro ao gerar gráfico: {e}")
 
-    # ✨ ADICIONE ESTE NOVO CALLBACK ✨
 
+
+    # SUBSTITUA TODOS OS CALLBACKS DE FILTRO DE DATA POR ESTE
     @app.callback(
+        # Saídas para os visores de data
+        Output('date-display-start', 'value'),
+        Output('date-display-end', 'value'),
+        # Saídas para configurar o slider (apenas na carga inicial)
         Output('rangeslider-datacalc-indicadores', 'min'),
         Output('rangeslider-datacalc-indicadores', 'max'),
-        Output('rangeslider-datacalc-indicadores', 'value'),
         Output('rangeslider-datacalc-indicadores', 'marks'),
-        # Usamos um Input que só roda uma vez, como o próprio slider
-        Input('rangeslider-datacalc-indicadores', 'id')
+        Output('rangeslider-datacalc-indicadores', 'value'),
+        # O gatilho é o próprio slider
+        Input('rangeslider-datacalc-indicadores', 'value')
     )
-    def setup_rangeslider(_):
-        # Carrega os dados uma única vez para obter o intervalo de datas
+    def sync_date_filters(slider_value):
+        # Pega o contexto para saber o que disparou o callback
+        ctx = dash.callback_context
+
+        # Carrega os dados e prepara a lista de datas
         df = _get_comparison_df()
         if df.empty:
-            # Se não houver dados, retorna valores padrão
-            return 0, 10, [0, 10], {i: str(i) for i in range(11)}
+            # Retorna valores padrão e para a execução
+            return "Sem Dados", "Sem Dados", 0, 1, {}, [0, 1]
 
-        # Garante que a coluna de data esteja no formato correto
         df['data_calculo'] = pd.to_datetime(df['data_calculo'])
-
-        # Encontra a data mínima e máxima
-        min_date = df['data_calculo'].min()
-        max_date = df['data_calculo'].max()
-
-        # Gera uma lista de todas as datas únicas no intervalo
-        all_dates = pd.to_datetime(df['data_calculo'].dt.date.unique())
-
-        # O RangeSlider trabalha com índices numéricos (0, 1, 2...).
-        # Então, criamos um dicionário para mapear cada data a um número.
-        date_to_int_map = {date.strftime('%Y-%m-%d'): i for i, date in enumerate(all_dates)}
-        int_to_date_map = {i: date.strftime('%Y-%m-%d') for i, date in enumerate(all_dates)}
-
+        all_dates = sorted(df['data_calculo'].dt.date.unique())
         min_val = 0
         max_val = len(all_dates) - 1
 
-        # Define as marcações (labels) que aparecerão no slider.
-        # Mostraremos apenas algumas para não poluir a interface.
-        marks = {
-            i: {'label': date.strftime('%b %Y'), 'style': {'color': '#e0e0e0'}}
-            for i, date in enumerate(all_dates)
-            if date.day == 1 # Mostra a marcação apenas no primeiro dia do mês
-        }
-        # Garante que a primeira e a última data sempre tenham uma marcação
-        marks[min_val] = {'label': min_date.strftime('%d %b %Y'), 'style': {'color': '#e0e0e0'}}
-        marks[max_val] = {'label': max_date.strftime('%d %b %Y'), 'style': {'color': '#e0e0e0'}}
+        # Checa se o callback foi disparado pela carga da página
+        # Se 'slider_value' estiver vazio, significa que é a primeira execução
+        is_initial_call = not slider_value
+
+        if is_initial_call:
+            # LÓGICA DE CONFIGURAÇÃO INICIAL
+            marks = {
+                i: {'label': date.strftime('%b/%Y'), 'style': {'color': '#999'}}
+                for i, date in enumerate(all_dates)
+                if date.day == 1 and i != min_val and i != max_val
+            }
+            marks[min_val] = {'label': all_dates[min_val].strftime('%d/%m/%Y'), 'style': {'color': '#e0e0e0'}}
+            marks[max_val] = {'label': all_dates[max_val].strftime('%d/%m/%Y'), 'style': {'color': '#e0e0e0'}}
+
+            initial_range = [min_val, max_val]
+            start_date_str = all_dates[initial_range[0]].strftime('%d/%m/%Y')
+            end_date_str = all_dates[initial_range[1]].strftime('%d/%m/%Y')
+
+            # Retorna a configuração completa para todos os Outputs
+            return start_date_str, end_date_str, min_val, max_val, marks, initial_range
+
+        else:
+            # LÓGICA DE ATUALIZAÇÃO (quando o usuário move o slider)
+            start_index = slider_value[0]
+            end_index = slider_value[1]
+
+            start_date_str = all_dates[start_index].strftime('%d/%m/%Y')
+            end_date_str = all_dates[end_index].strftime('%d/%m/%Y')
+
+            # Atualiza apenas os visores de data e não mexe na configuração do slider
+            return (
+                start_date_str,
+                end_date_str,
+                dash.no_update, # min
+                dash.no_update, # max
+                dash.no_update, # marks
+                dash.no_update  # value
+            )
 
 
-        # Retorna a configuração para o slider
-        return min_val, max_val, [min_val, max_val], marks
+
 
     @app.callback(
         Output('filter-acao-ind', 'options'),
