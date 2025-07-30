@@ -1,3 +1,4 @@
+
 from dash import html, dcc, Input, Output
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -146,7 +147,12 @@ def layout_indicadores():
                 xs=12, lg=8
             ),
             dbc.Col(
-                dcc.Graph(id='pie-error-dist', config={'displayModeBar': False}, style={'marginTop':'10px'}),
+                dcc.Graph(
+                    id='pie-error-dist',
+                    config={'displayModeBar': False},
+                    style={'marginTop':'10px'},
+                    clear_on_unhover=True
+                ),
                 xs=12, lg=4
             )
         ], className='mb-5 align-items-start')
@@ -302,11 +308,12 @@ def register_callbacks_indicadores(app):
         Input('filter-data-previsao', 'value'),
         Input('filter-data-calculo', 'value'),
         Input('filter-acao-ind', 'value'),
-        Input('filter-erro-pct', 'value')
+        Input('filter-erro-pct', 'value'),
+        Input('pie-error-dist', 'hoverData')
     )
-    def plot_error_distribution(data_prev, data_calc, acao_sel, erro_sel):
+    def plot_error_distribution(data_prev, data_calc, acao_sel, erro_sel, hover_data):
         df = _get_comparison_df()
-        df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d')
+        # df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d') # Removido para evitar erro se já for string
         df['data_calculo'] = df['data_calculo'].dt.strftime('%Y-%m-%d')
 
         if data_prev:
@@ -330,27 +337,53 @@ def register_callbacks_indicadores(app):
             'Maior que 0': (df['erro_pct'] > 0).sum(),
             'Menor que 0': (df['erro_pct'] < 0).sum()
         }
-        means = {
-            'Igual a 0': df.loc[df['erro_pct'] == 0, 'erro_pct'].mean() or 0,
-            'Maior que 0': df.loc[df['erro_pct'] > 0, 'erro_pct'].mean() or 0,
-            'Menor que 0': df.loc[df['erro_pct'] < 0, 'erro_pct'].mean() or 0
-        }
 
         pie_df = pd.DataFrame({
             'Status': list(counts.keys()),
-            'Count': list(counts.values()),
-            'Mean':  [means[k] for k in counts.keys()]
+            'Count': list(counts.values())
         })
+
+        # Mapeamento de cores para garantir consistência visual
+        color_map = {
+            'Igual a 0': 'rgb(0, 204, 150)',   # Verde
+            'Maior que 0': 'rgb(99, 110, 250)', # Azul
+            'Menor que 0': 'rgb(239, 85, 59)'  # Vermelho
+        }
 
         fig = px.pie(
             pie_df,
             names='Status',
             values='Count',
-            custom_data=['Mean']
+            color='Status',
+            color_discrete_map=color_map
         )
+
+        # Lógica para destacar a fatia com hover
+        pull_values = [0] * len(pie_df)
+        ordered_colors = pie_df['Status'].map(color_map).tolist()
+        final_colors = list(ordered_colors)
+
+        # Configuração da "iluminação" (borda que simula um brilho)
+        line_colors = ['#1e1e2f'] * len(final_colors) # Cor de fundo para borda padrão
+        line_widths = [1] * len(final_colors)
+
+        if hover_data and hover_data['points']:
+            point_index = hover_data['points'][0]['pointNumber']
+            pull_values[point_index] = 0.05 # "Puxa" a fatia sutilmente
+
+            # Efeito de iluminação na fatia com hover
+            line_colors[point_index] = 'rgba(126,135,255,0.8)' #
+            line_widths[point_index] = 3 # Largura do brilho
+
+            # Efeito de foco: torna as outras fatias mais transparentes
+            for i in range(len(final_colors)):
+                if i != point_index:
+                    final_colors[i] = final_colors[i].replace('rgb', 'rgba').replace(')', ', 0.8)')
         fig.update_traces(
+            pull=pull_values,
+            marker={'colors': final_colors, 'line': {'color': line_colors, 'width': line_widths}},
             textinfo='label+percent',
-            hovertemplate='%{label}: %{percent}<br>Média erro: %{customdata[0]:.2f}'
+            hovertemplate='%{label}: %{percent}'
         )
         fig.update_layout(
             title='Distribuição Erro Percentual',
@@ -358,7 +391,8 @@ def register_callbacks_indicadores(app):
             plot_bgcolor='#1e1e2f',
             paper_bgcolor='#1e1e2f',
             font=dict(color='#e0e0e0'),
-            margin=dict(l=20, r=20, t=50, b=20)
+            margin=dict(l=20, r=20, t=50, b=20),
+            transition_duration=500 # Animação mais lenta e suave
         )
         return fig
 

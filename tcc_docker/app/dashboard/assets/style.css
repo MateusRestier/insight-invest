@@ -162,6 +162,18 @@ textarea {
   background-color: #5561ff !important;
   color: #ffffff !important;
 }
+
+.filtros-indicadores {
+  gap: 0.5rem;          /* espaço entre colunas */
+  margin-bottom: 1.5rem;
+}
+
+/* Em celulares, faça cada dropdown ocupar 100% */
+@media (max-width: 576px) {
+  .filtros-indicadores .dropdown-dark {
+    width: 100% !important;
+  }
+}
 @media (max-width: 576px) {
   .filtros-indicadores .col {
     padding: 0.25rem;
@@ -169,6 +181,17 @@ textarea {
   #pie-error-dist {
     height: 250px !important;
   }
+}
+
+/* --- Gráficos --- */
+/* Sutil borda roxa ao passar no gráfico */
+#grafico-top-metric:hover {
+  box-shadow: 0 0 8px rgba(126,135,255,0.6);
+}
+
+#pie-error-dist {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  border-radius: 0.5rem;
 }
 
 /* --- Cartões de Performance --- */
@@ -266,6 +289,15 @@ textarea {
     font-weight: bold;
 }
 
+/* --- Recomendações (Positivo/Negativo) --- */
+.recomendacao-positiva {
+    color: green !important;
+}
+
+.recomendacao-negativa {
+    color: red !important;
+}
+
 /* --- Tabela de Comparação Previsto x Real --- */
 .dash-table-container .dash-spreadsheet-container {
     background-color: #1e1e2f;
@@ -280,6 +312,10 @@ textarea {
     background-color: #5561ff !important;
     color: #ffffff !important;
     font-weight: bold;
+}
+.table-responsive {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
 }
 
 /* Estiliza hover na linha da Dash DataTable */
@@ -326,67 +362,11 @@ textarea {
     transition: filter 0.15s ease, border-color 0.15s ease;
 }
 .btn-botaoacao:hover {
-    filter: brightness(1.1);
-    border-color: #6c75ff !important;
-}
-.btn-botaoacao:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Sutil borda roxa ao passar no gráfico */
-#grafico-top-metric:hover {
-  box-shadow: 0 0 8px rgba(126,135,255,0.6);
-}
-
-.btn-botaoacao:hover {
   background-color: #7e87ff;
   border-color: #7e87ff;
   color: #ffffff;
 }
-
-.filtros-indicadores {
-  gap: 0.5rem;          /* espaço entre colunas */
-  margin-bottom: 1.5rem;
-}
-
-/* Em celulares, faça cada dropdown ocupar 100% */
-@media (max-width: 576px) {
-  .filtros-indicadores .dropdown-dark {
-    width: 100% !important;
-  }
-}
-
-.performance-cards-row .card:hover {
-  border: 1px solid #7e87ff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
-}
-
-#card-mae-container:hover,
-#card-mse-container:hover,
-#card-rmse-container:hover,
-#card-r2-container:hover,
-#card-mape-container:hover {
-  background-color: #2e2e4d;  /* um tom mais claro de fundo */
-  border-color: #7e87ff;
-}
-
-.table-responsive {
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-}
-
-#pie-error-dist {
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  border-radius: 0.5rem;
-}
-
-.recomendacao-positiva {
-    color: green !important;
-}
-
-.recomendacao-negativa {
-    color: red !important;
+.btn-botaoacao:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
