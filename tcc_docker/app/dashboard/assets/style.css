@@ -191,6 +191,7 @@ textarea {
 .performance-cards-row .card {
     flex: 1 1 0;
     margin: 0;
+    margin-top: 1px;
     box-sizing: border-box;
     min-width: 0;
 }
@@ -245,6 +246,10 @@ textarea {
     border: none;
     border-radius: 8px;
     min-height: 40px;
+}
+/* Efeito de iluminação suave ao passar o mouse */
+.card:hover {
+    box-shadow: 0 0 15px rgba(126, 135, 255, 0.3); /* Ajuste a cor e intensidade conforme necessário */
 }
 .card-title {
     color: #bbb;
@@ -355,7 +360,6 @@ textarea {
 .performance-cards-row .card:hover {
   border: 1px solid #7e87ff;
   transform: translateY(-1px);
-  margin-top: 1px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
 }
