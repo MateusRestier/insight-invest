@@ -183,6 +183,23 @@ textarea {
   }
 }
 
+/* Estilos para o DatePickerSingle */
+.date-picker-single-custom .DateInput_input {
+    background-color: #2c2c3e;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    width: 100%;
+    height: 38px; /* Altura igual a dos dropdowns do bootstrap */
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    border-radius: 0.25rem;
+}
+
+.date-picker-single-custom .SingleDatePicker,
+.date-picker-single-custom .SingleDatePickerInput {
+    width: 100%;
+}
+
 /* --- Gráficos --- */
 /* Sutil borda roxa ao passar no gráfico */
 #grafico-top-metric:hover {

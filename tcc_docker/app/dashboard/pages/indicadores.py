@@ -98,20 +98,52 @@ def layout_indicadores():
 
         # FILTROS TABELA (logo abaixo do título da tabela)
         dbc.Row([
-            dbc.Col(dcc.Dropdown(id='filter-data-previsao', options=[], placeholder='Data Previsão', clearable=True,
-                                 searchable=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3),
-            dbc.Col(dcc.Dropdown(id='filter-data-calculo', options=[], placeholder='Data Cálculo', clearable=True,
-                                 searchable=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3),
-            dbc.Col(dcc.Dropdown(id='filter-acao-ind', options=[], placeholder='Selecione Ação', clearable=True,
-                                 searchable=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3),
-            dbc.Col(dcc.Dropdown(id='filter-erro-pct',
-                                 options=[{'label':'Maior que 0','value':'gt0'},{'label':'Menor que 0','value':'lt0'},{'label':'Igual a 0','value':'eq0'}],
-                                 placeholder='Erro %', multi=True, className='dropdown-dark',
-                                 style={"backgroundColor":"#1e1e2f","color":"#e0e0e0","borderColor":"#444"}), xs=12, sm=6, md=3)
-        ], className='g-2 filtros-indicadores mb-4'),
+            # COLUNA PARA O SELETOR DE PERÍODO (RangeSlider)
+            dbc.Col([
+                html.Label("Período de Cálculo:", className="form-label", style={'color': '#e0e0e0'}),
+                dcc.RangeSlider(
+                    id='rangeslider-datacalc-indicadores',
+                    min=0,
+                    max=10,
+                    step=1,
+                    value=[],
+                    marks=None,
+                    # Tooltip para ver as datas selecionadas
+                    tooltip={"placement": "bottom", "always_visible": True}
+                )
+            ], width=12, lg=6, className="mb-3 mb-lg-0"), # Ocupa mais espaço
+
+            # COLUNA PARA O FILTRO DE AÇÃO
+            dbc.Col([
+                html.Label("Ação:", className="form-label", style={'color': '#e0e0e0'}),
+                dcc.Dropdown(
+                    id='filter-acao-ind',
+                    options=[],
+                    placeholder='Selecione a Ação',
+                    clearable=True,
+                    searchable=True,
+                    className='dropdown-dark',
+                    style={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "borderColor": "#444"}
+                )
+            ], width=6, lg=3),
+
+            # COLUNA PARA O FILTRO DE ERRO %
+            dbc.Col([
+                html.Label("Erro %:", className="form-label", style={'color': '#e0e0e0'}),
+                dcc.Dropdown(
+                    id='filter-erro-pct',
+                    options=[
+                        {'label': 'Maior que 0', 'value': 'gt0'},
+                        {'label': 'Menor que 0', 'value': 'lt0'},
+                        {'label': 'Igual a 0', 'value': 'eq0'}
+                    ],
+                    placeholder='Filtrar Erro %',
+                    multi=True,
+                    className='dropdown-dark',
+                    style={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "borderColor": "#444"}
+                )
+            ], width=6, lg=3)
+        ], className='g-2 filtros-indicadores mb-4 align-items-end'),
 
         # Performance do modelo (cards responsivos, ocupando toda a largura)
         dbc.Row(
@@ -240,23 +272,55 @@ def register_callbacks_indicadores(app):
         except Exception as e:
             return px.bar(title=f"Erro ao gerar gráfico: {e}")
 
-    @app.callback(
-        Output('filter-data-previsao', 'options'),
-        Input('metric-picker', 'value')
-    )
-    def populate_previsao_options(_):
-        df = _get_comparison_df()
-        dates = df['data_previsao'].dt.strftime('%Y-%m-%d').unique()
-        return [{'label': d, 'value': d} for d in sorted(dates)]
+    # ✨ ADICIONE ESTE NOVO CALLBACK ✨
 
     @app.callback(
-        Output('filter-data-calculo', 'options'),
-        Input('metric-picker', 'value')
+        Output('rangeslider-datacalc-indicadores', 'min'),
+        Output('rangeslider-datacalc-indicadores', 'max'),
+        Output('rangeslider-datacalc-indicadores', 'value'),
+        Output('rangeslider-datacalc-indicadores', 'marks'),
+        # Usamos um Input que só roda uma vez, como o próprio slider
+        Input('rangeslider-datacalc-indicadores', 'id')
     )
-    def populate_calculo_options(_):
+    def setup_rangeslider(_):
+        # Carrega os dados uma única vez para obter o intervalo de datas
         df = _get_comparison_df()
-        dates = df['data_calculo'].dt.strftime('%Y-%m-%d').unique()
-        return [{'label': d, 'value': d} for d in sorted(dates)]
+        if df.empty:
+            # Se não houver dados, retorna valores padrão
+            return 0, 10, [0, 10], {i: str(i) for i in range(11)}
+
+        # Garante que a coluna de data esteja no formato correto
+        df['data_calculo'] = pd.to_datetime(df['data_calculo'])
+
+        # Encontra a data mínima e máxima
+        min_date = df['data_calculo'].min()
+        max_date = df['data_calculo'].max()
+
+        # Gera uma lista de todas as datas únicas no intervalo
+        all_dates = pd.to_datetime(df['data_calculo'].dt.date.unique())
+
+        # O RangeSlider trabalha com índices numéricos (0, 1, 2...).
+        # Então, criamos um dicionário para mapear cada data a um número.
+        date_to_int_map = {date.strftime('%Y-%m-%d'): i for i, date in enumerate(all_dates)}
+        int_to_date_map = {i: date.strftime('%Y-%m-%d') for i, date in enumerate(all_dates)}
+
+        min_val = 0
+        max_val = len(all_dates) - 1
+
+        # Define as marcações (labels) que aparecerão no slider.
+        # Mostraremos apenas algumas para não poluir a interface.
+        marks = {
+            i: {'label': date.strftime('%b %Y'), 'style': {'color': '#e0e0e0'}}
+            for i, date in enumerate(all_dates)
+            if date.day == 1 # Mostra a marcação apenas no primeiro dia do mês
+        }
+        # Garante que a primeira e a última data sempre tenham uma marcação
+        marks[min_val] = {'label': min_date.strftime('%d %b %Y'), 'style': {'color': '#e0e0e0'}}
+        marks[max_val] = {'label': max_date.strftime('%d %b %Y'), 'style': {'color': '#e0e0e0'}}
+
+
+        # Retorna a configuração para o slider
+        return min_val, max_val, [min_val, max_val], marks
 
     @app.callback(
         Output('filter-acao-ind', 'options'),
@@ -267,70 +331,77 @@ def register_callbacks_indicadores(app):
         vals = df['acao'].unique()
         return [{'label': a, 'value': a} for a in sorted(vals)]
 
+    # --- CALLBACK DA TABELA ATUALIZADO ---
     @app.callback(
         Output('table-previsto-real', 'data'),
         Output('table-previsto-real', 'columns'),
-        Input('filter-data-previsao', 'value'),
-        Input('filter-data-calculo', 'value'),
+        Input('rangeslider-datacalc-indicadores', 'value'), # <-- MUDANÇA AQUI
         Input('filter-acao-ind', 'value'),
         Input('filter-erro-pct', 'value')
     )
-    def update_table(data_prev, data_calc, acao_sel, erro_sel):
+    def update_table(date_range_indices, acao_sel, erro_sel): # <-- MUDANÇA AQUI
         df = _get_comparison_df()
-        df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d')
-        df['data_calculo'] = df['data_calculo'].dt.strftime('%Y-%m-%d')
+        df['data_calculo'] = pd.to_datetime(df['data_calculo']) # Garante o tipo datetime
 
-        if data_prev:
-            df = df[df['data_previsao'] == data_prev]
-        if data_calc:
-            df = df[df['data_calculo'] == data_calc]
+        # --- LÓGICA DE FILTRO ATUALIZADA ---
+        if date_range_indices:
+            all_dates = sorted(df['data_calculo'].dt.date.unique())
+            start_date = all_dates[date_range_indices[0]]
+            end_date = all_dates[date_range_indices[1]]
+            
+            # Filtra o DataFrame pelo intervalo de datas selecionado
+            mask_date = (df['data_calculo'].dt.date >= start_date) & (df['data_calculo'].dt.date <= end_date)
+            df = df[mask_date]
+
+        # Os outros filtros permanecem iguais
         if acao_sel:
             df = df[df['acao'] == acao_sel]
 
         if erro_sel:
             masks = []
-            if 'gt0' in erro_sel:
-                masks.append(df['erro_pct'] > 0)
-            if 'lt0' in erro_sel:
-                masks.append(df['erro_pct'] < 0)
-            if 'eq0' in erro_sel:
-                masks.append(df['erro_pct'] == 0)
-            df = df[np.logical_or.reduce(masks)]
+            if 'gt0' in erro_sel: masks.append(df['erro_pct'] > 0)
+            if 'lt0' in erro_sel: masks.append(df['erro_pct'] < 0)
+            if 'eq0' in erro_sel: masks.append(df['erro_pct'] == 0)
+            if masks: df = df[np.logical_or.reduce(masks)]
 
         df = df.sort_values('data_previsao', ascending=True)
+
+        # Formata as datas para exibição na tabela
+        df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d')
+        df['data_calculo'] = df['data_calculo'].dt.strftime('%Y-%m-%d')
 
         data = df.to_dict('records')
         cols = [{'name': col.replace('_',' ').title(), 'id': col} for col in df.columns]
         return data, cols
 
+    # --- CALLBACK DO GRÁFICO DE PIZZA ATUALIZADO ---
     @app.callback(
         Output('pie-error-dist', 'figure'),
-        Input('filter-data-previsao', 'value'),
-        Input('filter-data-calculo', 'value'),
+        Input('rangeslider-datacalc-indicadores', 'value'), # <-- MUDANÇA AQUI
         Input('filter-acao-ind', 'value'),
         Input('filter-erro-pct', 'value'),
         Input('pie-error-dist', 'hoverData')
     )
-    def plot_error_distribution(data_prev, data_calc, acao_sel, erro_sel, hover_data):
+    def plot_error_distribution(date_range_indices, acao_sel, erro_sel, hover_data): # <-- MUDANÇA AQUI
         df = _get_comparison_df()
-        # df['data_previsao'] = df['data_previsao'].dt.strftime('%Y-%m-%d') # Removido para evitar erro se já for string
-        df['data_calculo'] = df['data_calculo'].dt.strftime('%Y-%m-%d')
+        df['data_calculo'] = pd.to_datetime(df['data_calculo'])
 
-        if data_prev:
-            df = df[df['data_previsao'] == data_prev]
-        if data_calc:
-            df = df[df['data_calculo'] == data_calc]
+        # --- LÓGICA DE FILTRO ATUALIZADA ---
+        if date_range_indices:
+            all_dates = sorted(df['data_calculo'].dt.date.unique())
+            start_date = all_dates[date_range_indices[0]]
+            end_date = all_dates[date_range_indices[1]]
+            mask_date = (df['data_calculo'].dt.date >= start_date) & (df['data_calculo'].dt.date <= end_date)
+            df = df[mask_date]
+
         if acao_sel:
             df = df[df['acao'] == acao_sel]
         if erro_sel:
             masks = []
-            if 'gt0' in erro_sel:
-                masks.append(df['erro_pct'] > 0)
-            if 'lt0' in erro_sel:
-                masks.append(df['erro_pct'] < 0)
-            if 'eq0' in erro_sel:
-                masks.append(df['erro_pct'] == 0)
-            df = df[np.logical_or.reduce(masks)]
+            if 'gt0' in erro_sel: masks.append(df['erro_pct'] > 0)
+            if 'lt0' in erro_sel: masks.append(df['erro_pct'] < 0)
+            if 'eq0' in erro_sel: masks.append(df['erro_pct'] == 0)
+            if masks: df = df[np.logical_or.reduce(masks)]
 
         counts = {
             'Igual a 0': (df['erro_pct'] == 0).sum(),
@@ -395,6 +466,64 @@ def register_callbacks_indicadores(app):
             transition_duration=500 # Animação mais lenta e suave
         )
         return fig
+
+    # --- CALLBACK DOS CARDS DE PERFORMANCE ATUALIZADO ---
+    @app.callback(
+        Output("card-mae",   "children"),
+        Output("card-mse",   "children"),
+        Output("card-rmse",  "children"),
+        Output("card-r2",    "children"),
+        Output("card-mape",  "children"),
+        Input('rangeslider-datacalc-indicadores', 'value'), # <-- MUDANÇA AQUI
+        Input("filter-acao-ind",      "value"),
+        Input("filter-erro-pct",      "value")
+    )
+    def update_performance_cards(date_range_indices, acao_sel, erro_sel): # <-- MUDANÇA AQUI
+        df = _get_comparison_df()
+        df['data_calculo'] = pd.to_datetime(df['data_calculo'])
+
+        # --- LÓGICA DE FILTRO ATUALIZADA ---
+        if date_range_indices:
+            all_dates = sorted(df['data_calculo'].dt.date.unique())
+            start_date = all_dates[date_range_indices[0]]
+            end_date = all_dates[date_range_indices[1]]
+            mask_date = (df['data_calculo'].dt.date >= start_date) & (df['data_calculo'].dt.date <= end_date)
+            df = df[mask_date]
+
+        if acao_sel:
+            df = df[df["acao"] == acao_sel]
+        if erro_sel:
+            masks = []
+            if "gt0" in erro_sel: masks.append(df["erro_pct"] > 0)
+            if "lt0" in erro_sel: masks.append(df["erro_pct"] < 0)
+            if "eq0" in erro_sel: masks.append(df["erro_pct"] == 0)
+            if masks: df = df[np.logical_or.reduce(masks)]
+
+        # se não houver dados, exibe traço
+        if df.empty:
+            return "–", "–", "–", "–", "–"
+
+        # cálculos
+        errors = df["preco_previsto"] - df["preco_real"]
+        mae  = errors.abs().mean()
+        mse  = (errors ** 2).mean()
+        rmse = np.sqrt(mse)
+        mape = (errors.abs() / df["preco_real"]).mean() * 100
+
+        y_true = df["preco_real"]
+        y_pred = df["preco_previsto"]
+        ss_res = ((y_true - y_pred) ** 2).sum()
+        ss_tot = ((y_true - y_true.mean()) ** 2).sum()
+        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else 0
+
+        # formatação
+        return (
+            f"{mae:.6f}",
+            f"{mse:.6f}",
+            f"{rmse:.6f}",
+            f"{r2 * 100:.2f}%",
+            f"{mape:.2f}%"
+        )
 
     @app.callback(
         Output("cards-top10-recs", "children"),
@@ -516,64 +645,6 @@ def register_callbacks_indicadores(app):
             }
         )
     
-    @app.callback(
-        Output("card-mae",   "children"),
-        Output("card-mse",   "children"),
-        Output("card-rmse",  "children"),
-        Output("card-r2",    "children"),
-        Output("card-mape",  "children"),
-        Input("filter-data-previsao", "value"),
-        Input("filter-data-calculo",  "value"),
-        Input("filter-acao-ind",      "value"),
-        Input("filter-erro-pct",      "value")
-    )
-    def update_performance_cards(data_prev, data_calc, acao_sel, erro_sel):
-        # busca os dados de comparação
-        df = _get_comparison_df()
-
-        # aplica filtros iguais aos da tabela
-        if data_prev:
-            df = df[df["data_previsao"] == data_prev]
-        if data_calc:
-            df = df[df["data_calculo"]  == data_calc]
-        if acao_sel:
-            df = df[df["acao"] == acao_sel]
-        if erro_sel:
-            masks = []
-            if "gt0" in erro_sel: masks.append(df["erro_pct"] > 0)
-            if "lt0" in erro_sel: masks.append(df["erro_pct"] < 0)
-            if "eq0" in erro_sel: masks.append(df["erro_pct"] == 0)
-            df = df[np.logical_or.reduce(masks)]
-
-        # se não houver dados, exibe traço
-        if df.empty:
-            return "–", "–", "–", "–", "–"
-
-        # cálculos
-        errors = df["preco_previsto"] - df["preco_real"]
-        mae  = errors.abs().mean()
-        mse  = (errors ** 2).mean()
-        rmse = np.sqrt(mse)
-        mape = (errors.abs() / df["preco_real"]).mean() * 100
-
-        y_true = df["preco_real"]
-        y_pred = df["preco_previsto"]
-        ss_res = ((y_true - y_pred) ** 2).sum()
-        ss_tot = ((y_true - y_true.mean()) ** 2).sum()
-        r2 = 1 - ss_res / ss_tot if ss_tot != 0 else 0
-
-        # formatação
-        return (
-            f"{mae:.6f}",
-            f"{mse:.6f}",
-            f"{rmse:.6f}",
-            f"{r2 * 100:.2f}%",
-            f"{mape:.2f}%"
-        )
-
-    
-
-
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
