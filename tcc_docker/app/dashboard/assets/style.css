@@ -183,6 +183,16 @@ textarea {
   }
 }
 
+/* Estilo para as caixas de texto que exibem a data */
+.date-display-box {
+    background-color: #2c2c3e !important;
+    color: #e0e0e0 !important;
+    border: 1px solid #444 !important;
+    text-align: center;
+    font-weight: bold;
+    opacity: 1 !important; /* Força a opacidade total mesmo desabilitado */
+}
+
 /* --- Gráficos --- */
 /* Sutil borda roxa ao passar no gráfico */
 #grafico-top-metric:hover {
