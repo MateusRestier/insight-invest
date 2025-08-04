@@ -300,8 +300,16 @@ def register_callbacks_indicadores(app):
         df = df.sort_values('data_previsao', ascending=True)
 
         data = df.to_dict('records')
-        cols = [{'name': col.replace('_',' ').title(), 'id': col} for col in df.columns]
+        cols = [
+            {"name": "Ação",           "id": "acao"},
+            {"name": "Data Cálculo",   "id": "data_calculo"},
+            {"name": "Data Previsão",  "id": "data_previsao"},
+            {"name": "Preço Previsto", "id": "preco_previsto"},
+            {"name": "Preço Real",     "id": "preco_real"},
+            {"name": "Erro (%)",       "id": "erro_pct"},
+        ]
         return data, cols
+
 
     @app.callback(
         Output('pie-error-dist', 'figure'),

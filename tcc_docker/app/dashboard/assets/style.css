@@ -166,22 +166,34 @@ textarea {
 .filtros-indicadores {
   gap: 0.5rem;          /* espaço entre colunas */
   margin-bottom: 1.5rem;
+  flex-wrap: nowrap !important;
 }
 
-/* Em celulares, faça cada dropdown ocupar 100% */
-@media (max-width: 576px) {
-  .filtros-indicadores .dropdown-dark {
-    width: 100% !important;
-  }
+.filtros-indicadores .col {
+  /* make each filter flexível para caber no espaço disponível */
+  flex: 1 1 auto !important;
+  min-width: 0; /* permite encolher abaixo do seu conteúdo */
 }
+
+/* MOBILE: torne os filtros empilháveis e 100% de largura */
 @media (max-width: 576px) {
+  .filtros-indicadores {
+    flex-wrap: wrap !important;       /* permite quebra de linha */
+  }
   .filtros-indicadores .col {
-    padding: 0.25rem;
+    flex: 1 1 100% !important;        /* cada filtro ocupa toda a linha */
+    max-width: 100% !important;
+    padding: 0.25rem 0 !important;    /* espaçamento vertical */
+  }
+  .filtros-indicadores .dropdown-dark {
+    width: 100% !important;           /* dropdowns stretch */
   }
   #pie-error-dist {
     height: 250px !important;
   }
 }
+
+
 
 /* --- Gráficos --- */
 /* Sutil borda roxa ao passar no gráfico */
@@ -192,6 +204,17 @@ textarea {
 #pie-error-dist {
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   border-radius: 0.5rem;
+}
+
+/* Faz o container do dcc.Graph esticar até a altura total da coluna */
+#pie-error-dist {
+  height: 70% !important;
+  min-height: 300px; /* valor mínimo, ajuste se quiser que seja maior */
+}
+
+/* Garante que o elemento interno do Plotly também preencha esse 100% */
+#pie-error-dist .js-plotly-plot {
+  height: 100% !important;
 }
 
 /* --- Cartões de Performance --- */
