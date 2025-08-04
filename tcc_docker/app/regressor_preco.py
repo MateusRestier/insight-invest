@@ -80,31 +80,35 @@ def preparar_dados_regressao(df, n_dias):
 def salvar_resultados_no_banco(comp, data_calculo):
     conn = None
     try:
-        # Remover duplicatas por ação + data_previsao
-        comp_filtrado = comp.sort_values('data').groupby(['acao', 'data'], as_index=False).last()
+        # Ordena e remove duplicatas por ação + data_previsao
+        comp_filtrado = (
+            comp
+            .sort_values('data_previsao')
+            .groupby(['acao', 'data_previsao'], as_index=False)
+            .last()
+        )
 
         conn = get_connection()
         cur = conn.cursor()
 
-        for idx, row in comp_filtrado.iterrows():
+        for _, row in comp_filtrado.iterrows():
             sql = """
                 INSERT INTO resultados_precos (acao, data_calculo, data_previsao, preco_previsto)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (acao, data_previsao) DO UPDATE SET
                     preco_previsto = EXCLUDED.preco_previsto,
-                    data_calculo = EXCLUDED.data_calculo
+                    data_calculo   = EXCLUDED.data_calculo
             """
             values = (
                 row['acao'],
                 data_calculo,
-                row['data'],  # AQUI É A DATA PREVISTA (do próprio hold-out)
-                float(row['predito'])
+                row['data_previsao'],   # agora usa data_previsao
+                float(row['preco_previsto'])  # agora usa preco_previsto
             )
             cur.execute(sql, values)
 
         conn.commit()
-        print(f"\n✅ Resultados salvos/atualizados na tabela resultados_precos. Total de ações únicas inseridas: {comp['acao'].nunique()}")
-
+        print(f"\n✅ Resultados salvos/atualizados. Ações únicas: {comp['acao'].nunique()}")
 
     except Exception as e:
         print(f"❌ Erro ao inserir resultados no banco: {e}")
@@ -113,139 +117,197 @@ def salvar_resultados_no_banco(comp, data_calculo):
             conn.close()
 
 
-
 # 5) Pipeline completo
-def executar_pipeline_regressor(n_dias=10, data_calculo=None):
+def executar_pipeline_regressor(
+    n_dias: int = 10,
+    data_calculo: date | None = None,
+    save_to_db: bool = True,
+    tickers: list[str] | None = None
+) -> tuple[RandomForestRegressor, pd.DataFrame]:
+    """
+    Executa o pipeline de regressão para previsão de preços.
+    Args:
+        n_dias: número de dias futuros para prever.
+        data_calculo: data base para cálculo (se None, usa hoje).
+        save_to_db: se True, persiste em resultados_precos.
+        tickers: lista de ações para filtrar o resultado (ou None para todas).
+    Returns:
+        model: RandomForestRegressor treinado.
+        comp: DataFrame com colunas ['acao','data_previsao','real','preco_previsto','erro_pct'].
+    """
     if data_calculo is None:
         data_calculo = date.today()
 
+    # 1) Carrega histórico de indicadores
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM indicadores_fundamentalistas", conn)
     conn.close()
     df['data_coleta'] = pd.to_datetime(df['data_coleta'])
 
+    # 2) Prepara X, y, datas e tickers
     X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
 
-    # Corte de treino limitado ao data_calculo
-    cutoff = pd.to_datetime(data_calculo)
-    mask_train = dates <= cutoff
-    mask_test  = dates > cutoff
-
-    # Se a data_calculo for maior que a última data real do banco
-    ultima_data_banco = df['data_coleta'].max().date()
-    if data_calculo > ultima_data_banco:
-        print(f"\n⚠️ Aviso: data_calculo ({data_calculo}) é maior que a última data do banco ({ultima_data_banco}).")
-        mask_train = dates <= ultima_data_banco
-        mask_test = pd.Series([False] * len(dates), index=dates.index)
+    # 3) Define máscaras de treino/teste com base em data_calculo
+    ultima_real_date = df['data_coleta'].max().date()
+    if data_calculo > ultima_real_date:
+        print(f"⚠️ data_calculo ({data_calculo}) > última data no banco ({ultima_real_date}); ajustando treino.")
+        ultima_ts = pd.to_datetime(ultima_real_date)
+        mask_train = dates <= ultima_ts
+        mask_test  = pd.Series(False, index=dates.index)
+    else:
+        cutoff     = pd.to_datetime(data_calculo)
+        mask_train = dates <= cutoff
+        mask_test  = dates > cutoff
 
     X_train, y_train = X[mask_train], y[mask_train]
     X_test,  y_test  = X[mask_test],  y[mask_test]
     acoes_test       = acoes[mask_test]
-    dates_test       = dates[mask_test]
 
+    # 4) Treina o modelo
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
 
+    # 5) Gera previsões
+    future_date = data_calculo + timedelta(days=n_dias)
     if X_test.empty:
-        print("\n⚠️ Não existem datas futuras no banco para teste. Fazendo previsão futura manual...")
-
-        future_date = data_calculo + timedelta(days=n_dias)
-
-        ultimas_linhas_por_acao = X_train.groupby(acoes.loc[X_train.index]).tail(1)
-        preds = model.predict(ultimas_linhas_por_acao)
-
+        print("⚠️ Sem dados futuros para teste; gerando previsão manual.")
+        ultimos = X_train.groupby(acoes.loc[X_train.index]).tail(1)
+        preds   = model.predict(ultimos)
         comp = pd.DataFrame({
-            'acao': acoes.loc[ultimas_linhas_por_acao.index].values,
-            'data': [future_date] * len(ultimas_linhas_por_acao),
-            'real': [None] * len(ultimas_linhas_por_acao),
-            'predito': preds,
-            'erro_pct': [None] * len(ultimas_linhas_por_acao)
-        }).sort_values('acao')
+            'acao':   acoes.loc[ultimos.index].values,
+            'data':   [future_date] * len(ultimos),
+            'real':   [None]            * len(ultimos),
+            'predito': preds
+        })
+        comp['erro_pct'] = None
     else:
-        future_date = data_calculo + timedelta(days=n_dias)
         preds = model.predict(X_test)
         comp = pd.DataFrame({
-            'acao': acoes_test.values,
-            'data': [future_date] * len(acoes_test),  # Forçando data_previsao igual para todas as linhas
-            'real': y_test.values,
+            'acao':    acoes_test.values,
+            'data':    [future_date]      * len(acoes_test),
+            'real':    y_test.values,
             'predito': preds
-        }).sort_values('acao')
+        })
         comp['erro_pct'] = (comp['predito'] - comp['real']) / comp['real'] * 100
-        comp = comp.drop_duplicates(subset=['acao', 'data'])
 
-    print("\n📊 Métricas de desempenho no treino:")
+    comp = comp.drop_duplicates(subset=['acao', 'data']).sort_values('acao')
+
+    # 6) Imprime métricas de treino
+    print("📊 Métricas de treino:")
     print(f"MAE: {mean_absolute_error(y_train, model.predict(X_train)):.4f}")
     print(f"MSE: {mean_squared_error(y_train, model.predict(X_train)):.4f}")
     print(f"R² : {r2_score(y_train, model.predict(X_train)):.4f}")
 
-    salvar_resultados_no_banco(comp, data_calculo)
+    # 7) Renomeia colunas para uso no dashboard
+    comp = comp.rename(columns={
+        'data':     'data_previsao',
+        'predito':  'preco_previsto'
+    })
+
+    # 8) Filtra apenas os tickers desejados, se especificados
+    if tickers:
+        tickers_upper = [t.upper() for t in tickers]
+        comp = comp[comp['acao'].isin(tickers_upper)]
+
+    # 9) Persiste no banco, se solicitado
+    if save_to_db:
+        salvar_resultados_no_banco(comp, data_calculo)
+
     return model, comp
 
 
 if __name__ == "__main__":
+    from datetime import datetime, date, timedelta
+    from regressor_preco import executar_pipeline_regressor, obter_data_calculo_maxima
+
+    # número padrão de dias
     try:
         n_dias = 10
-        #n_dias = int(input("Digite o número de dias futuros que deseja prever (ex: 10): "))
     except ValueError:
         print("Valor inválido para n_dias. Encerrando...")
         exit()
 
+    # data máxima disponível no banco
     data_maxima = obter_data_calculo_maxima()
 
+    # menu
     print("\nEscolha uma opção:")
-    print(f"1 - Prever {n_dias} dias no futuro a partir de HOJE")
-    print(f"2 - Prever {n_dias} dias no futuro a partir de uma data manual (X)")
-    print(f"3 - Prever {n_dias} dias no futuro para um intervalo de datas_calculo (de X até Y)")
+    print(f"1 - Prever {n_dias} dias no futuro a partir de HOJE e salvar no banco")
+    print(f"2 - Prever {n_dias} dias no futuro a partir de uma data manual e salvar no banco")
+    print(f"3 - Prever {n_dias} dias no futuro para um intervalo de datas e salvar no banco")
+    print("4 - Prever N dias no futuro a partir de HOJE sem salvar no banco")
+    print("5 - Prever N dias para uma AÇÃO específica (sem salvar no banco)")
 
-    escolha = input("\nDigite 1, 2 ou 3: ").strip()
+    escolha = input("\nDigite 1, 2, 3, 4 ou 5: ").strip()
 
     if escolha == "1":
         data_calculo = date.today()
         if data_calculo > data_maxima:
-            print(f"\n❌ ERRO: data_calculo não pode ser maior que {data_maxima}. Encerrando...")
+            print(f"\n❌ ERRO: data_calculo não pode ser maior que {data_maxima}.")
             exit()
-        print(f"\n✅ Iniciando pipeline para data_calculo = {data_calculo} e n_dias = {n_dias}...\n")
+        print(f"\n✅ Iniciando previsão para {n_dias} dias a partir de {data_calculo} (salvando no banco)...\n")
         executar_pipeline_regressor(n_dias=n_dias, data_calculo=data_calculo)
 
     elif escolha == "2":
-        data_input = input(f"Digite a data_calculo desejada (AAAA-MM-DD) (máximo permitido: {data_maxima}): ")
+        data_input = input(f"Data cálculo (AAAA-MM-DD) até {data_maxima}: ").strip()
         try:
             data_calculo = datetime.strptime(data_input, "%Y-%m-%d").date()
             if data_calculo > data_maxima:
-                print(f"\n❌ ERRO: A data_calculo não pode ser maior que {data_maxima}. Encerrando...")
+                print(f"\n❌ ERRO: data_calculo não pode ser maior que {data_maxima}.")
                 exit()
         except ValueError:
-            print("\n❌ ERRO: Data inválida. Use o formato AAAA-MM-DD. Encerrando...")
+            print("Formato inválido. Use AAAA-MM-DD.")
             exit()
-        print(f"\n✅ Iniciando pipeline para data_calculo = {data_calculo} e n_dias = {n_dias}...\n")
+        print(f"\n✅ Iniciando previsão para {n_dias} dias a partir de {data_calculo} (salvando no banco)...\n")
         executar_pipeline_regressor(n_dias=n_dias, data_calculo=data_calculo)
 
     elif escolha == "3":
-        data_inicio_input = input(f"Digite a data inicial do intervalo (AAAA-MM-DD) (máximo permitido: {data_maxima}): ")
-        data_fim_input = input(f"Digite a data final do intervalo (AAAA-MM-DD) (máximo permitido: {data_maxima}): ")
-
+        inicio = input(f"Data inicial (AAAA-MM-DD) até {data_maxima}: ").strip()
+        fim    = input(f"Data final   (AAAA-MM-DD) até {data_maxima}: ").strip()
         try:
-            data_inicio = datetime.strptime(data_inicio_input, "%Y-%m-%d").date()
-            data_fim = datetime.strptime(data_fim_input, "%Y-%m-%d").date()
-
-            if data_inicio > data_fim:
-                print("\n❌ ERRO: A data inicial não pode ser depois da data final. Encerrando...")
+            data_inicio = datetime.strptime(inicio, "%Y-%m-%d").date()
+            data_fim    = datetime.strptime(fim,    "%Y-%m-%d").date()
+            if data_inicio > data_fim or data_fim > data_maxima:
+                print("Intervalo inválido.")
                 exit()
-            if data_fim > data_maxima:
-                print(f"\n❌ ERRO: A data final não pode ser maior que {data_maxima}. Encerrando...")
-                exit()
-
-            print(f"\n✅ Iniciando previsão de {n_dias} dias para o intervalo de datas: {data_inicio} até {data_fim}...\n")
-
-            data_atual = data_inicio
-            while data_atual <= data_fim:
-                print(f"\n👉 Executando previsão para data_calculo = {data_atual}...")
-                executar_pipeline_regressor(n_dias=n_dias, data_calculo=data_atual)
-                data_atual += timedelta(days=1)
-
         except ValueError:
-            print("\n❌ ERRO: Datas inválidas. Use o formato correto AAAA-MM-DD. Encerrando...")
+            print("Formato inválido. Use AAAA-MM-DD.")
             exit()
+        print(f"\n✅ Iniciando previsões de {n_dias} dias de {data_inicio} até {data_fim} (salvando no banco)...\n")
+        atual = data_inicio
+        while atual <= data_fim:
+            print(f"\n👉 Prevendo para {atual}...")
+            executar_pipeline_regressor(n_dias=n_dias, data_calculo=atual)
+            atual += timedelta(days=1)
+
+    elif escolha == "4":
+        dias = input("Quantos dias à frente? ").strip()
+        try:
+            n_dias_custom = int(dias)
+        except ValueError:
+            print("Número de dias inválido.")
+            exit()
+        print(f"\n✅ Prevendo {n_dias_custom} dias a partir de hoje (sem salvar)...\n")
+        _, comp = executar_pipeline_regressor(n_dias=n_dias_custom, data_calculo=date.today(), save_to_db=False)
+        print("\n📄 Resultados:")
+        print(comp)
+
+    elif escolha == "5":
+        dias   = input("Quantos dias à frente? ").strip()
+        ticker = input("Ticker da ação (ex: PETR4): ").strip().upper()
+        try:
+            n_dias_custom = int(dias)
+        except ValueError:
+            print("Número de dias inválido.")
+            exit()
+        print(f"\n✅ Prevendo {n_dias_custom} dias para {ticker} (sem salvar)...\n")
+        _, comp = executar_pipeline_regressor(n_dias=n_dias_custom, data_calculo=date.today(), save_to_db=False)
+        comp_filtrado = comp[comp['acao'] == ticker]
+        if comp_filtrado.empty:
+            print(f"\n⚠️ Nenhum resultado encontrado para {ticker}.")
+        else:
+            print("\n📄 Resultado da previsão para", ticker)
+            print(comp_filtrado)
 
     else:
         print("\n❌ Opção inválida. Encerrando...")

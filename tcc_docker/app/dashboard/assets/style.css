@@ -366,7 +366,17 @@ textarea {
 /* ================ PREVISÕES DE PREÇO ===================== */
 /* ========================================================= */
 
-/* --- (Adicione regras específicas para a página de Previsões aqui, se necessário) --- */
+.input-dark::placeholder {
+  color: #e0e0e0 !important;
+}
+
+.input-dark:focus {
+  background-color: #2c2c3e !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 0 8px #7e87ff !important;
+  border-color: #7e87ff !important;
+}
+
 
 /* ========================================================= */
 /* ================ RECOMENDADOR DE AÇÕES ================== */
