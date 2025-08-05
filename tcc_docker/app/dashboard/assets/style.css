@@ -377,6 +377,32 @@ textarea {
   border-color: #7e87ff !important;
 }
 
+/* Altere a regra .input-dark para esta, mais específica */
+.form-control.input-dark {
+  background-color: #2c2c3e;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  height: 38px;
+  border-radius: 0.375rem;
+}
+
+/* Opcional: Melhora a cor do placeholder para o tema escuro */
+.form-control.input-dark::placeholder {
+  color: #8a8a9e !important;
+}
+
+/* A regra :focus já está correta, mas podemos torná-la mais específica também */
+.form-control.input-dark:focus {
+  background-color: #2c2c3e !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 0 8px #7e87ff !important;
+  border-color: #7e87ff !important;
+}
+
+/* Regra para a barra de progresso roxa */
+.progress-bar-purple .progress-bar {
+    background-color: #5561ff !important;
+}
 
 /* ========================================================= */
 /* ================ RECOMENDADOR DE AÇÕES ================== */
@@ -392,14 +418,18 @@ textarea {
     background-color: #5561ff !important;
     border-color: #5561ff !important;
     color: #ffffff !important;
-    transition: filter 0.15s ease, border-color 0.15s ease;
+    /* Adicionado 'box-shadow' à transição para o efeito ser suave */
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease-in-out !important;
 }
+
 .btn-botaoacao:hover {
-  background-color: #7e87ff;
-  border-color: #7e87ff;
-  color: #ffffff;
+  background-color: #7e87ff !important;
+  border-color: #7e87ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 15px 2px #5561ff !important;
 }
+
 .btn-botaoacao:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
 }
