@@ -4,182 +4,164 @@ from dash import html, dcc, Input, Output, State, no_update, dash_table
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import date
+import time
+import threading # Para executar tarefas em paralelo
+import uuid      # Para gerar IDs únicos para cada tarefa
+import json      # Para ler e escrever nos ficheiros de status
+import os        # Para criar as pastas de status e resultados
 
-# Importação real da sua função a partir do arquivo vizinho.
+# Importação da sua função de regressão
 from regressor_preco import executar_pipeline_regressor
 
-# -----------------------------------------------------------------------------
-# Layout e callbacks para a página "Previsões de Preço"
-# -----------------------------------------------------------------------------
+# --- CONFIGURAÇÃO DAS PASTAS DE CACHE ---
+# Cria as pastas para guardar o progresso e os resultados, se não existirem.
+if not os.path.exists("cache_status"):
+    os.makedirs("cache_status")
+if not os.path.exists("cache_results"):
+    os.makedirs("cache_results")
+# -----------------------------------------
+
+# Função que será executada na thread separada
+def calculation_worker(job_id, ticker, n_days):
+    """Esta função faz o trabalho pesado em segundo plano."""
+    status_file = f"cache_status/{job_id}.json"
+    result_file = f"cache_results/{job_id}.json"
+
+    print(f"THREAD {job_id}: Iniciada para {ticker} por {n_days} dias.")
+
+    all_preds = []
+    try:
+        for i in range(1, n_days + 1):
+            # Escreve o progresso atual no ficheiro de status
+            progress_info = {"status": "running", "progress": int((i / n_days) * 100), "text": f"Processando dia {i} de {n_days}..."}
+            with open(status_file, "w") as f:
+                json.dump(progress_info, f)
+
+            # Executa a sua função de regressão
+            _, comp = executar_pipeline_regressor(
+                n_dias=i, data_calculo=date.today(), save_to_db=False, tickers=[ticker]
+            )
+            if not comp.empty:
+                comp = comp.copy()
+                comp["dias_a_frente"] = i
+                all_preds.append(comp)
+
+        # Após o loop, concatena os resultados
+        final_df = pd.concat(all_preds, ignore_index=True)
+
+        # Salva o resultado final num ficheiro
+        final_df.to_json(result_file, orient="split")
+
+        # Atualiza o status para "complete"
+        final_status = {"status": "complete", "progress": 100, "text": "Concluído!"}
+        with open(status_file, "w") as f:
+            json.dump(final_status, f)
+
+        print(f"THREAD {job_id}: Concluída com sucesso.")
+
+    except Exception as e:
+        # Em caso de erro, anota o erro no status
+        print(f"THREAD {job_id}: ERRO - {e}")
+        error_status = {"status": "error", "progress": 0, "text": f"Ocorreu um erro: {e}"}
+        with open(status_file, "w") as f:
+            json.dump(error_status, f)
+
 
 def layout_previsoes():
-    """Define o layout da página de previsões."""
-    
+    """Define o layout da página, incluindo um dcc.Store para o job_id."""
     input_style = {
-        "backgroundColor": "#2c2c3e",
-        "color": "#e0e0e0",
-        "border": "1px solid #444",
-        "height": "38px",
-        "borderRadius": "0.375rem"
+        "backgroundColor": "#2c2c3e", "color": "#e0e0e0", "border": "1px solid #444",
+        "height": "38px", "borderRadius": "0.375rem"
     }
-
     return dbc.Container([
+        dcc.Store(id='job-id-store'), # Guarda o "ticket" da tarefa atual
+        dcc.Interval(id='progress-interval', interval=1000, disabled=True), # O nosso "despertador"
         dbc.Card([
             dbc.CardHeader("🔮 Previsão de Preço — Multi-Dia"),
             dbc.CardBody([
                 dbc.Row([
-                    dbc.Col(
-                        dbc.Input(id="input-ticker-prev", type="text", placeholder="Ticker (ex: PETR4)", style=input_style),
-                        width=4
-                    ),
-                    dbc.Col(
-                        dbc.Input(id="input-n-days-prev", type="number", min=1, step=1, value=10, placeholder="Dias à frente", style=input_style),
-                        width=4
-                    ),
-                    dbc.Col(
-                        dbc.Button("Carregar", id="btn-load-pred", color="primary", className="w-100", style={"height": "38px", "borderRadius": "0.375rem"}),
-                        width=4
-                    ),
+                    dbc.Col(dbc.Input(id="input-ticker-prev", type="text", placeholder="Ticker (ex: PETR4)", style=input_style), width=4),
+                    dbc.Col(dbc.Input(id="input-n-days-prev", type="number", min=1, step=1, value=10, placeholder="Dias à frente", style=input_style), width=4),
+                    dbc.Col(dbc.Button("Carregar", id="btn-load-pred", color="primary", className="w-100", style=input_style), width=4),
                 ], className="g-2 mb-4", align="center"),
-
-                html.Div(id="progress-alert-container"),
-
+                dbc.Progress(id="loading-progress-bar", value=0, style={"height": "20px"}),
+                html.P(id="progress-text", className="text-center mt-2"),
                 dash_table.DataTable(
-                    id="table-previsao",
-                    columns=[],
-                    data=[],
-                    page_size=20,
-                    sort_action="native",
+                    id="table-previsao", columns=[], data=[], page_size=20, sort_action="native",
                     style_table={"overflowX": "auto"},
                     style_header={"backgroundColor": "#34344e", "color": "#ffffff", "fontWeight": "bold"},
-                    style_cell={"backgroundColor": "#2a2a3d", "color": "#e0e0e0", "padding": "10px", "minWidth": "120px"},
-                    style_data_conditional=[{"if": {"row_index": "odd"}, "backgroundColor": "#252535"}]
+                    style_cell={"backgroundColor": "#2a2a3d", "color": "#e0e0e0", "padding": "10px"},
                 )
             ])
-        ], className="shadow-sm mb-4"),
-
-        # O dcc.Interval foi removido. O dcc.Store controlará todo o fluxo.
-        dcc.Store(id="store-previsao-data"),
+        ])
     ], fluid=True)
 
 
 def register_callbacks_previsoes(app):
-    """Registra os callbacks da página de previsões."""
 
-    # CALLBACK 1: Inicia o processo, preparando o dcc.Store
+    # CALLBACK 1: Inicia a tarefa em segundo plano
     @app.callback(
-        Output("store-previsao-data", "data"),
-        Output("progress-alert-container", "children"),
-        Output("table-previsao", "data"),
+        Output('job-id-store', 'data'),
+        Output('progress-interval', 'disabled'),
+        Output('btn-load-pred', 'disabled'),
+        Output("table-previsao", "data"), # Limpa a tabela
         Input("btn-load-pred", "n_clicks"),
         State("input-ticker-prev", "value"),
         State("input-n-days-prev", "value"),
         prevent_initial_call=True
     )
-    def start_prediction_process(n_clicks, ticker, n_days):
-        """
-        Acionado pelo botão, este callback apenas prepara o estado inicial no dcc.Store.
-        Essa atualização no dcc.Store será o gatilho para o próximo callback começar o trabalho.
-        """
+    def start_job(n_clicks, ticker, n_days):
         if not ticker or not n_days:
-            alert = dbc.Alert("Por favor, preencha o Ticker e o número de Dias.", color="warning", duration=4000)
-            return no_update, alert, no_update
+            return no_update, no_update, no_update, no_update
 
-        try:
-            n_days = int(n_days)
-            if n_days <= 0: raise ValueError
-        except (ValueError, TypeError):
-            alert = dbc.Alert("O número de dias deve ser um inteiro positivo.", color="danger", duration=4000)
-            return no_update, alert, no_update
-        
-        initial_state = {
-            "ticker": ticker.strip().upper(),
-            "n_days_total": n_days,
-            "current_day": 0,
-            "results": [],
-            "status": "running" # Status inicial que começa a cadeia
-        }
+        job_id = str(uuid.uuid4()) # Gera um "ticket" único
 
-        progress_component = html.Div([
-            dbc.Progress(id="loading-progress-bar", value=0, max=100, color="info", striped=True, animated=True),
-            html.Div(id="loading-status", className="mt-2", style={"textAlign": "center", "color": "#e0e0e0"})
-        ])
+        # Cria a thread com a nossa função 'calculation_worker'
+        thread = threading.Thread(target=calculation_worker, args=(job_id, ticker, int(n_days)))
+        thread.start() # Inicia a thread
 
-        return initial_state, progress_component, []
+        # Retorna o ID do job, ativa o intervalo e desativa o botão
+        return {"job_id": job_id}, False, True, []
 
-
-    # CALLBACK 2: Executa um passo do cálculo e se auto-aciona para o próximo passo
+    # CALLBACK 2: Atualiza a interface com o progresso
     @app.callback(
-        Output("loading-progress-bar", "value"),
-        Output("loading-status", "children"),
-        Output("table-previsao", "data", allow_duplicate=True),
-        Output("table-previsao", "columns"),
-        Output("store-previsao-data", "data", allow_duplicate=True),
-        Output("progress-alert-container", "children", allow_duplicate=True),
-        # A MUDANÇA PRINCIPAL: O gatilho agora é a atualização do próprio dcc.Store
-        Input("store-previsao-data", "data"),
+        Output('loading-progress-bar', 'value'),
+        Output('progress-text', 'children'),
+        Output('table-previsao', 'data', allow_duplicate=True),
+        Output('table-previsao', 'columns'),
+        Output('progress-interval', 'disabled', allow_duplicate=True),
+        Output('btn-load-pred', 'disabled', allow_duplicate=True),
+        Input('progress-interval', 'n_intervals'),
+        State('job-id-store', 'data'),
         prevent_initial_call=True
     )
-    def update_prediction_step(stored_data):
-        """
-        Acionado por uma atualização no dcc.Store. Ele executa um passo, atualiza o dcc.Store de novo,
-        o que o aciona novamente, criando uma cadeia até a conclusão.
-        """
-        # Cláusula de guarda: Para o processo se o status não for 'running'
-        if not stored_data or stored_data.get("status") != "running":
-            # Se o status for 'complete' ou 'error', a cadeia para aqui.
-            return no_update, no_update, no_update, no_update, no_update, no_update
+    def update_progress(n, job_data):
+        job_id = job_data.get("job_id")
+        if not job_id:
+            return no_update, no_update, no_update, no_update, True, False
 
-        current_day = stored_data["current_day"] + 1
-        n_days_total = stored_data["n_days_total"]
-        
-        # Se a primeira chamada já falhou, não tente de novo
-        if current_day > n_days_total:
-             stored_data["status"] = "complete"
-             return 100, "Concluído!", stored_data['results'], no_update, stored_data, None
-
-        ticker = stored_data["ticker"]
+        status_file = f"cache_status/{job_id}.json"
         
         try:
-            _, comp = executar_pipeline_regressor(
-                n_dias=current_day,
-                data_calculo=date.today(),
-                save_to_db=False,
-                tickers=[ticker]
-            )
+            with open(status_file, "r") as f:
+                status = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return no_update, "Aguardando início...", no_update, no_update, False, True
 
-            # Verifica se o pipeline retornou um resultado vazio para o ticker
-            if comp.empty:
-                print(f"⚠️ Aviso: Pipeline não retornou dados para o dia {current_day} do ticker {ticker}.")
-            
-            comp = comp.copy()
-            comp["dias_a_frente"] = current_day
-            
-            updated_results = stored_data["results"]
-            updated_results.extend(comp.to_dict("records"))
+        progress = status.get("progress", 0)
+        text = status.get("text", "")
 
-            progress_value = int((current_day / n_days_total) * 100)
-            status_message = f"Processando previsão para o dia {current_day} de {n_days_total}..."
+        if status.get("status") == "complete":
+            # Tarefa concluída: carrega os resultados e para o intervalo
+            result_file = f"cache_results/{job_id}.json"
+            final_df = pd.read_json(result_file, orient="split")
+            columns = [{"name": col, "id": col} for col in final_df.columns]
+            return 100, "Concluído!", final_df.to_dict('records'), columns, True, False
+        
+        elif status.get("status") == "error":
+            # Tarefa falhou: mostra o erro e para o intervalo
+            return 0, text, [], [], True, False
 
-            columns = [
-                {"name": "Ação", "id": "acao"},
-                {"name": "Dias à Frente", "id": "dias_a_frente", "type": "numeric"},
-                {"name": "Data Previsão", "id": "data_previsao", "type": "datetime"},
-                {"name": "Preço Previsto", "id": "preco_previsto", "type": "numeric", "format": {"specifier": "R$ ,.2f"}},
-            ]
-            
-            stored_data["current_day"] = current_day
-            stored_data["results"] = updated_results
-
-            if current_day >= n_days_total:
-                stored_data["status"] = "complete" # Finaliza a cadeia
-                return 100, "Concluído!", updated_results, columns, stored_data, None
-            else:
-                # O retorno aqui atualiza o dcc.Store, que vai disparar este mesmo callback de novo
-                return progress_value, status_message, updated_results, columns, stored_data, no_update
-
-        except Exception as e:
-            print(f"❌ Erro ao executar o pipeline: {e}")
-            alert = dbc.Alert(f"Ocorreu um erro ao processar o ticker {ticker}.", color="danger", dismissable=True)
-            stored_data["status"] = "error" # Finaliza a cadeia com erro
-            return 0, "Erro!", stored_data.get("results", []), no_update, stored_data, alert
+        else:
+            # Tarefa em andamento: atualiza a barra e continua
+            return progress, text, no_update, no_update, False, True
