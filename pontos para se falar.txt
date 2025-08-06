@@ -68,3 +68,24 @@ Foi desenvolvido um pipeline de regressão usando o algoritmo RandomForestRegres
 O processo de treino respeitou uma divisão hold-out temporal, separando os últimos N dias para teste, simulando o cenário real de uma previsão futura. Após o treinamento,
 o modelo gera previsões para o período de teste e os resultados (preço real, preço previsto e erro percentual) são armazenados na tabela resultados_precos.
 Isso permite validar a assertividade da regressão ao longo do tempo e alimentar análises comparativas entre valor previsto e valor real de mercado.
+
+7. Problema: Processamento Lento na Previsão de Múltiplos Dias
+A Preocupação:
+A implementação original para prever o preço de uma ação para vários dias no futuro era muito lenta, impactando negativamente a experiência do usuário no dashboard.
+Ao solicitar uma previsão para N dias, o sistema executava um loop que, para cada dia, realizava o ciclo completo de:
+Conectar-se ao banco de dados.
+Carregar todo o histórico de indicadores financeiros.
+Processar e preparar todos esses dados.
+Treinar um modelo de regressão.
+Essa repetição de tarefas pesadas e redundantes, especialmente o carregamento dos mesmos dados do banco de dados N vezes, criava um grande gargalo de performance,
+tornando o tempo de espera proibitivo para um horizonte de previsão maior.
+
+A Solução Implementada:
+A solução foi refatorar e otimizar o pipeline de regressão para eliminar a redundância. Foi criada uma nova função centralizada, a executar_pipeline_multidia, com a seguinte lógica:
+Otimização de Dados: A função agora carrega os dados do banco de dados e executa o pré-processamento inicial (cálculo de features) uma única vez, antes de iniciar qualquer cálculo de previsão.
+Loop Eficiente: Com os dados já em memória, a função entra em um loop que itera pelo número de dias a prever.
+Em cada iteração, ela apenas realiza as tarefas específicas daquele horizonte: cria a variável alvo (preco_futuro_N_dias), treina o modelo e gera a previsão, reutilizando os dados já processados.
+Integração com o Dashboard: O código do dashboard (previsoes.py) foi modificado para chamar essa nova função otimizada uma única vez,
+passando a ela a responsabilidade de calcular todas as previsões de uma só vez.
+
+Essa mudança transformou um processo de N operações pesadas em uma única operação pesada seguida por N operações leves, resultando em uma melhoria drástica de performance e na redução significativa do tempo de espera para o usuário.
