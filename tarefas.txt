@@ -34,8 +34,5 @@ mostrar as infos q tenho do banco, pra outro chat de gpt e pedir oq ele faria nu
 
 Entender melhor como o docker funciona
 
-na aba de previsões, da pra fazer um jeito do usuario escolher uma ação, e mandar prever pra frente o dia q ele quiser, por padrão no meu banco fica 10 dias,
-mas oq o usuario escolher so mostra pra ele e n salva no banco
-
 fazer dps uma aba de pagina inicial, com informações do projeto
 
