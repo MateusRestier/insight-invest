@@ -27,7 +27,7 @@ server = app.server  # Expondo servidor para WSGI
 app.layout = dbc.Container(
     [
         dbc.NavbarSimple(
-            brand="TCC: Sistema de Análise e Recomendação de Ações",
+            brand="Sistema de Análise, Previsão e Recomendação de Ações",
             color="primary",
             dark=True,
             children=[

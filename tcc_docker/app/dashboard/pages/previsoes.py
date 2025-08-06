@@ -11,7 +11,7 @@ import os
 
 # Importação da sua função de regressão
 from regressor_preco import executar_pipeline_regressor
-
+from regressor_preco import executar_pipeline_multidia
 # --- CONFIGURAÇÃO DAS PASTAS DE CACHE ---
 if not os.path.exists("cache_status"):
     os.makedirs("cache_status")
@@ -26,30 +26,33 @@ def calculation_worker(job_id, ticker, n_days):
 
     print(f"THREAD {job_id}: Iniciada para {ticker} por {n_days} dias.")
 
-    all_preds = []
     try:
-        for i in range(1, n_days + 1):
-            progress_info = {"status": "running", "progress": int((i / n_days) * 100), "text": f"Processando dia {i} de {n_days}..."}
+        # Função de callback para atualizar o progresso
+        def report_progress(current_day, total_days):
+            progress_info = {
+                "status": "running",
+                "progress": int((current_day / total_days) * 100),
+                "text": f"Processando dia {current_day} de {total_days}..."
+            }
             with open(status_file, "w") as f:
                 json.dump(progress_info, f)
 
-            _, comp = executar_pipeline_regressor(
-                n_dias=i, data_calculo=date.today(), save_to_db=False, tickers=[ticker]
-            )
-            if not comp.empty:
-                comp = comp.copy()
-                comp["dias_a_frente"] = i
-                all_preds.append(comp)
+        # Chama a nova função otimizada UMA ÚNICA VEZ
+        final_df = executar_pipeline_multidia(
+            max_dias=n_days,
+            data_calculo=date.today(),
+            save_to_db=False,  # Não salva no DB neste contexto, pois é só para exibição
+            tickers=[ticker],
+            progress_callback=report_progress
+        )
 
-        final_df = pd.concat(all_preds, ignore_index=True)
+        if final_df.empty:
+             raise ValueError("Nenhuma previsão foi gerada. Verifique os dados de entrada.")
 
-        if 'real' in final_df.columns:
-            final_df = final_df.drop(columns=['real'])
-        if 'erro_pct' in final_df.columns:
-            final_df = final_df.drop(columns=['erro_pct'])
+        # Salva o resultado final
+        final_df.to_json(result_file, orient="split", date_format="iso")
 
-        final_df.to_json(result_file, orient="split")
-
+        # Atualiza o status para concluído
         final_status = {"status": "complete", "progress": 100, "text": "Concluído!"}
         with open(status_file, "w") as f:
             json.dump(final_status, f)
@@ -148,7 +151,7 @@ def register_callbacks_previsoes(app):
             final_df = pd.read_json(result_file, orient="split")
 
             if 'data_previsao' in final_df.columns:
-                final_df['data_previsao'] = pd.to_datetime(final_df['data_previsao'], unit='ms').dt.strftime('%Y-%m-%d')
+                final_df['data_previsao'] = pd.to_datetime(final_df['data_previsao']).dt.strftime('%Y-%m-%d')
             
             # AJUSTE 1: Mapeamento dos nomes das colunas
             column_name_map = {

@@ -215,6 +215,111 @@ def executar_pipeline_regressor(
 
     return model, comp
 
+def executar_pipeline_multidia(
+    max_dias: int = 10,
+    data_calculo: date | None = None,
+    save_to_db: bool = True,
+    tickers: list[str] | None = None,
+    progress_callback=None
+) -> pd.DataFrame:
+    """
+    Executa um pipeline de regressão otimizado para prever múltiplos dias futuros.
+
+    Args:
+        max_dias: Número máximo de dias futuros para prever.
+        data_calculo: Data base para o cálculo (se None, usa a data de hoje).
+        save_to_db: Se True, persiste os resultados no banco de dados.
+        tickers: Lista de ações para filtrar o resultado (ou None para todas).
+        progress_callback: Função opcional para reportar o progresso (ex: para a UI).
+
+    Returns:
+        DataFrame com as previsões para cada dia até max_dias.
+    """
+    if data_calculo is None:
+        data_calculo = date.today()
+
+    # 1) Carregamento e preparação de dados (FEITO APENAS UMA VEZ)
+    print("ETAPA 1: Carregando e preparando os dados (uma única vez)...")
+    df_base = carregar_dados_do_banco()
+    df_com_features = calcular_features_graham_estrito(df_base)
+    print("✅ Dados preparados.")
+
+    all_predictions = []
+
+    # 2) Loop para treinar um modelo para cada horizonte de tempo (de 1 a max_dias)
+    for n in range(1, max_dias + 1):
+        if progress_callback:
+            progress_callback(n, max_dias)
+
+        print(f"\nETAPA 2: Treinando modelo para prever {n} dia(s) à frente...")
+
+        # Adiciona a coluna 'preco_futuro_N_dias' para o horizonte 'n' atual
+        df_horizonte = adicionar_preco_futuro(df_com_features, n)
+        df_horizonte = df_horizonte.dropna(subset=['preco_futuro_N_dias']).copy()
+
+        features = [
+            'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',
+            'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
+            'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
+            'giro_ativos','roe','roic','roa','patrimonio_ativos',
+            'passivos_ativos','variacao_12m'
+        ]
+        features = [f for f in features if f in df_horizonte.columns]
+
+        X = df_horizonte[features].replace([np.inf, -np.inf], np.nan).dropna()
+        y = df_horizonte.loc[X.index, 'preco_futuro_N_dias']
+        dates = df_horizonte.loc[X.index, 'data_coleta']
+        acoes = df_horizonte.loc[X.index, 'acao']
+
+        # Define o conjunto de treino com base na data de cálculo
+        cutoff = pd.to_datetime(data_calculo)
+        mask_train = dates <= cutoff
+        X_train, y_train = X[mask_train], y[mask_train]
+        
+        # Pega os dados mais recentes de cada ação para fazer a previsão
+        ultimos_registros = X_train.groupby(acoes.loc[X_train.index]).tail(1)
+        
+        if ultimos_registros.empty:
+            print(f"⚠️ Sem dados de treino para o horizonte de {n} dias na data {data_calculo}.")
+            continue
+
+        # Treina um modelo específico para este horizonte de dias
+        model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+        model.fit(X_train, y_train)
+
+        # Gera previsões
+        preds = model.predict(ultimos_registros)
+        
+        future_date = data_calculo + timedelta(days=n)
+
+        comp = pd.DataFrame({
+            'acao': acoes.loc[ultimos_registros.index].values,
+            'data_previsao': [future_date] * len(ultimos_registros),
+            'preco_previsto': preds,
+            'dias_a_frente': n  # Adiciona a informação do horizonte
+        })
+        all_predictions.append(comp)
+
+    if not all_predictions:
+        print("❌ Nenhuma previsão pôde ser gerada.")
+        return pd.DataFrame()
+
+    # 3) Consolida e retorna os resultados
+    final_comp = pd.concat(all_predictions, ignore_index=True)
+    final_comp = final_comp.sort_values(['acao', 'dias_a_frente'])
+
+    # Filtra tickers, se especificado
+    if tickers:
+        tickers_upper = [t.upper() for t in tickers]
+        final_comp = final_comp[final_comp['acao'].isin(tickers_upper)]
+
+    # Salva no banco, se solicitado
+    if save_to_db:
+        print("\nETAPA 3: Salvando resultados no banco...")
+        salvar_resultados_no_banco(final_comp, data_calculo)
+
+    return final_comp
+
 
 if __name__ == "__main__":
     from datetime import datetime, date, timedelta
