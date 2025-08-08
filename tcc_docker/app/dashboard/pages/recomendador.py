@@ -42,7 +42,7 @@ def layout_recomendador():
                                     id="recomendation-output",
                                     style={
                                         'whiteSpace': 'pre-wrap',       # Permite a quebra de linha
-                                        'wordBreak': 'break-all',       # Força a quebra de palavras muito longas
+                                        'wordBreak': 'break-word',      # Força a quebra de texto
                                         'textAlign': 'left',            # Alinha o texto do terminal à esquerda
                                         'width': '100%',                # Garante que o <pre> ocupe a largura toda
                                         'backgroundColor': '#2c2c3e',   # Fundo sutil para o texto
@@ -62,14 +62,18 @@ def layout_recomendador():
         # Coluna da Direita: Indicadores da Ação
         dbc.Col([
             html.H5("🪄 Indicadores da Ação Selecionada:", className="mb-2"),
-            dcc.Loading(
-                id="loading-cards-rec",
-                type="circle",
-                children=dbc.Row(
-                    id="cards-indicadores-rec",
-                    justify="start",
-                    className="g-3 mb-4",
-                )
+            html.Div(
+                dcc.Loading(
+                    id="loading-cards-rec",
+                    type="circle",
+                    children=dbc.Row(
+                        id="cards-indicadores-rec",
+                        justify="start",
+                        className="g-3 mb-4",
+                    )
+                ),
+                className="flex-grow-1 d-flex justify-content-center align-items-center",
+                style={"marginTop": "2.5rem"}  # Ajuste aqui para descer o spinner
             )
         ], md=7),
     ], className="align-items-stretch") # Garante que as colunas tenham a mesma altura
