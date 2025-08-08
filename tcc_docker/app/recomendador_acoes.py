@@ -44,7 +44,6 @@ def carregar_artefatos_modelo():
             f"Modelo não encontrado em {modelo_path}. Execute o classificador.py primeiro."
         )
     modelo = joblib.load(modelo_path)
-    print("Modelo carregado com sucesso.")
     return modelo
 
 
@@ -293,7 +292,6 @@ def recomendar_varias_acoes(conn):
             print(f"{ticker}: {status} ({msg})")
 
 def recomendar_acao(ticker):
-    print(f"Coletando dados para {ticker.upper()}...")
     resultado_scraper = coletar_indicadores(ticker)
     
     if isinstance(resultado_scraper, str):
@@ -304,11 +302,9 @@ def recomendar_acao(ticker):
         return
 
     dados_brutos, _ = resultado_scraper
-    print("Calculando feature 'preco_sobre_graham'...")
     dados_com_graham = calcular_preco_sobre_graham_para_recomendacao(dados_brutos)
     df_para_previsao_raw = pd.DataFrame([dados_com_graham])
 
-    print("Preparando features para o modelo...")
     X_para_previsao = pd.DataFrame(columns=FEATURES_ESPERADAS_PELO_MODELO, index=[0])
     faltando_do_scraper = []
     for col in FEATURES_ESPERADAS_PELO_MODELO:
@@ -317,10 +313,6 @@ def recomendar_acao(ticker):
         elif col != 'preco_sobre_graham':
             faltando_do_scraper.append(col)
 
-    if faltando_do_scraper:
-        print(f"Aviso: Features não encontradas no scraper: {faltando_do_scraper}")
-
-    print("Carregando modelo treinado...")
     try:
         modelo = carregar_artefatos_modelo()
     except FileNotFoundError as e:
@@ -332,7 +324,6 @@ def recomendar_acao(ticker):
 
     X_final = X_para_previsao[FEATURES_ESPERADAS_PELO_MODELO]
 
-    print("Realizando previsão...")
     try:
         proba = modelo.predict_proba(X_final)[0]
     except Exception as e:
