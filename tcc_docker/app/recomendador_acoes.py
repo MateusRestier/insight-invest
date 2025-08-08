@@ -83,7 +83,7 @@ def gerar_justificativas(dados_acao_df, predicao_modelo):
             elif pl >= 20:
                 justificativas_negativas.append(f"P/L elevado ({pl:.2f}).")
 
-        # P/VP (Preço/Valor Patrimonial)
+        # P/VP (Preço/Valor Patrimônio)
         if pd.notna(pvp):
             if pvp <= 0:
                 justificativas_negativas.append(f"Patrimônio líquido negativo ou zero (P/VP={pvp:.2f}).")
@@ -151,7 +151,7 @@ def gerar_justificativas(dados_acao_df, predicao_modelo):
         print(f"Erro ao gerar justificativas: {e}")
 
     # A lógica de exibição abaixo já está boa e não precisa de alteração.
-    print("\n--- Análise Detalhada (Baseada em Regras Heurísticas) ---")
+    print("\n🔎 Análise Detalhada (Baseada em Regras Heurísticas)")
     if predicao_modelo == 1: # Se a predição binária for 1
         print("O modelo RECOMENDOU esta ação. Observações com base em regras:")
     else: # Se a predição binária for 0 (ou qualquer outro texto de não recomendação)
@@ -159,18 +159,18 @@ def gerar_justificativas(dados_acao_df, predicao_modelo):
         print(f"O modelo classificou como: \"{predicao_modelo}\". Observações com base em regras:")
 
     if justificativas_positivas:
-        print("\n  Pontos Positivos Observados:")
+        print("\n✅ Pontos Positivos Observados:")
         for just in justificativas_positivas:
-            print(f"    ✅ {just}")
+            print(f"   + {just}")
     else:
-        print("\n  Nenhum ponto positivo destacado pelas regras heurísticas atuais para esta ação.")
+        print("\nNenhum ponto positivo destacado pelas regras heurísticas atuais para esta ação.")
 
     if justificativas_negativas:
-        print("\n  Pontos Negativos / de Atenção Observados:")
+        print("\n⚠️  Pontos Negativos / de Atenção Observados:")
         for just in justificativas_negativas:
-            print(f"    ❌ {just}")
+            print(f"   - {just}")
     else:
-        print("\n  Nenhum ponto negativo/de atenção destacado pelas regras heurísticas atuais para esta ação.")
+        print("\nNenhum ponto negativo/de atenção destacado pelas regras heurísticas atuais para esta ação.")
 
 def _processar_ticker(ticker):
     """
@@ -333,34 +333,44 @@ def recomendar_acao(ticker):
     prob_recomendada = proba[1]
     if prob_recomendada >= 0.75:
         recomendacao_texto = "FORTEMENTE RECOMENDADA para compra"
+        emoji = "🟢"
     elif prob_recomendada >= 0.60:
         recomendacao_texto = "RECOMENDADA para compra"
+        emoji = "🟢"
     elif prob_recomendada >= 0.50:
         recomendacao_texto = "PARCIALMENTE RECOMENDADA (Viés positivo)"
+        emoji = "🟡"
     elif prob_recomendada >= 0.40:
         recomendacao_texto = "PARCIALMENTE NÃO RECOMENDADA (Viés negativo)"
+        emoji = "🟠"
     elif prob_recomendada >= 0.25:
         recomendacao_texto = "NÃO RECOMENDADA para compra"
+        emoji = "🔴"
     else:
         recomendacao_texto = "FORTEMENTE NÃO RECOMENDADA para compra"
+        emoji = "🔴"
 
-    print("\n===================================================")
-    print(f"Relatório para: {ticker.upper()}")
-    print("===================================================")
-    print(f"Resultado do Modelo: {recomendacao_texto.upper()}!")
-    print(f"Probabilidades - Não Recomendada: {proba[0]:.2%}, Recomendada: {proba[1]:.2%}")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print(f"📈  Relatório para: {ticker.upper()}")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print(f"\n{emoji}  Resultado do Modelo: {recomendacao_texto.upper()} {emoji}")
+    print(f"\n🔢  Probabilidades:")
+    print(f"   ❌ Não Recomendada: {proba[0]:.2%}")
+    print(f"   ✅ Recomendada:    {proba[1]:.2%}")
 
-    print("\n--- Indicadores Chave ---")
+    print("\n🧮  Indicadores Chave")
+    print("─────────────────────────────")
     for feat in FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR:
         if feat in X_final.columns:
             val = X_final[feat].iloc[0]
             suf = '%' if feat in ['dividend_yield','roe','variacao_12m','margem_liquida'] else ''
-            print(f"  {feat.replace('_',' ').capitalize()}: {val:.2f}{suf}")
+            print(f"   • {feat.replace('_',' ').capitalize():<22}: {val:>8.2f}{suf}")
         else:
-            print(f"  {feat.replace('_',' ').capitalize()}: Não disponível")
+            print(f"   • {feat.replace('_',' ').capitalize():<22}: {'Não disponível':>8}")
 
+    print("─────────────────────────────")
     gerar_justificativas(X_final, recomendacao_texto)
-    print("\n===================================================")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
 if __name__ == "__main__":
     print("Selecione a opção:")
