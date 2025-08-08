@@ -353,9 +353,9 @@ def register_callbacks_indicadores(app):
 
         # Mapeamento de cores para garantir consistência visual
         color_map = {
-            'Igual a 0': 'rgb(0, 204, 150)',   # Verde
-            'Maior que 0': 'rgb(99, 110, 250)', # Azul
-            'Menor que 0': 'rgb(239, 85, 59)'  # Vermelho
+            'Igual a 0': 'rgb(0, 204, 150)',      # Verde
+            'Maior que 0': 'rgb(126, 135, 255)',  # Roxo claro
+            'Menor que 0': 'rgb(85, 61, 186)'     # Roxo escuro
         }
 
         fig = px.pie(
