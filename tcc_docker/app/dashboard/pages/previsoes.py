@@ -26,10 +26,10 @@ def get_repo_base():
         repo_base = os.sep.join(parts[:idx+1])
         return repo_base
     else:
-        raise RuntimeError("Não foi possível localizar o diretório base do repositório PRIVATE-TCC.")
+        raise RuntimeError("Não foi possível localizar o diretório da pasta app.")
 
 REPO_BASE = get_repo_base()
-DASHBOARD_DIR = os.path.join(REPO_BASE,"dashboard")
+DASHBOARD_DIR = os.path.join(REPO_BASE, "dashboard")
 CACHE_STATUS_DIR = os.path.join(DASHBOARD_DIR, "cache_status")
 CACHE_RESULTS_DIR = os.path.join(DASHBOARD_DIR, "cache_results")
 # -----------------------------------------
@@ -81,21 +81,15 @@ def calculation_worker(job_id, ticker, n_days):
 
         print(f"THREAD {job_id}: Concluída com sucesso.")
 
-        # Remove os arquivos das pastas de cache ao final do processamento
-        for folder in [CACHE_STATUS_DIR, CACHE_RESULTS_DIR]:
-            try:
-                for filename in os.listdir(folder):
-                    file_path = os.path.join(folder, filename)
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-            except Exception as e:
-                print(f"Erro ao limpar arquivos em {folder}: {e}")
+        # Remoção dos arquivos de cache foi REMOVIDA daqui!
+        # O arquivo será removido pelo callback após leitura.
 
     except Exception as e:
         print(f"THREAD {job_id}: ERRO - {e}")
         error_status = {"status": "error", "progress": 0, "text": f"Ocorreu um erro: {e}"}
         with open(status_file, "w") as f:
             json.dump(error_status, f)
+        # Remoção dos arquivos de cache foi REMOVIDA daqui!
         # Remove os arquivos das pastas de cache também em caso de erro
         for folder in [CACHE_STATUS_DIR, CACHE_RESULTS_DIR]:
             try:
@@ -208,6 +202,15 @@ def register_callbacks_previsoes(app):
                 for col in final_df.columns
             ]
             
+            # Após ler e exibir os dados, remova os arquivos do job atual
+            try:
+                if os.path.isfile(status_file):
+                    os.remove(status_file)
+                if os.path.isfile(result_file):
+                    os.remove(result_file)
+            except Exception as e:
+                print(f"Erro ao remover arquivos do job {job_id}: {e}")
+
             return 100, "Concluído!", final_df.to_dict('records'), columns, True, False
         
         elif status.get("status") == "error":
