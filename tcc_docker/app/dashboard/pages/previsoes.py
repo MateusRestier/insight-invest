@@ -1,19 +1,7 @@
-# dashboard/pages/previsoes.py
-
 from dash import html, dcc, Input, Output, State, no_update, dash_table
-import dash_bootstrap_components as dbc
-import pandas as pd
+import dash_bootstrap_components as dbc, pandas as pd, threading, uuid, json, os
 from datetime import date
-import threading
-import uuid
-import json
-import os
-import shutil
-
-# Importação da sua função de regressão
-from regressor_preco import executar_pipeline_regressor
 from regressor_preco import executar_pipeline_multidia
-
 
 # --- LOCALIZAÇÃO DO REPOSITÓRIO BASE ---
 def get_repo_base():
@@ -188,7 +176,6 @@ def register_callbacks_previsoes(app):
             if 'data_previsao' in final_df.columns:
                 final_df['data_previsao'] = pd.to_datetime(final_df['data_previsao']).dt.strftime('%Y-%m-%d')
             
-            # AJUSTE 1: Mapeamento dos nomes das colunas
             column_name_map = {
                 'acao': 'Ação',
                 'data_previsao': 'Data da Previsão',
@@ -196,13 +183,11 @@ def register_callbacks_previsoes(app):
                 'dias_a_frente': 'Dias à Frente'
             }
 
-            # Usa o mapa para criar os cabeçalhos da tabela
             columns = [
                 {"name": column_name_map.get(col, col), "id": col}
                 for col in final_df.columns
             ]
             
-            # Após ler e exibir os dados, remova os arquivos do job atual
             try:
                 if os.path.isfile(status_file):
                     os.remove(status_file)
