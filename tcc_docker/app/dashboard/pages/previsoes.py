@@ -108,8 +108,15 @@ def layout_previsoes():
                         ),
                 ], className="g-2 mb-4", justify="start"),
 
-                dbc.Progress(id="loading-progress-bar", value=0, style={"height": "20px"}, className="progress-bar-purple", striped=True, animated=True),
-                html.P(id="progress-text", className="text-center mt-2"),
+                # Envolva barra de progresso e texto em um Div controlável
+                html.Div(
+                    id="progress-container",
+                    style={"display": "none"},
+                    children=[
+                        dbc.Progress(id="loading-progress-bar", value=0, style={"height": "20px"}, className="progress-bar-purple", striped=True, animated=True),
+                        html.P(id="progress-text", className="text-center mt-2"),
+                    ]
+                ),
                 dash_table.DataTable(
                     id="table-previsao", columns=[], data=[], page_size=20, sort_action="native",
                     style_table={"overflowX": "auto"},
@@ -120,7 +127,7 @@ def layout_previsoes():
 
 
 def register_callbacks_previsoes(app):
-    # Callback de início de tarefa (sem alterações)
+    # Callback de início de tarefa
     @app.callback(
         Output('job-id-store', 'data'),
         Output('progress-interval', 'disabled'),
@@ -149,6 +156,7 @@ def register_callbacks_previsoes(app):
         Output('table-previsao', 'columns'),
         Output('progress-interval', 'disabled', allow_duplicate=True),
         Output('btn-load-pred', 'disabled', allow_duplicate=True),
+        Output('progress-container', 'style', allow_duplicate=True),  # Adicione allow_duplicate=True aqui
         Input('progress-interval', 'n_intervals'),
         State('job-id-store', 'data'),
         prevent_initial_call=True
@@ -156,7 +164,7 @@ def register_callbacks_previsoes(app):
     def update_progress(n, job_data):
         job_id = job_data.get("job_id")
         if not job_id:
-            return no_update, no_update, no_update, no_update, True, False
+            return no_update, no_update, no_update, no_update, True, False, {"display": "none"}
 
         status_file = os.path.join(CACHE_STATUS_DIR, f"{job_id}.json")
         
@@ -164,7 +172,8 @@ def register_callbacks_previsoes(app):
             with open(status_file, "r") as f:
                 status = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            return no_update, "Aguardando início...", no_update, no_update, False, True
+            # Esconde barra de progresso se não houver status
+            return no_update, "", no_update, no_update, False, False, {"display": "none"}
 
         progress = status.get("progress", 0)
         text = status.get("text", "")
@@ -196,10 +205,13 @@ def register_callbacks_previsoes(app):
             except Exception as e:
                 print(f"Erro ao remover arquivos do job {job_id}: {e}")
 
-            return 100, "Concluído!", final_df.to_dict('records'), columns, True, False
+            # Esconde barra de progresso ao concluir e habilita botão
+            return 100, "Concluído!", final_df.to_dict('records'), columns, True, False, {"display": "none"}
         
         elif status.get("status") == "error":
-            return 0, text, [], [], True, False
+            # Esconde barra de progresso em caso de erro e habilita botão
+            return 0, text, [], [], True, False, {"display": "none"}
 
         else:
-            return progress, text, no_update, no_update, False, True
+            # Mostra barra de progresso enquanto processa e desabilita botão
+            return progress, text, no_update, no_update, False, True, {"display": "block"}
