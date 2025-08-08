@@ -44,7 +44,7 @@ app.layout = dbc.Container(
             fluid=True,
             expand="lg",  # Transição para hambúrguer em telas pequenas
             id="navbar",
-            brand_href="#",
+            brand_href="https://github.com/MateusRestier/insight-invest",
             style={
                 "backgroundColor": "#2c2c3e",  # Ajuste a cor de fundo
                 "padding": "0 1rem",  # Controle o padding interno

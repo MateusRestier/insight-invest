@@ -8,21 +8,43 @@ import threading
 import uuid
 import json
 import os
+import shutil
 
 # Importação da sua função de regressão
 from regressor_preco import executar_pipeline_regressor
 from regressor_preco import executar_pipeline_multidia
+
+
+# --- LOCALIZAÇÃO DO REPOSITÓRIO BASE ---
+def get_repo_base():
+    # Caminho absoluto deste arquivo
+    this_file = os.path.abspath(__file__)
+    # Procura por "app" no caminho
+    parts = this_file.split(os.sep)
+    if "app" in parts:
+        idx = parts.index("app")
+        repo_base = os.sep.join(parts[:idx+1])
+        return repo_base
+    else:
+        raise RuntimeError("Não foi possível localizar o diretório base do repositório PRIVATE-TCC.")
+
+REPO_BASE = get_repo_base()
+DASHBOARD_DIR = os.path.join(REPO_BASE,"dashboard")
+CACHE_STATUS_DIR = os.path.join(DASHBOARD_DIR, "cache_status")
+CACHE_RESULTS_DIR = os.path.join(DASHBOARD_DIR, "cache_results")
+# -----------------------------------------
+
 # --- CONFIGURAÇÃO DAS PASTAS DE CACHE ---
-if not os.path.exists("cache_status"):
-    os.makedirs("cache_status")
-if not os.path.exists("cache_results"):
-    os.makedirs("cache_results")
+if not os.path.exists(CACHE_STATUS_DIR):
+    os.makedirs(CACHE_STATUS_DIR)
+if not os.path.exists(CACHE_RESULTS_DIR):
+    os.makedirs(CACHE_RESULTS_DIR)
 # -----------------------------------------
 
 def calculation_worker(job_id, ticker, n_days):
     """Esta função faz o trabalho pesado em segundo plano."""
-    status_file = f"cache_status/{job_id}.json"
-    result_file = f"cache_results/{job_id}.json"
+    status_file = os.path.join(CACHE_STATUS_DIR, f"{job_id}.json")
+    result_file = os.path.join(CACHE_RESULTS_DIR, f"{job_id}.json")
 
     print(f"THREAD {job_id}: Iniciada para {ticker} por {n_days} dias.")
 
@@ -59,11 +81,30 @@ def calculation_worker(job_id, ticker, n_days):
 
         print(f"THREAD {job_id}: Concluída com sucesso.")
 
+        # Remove os arquivos das pastas de cache ao final do processamento
+        for folder in [CACHE_STATUS_DIR, CACHE_RESULTS_DIR]:
+            try:
+                for filename in os.listdir(folder):
+                    file_path = os.path.join(folder, filename)
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+            except Exception as e:
+                print(f"Erro ao limpar arquivos em {folder}: {e}")
+
     except Exception as e:
         print(f"THREAD {job_id}: ERRO - {e}")
         error_status = {"status": "error", "progress": 0, "text": f"Ocorreu um erro: {e}"}
         with open(status_file, "w") as f:
             json.dump(error_status, f)
+        # Remove os arquivos das pastas de cache também em caso de erro
+        for folder in [CACHE_STATUS_DIR, CACHE_RESULTS_DIR]:
+            try:
+                for filename in os.listdir(folder):
+                    file_path = os.path.join(folder, filename)
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+            except Exception as e:
+                print(f"Erro ao limpar arquivos em {folder}: {e}")
 
 
 def layout_previsoes():
@@ -135,7 +176,7 @@ def register_callbacks_previsoes(app):
         if not job_id:
             return no_update, no_update, no_update, no_update, True, False
 
-        status_file = f"cache_status/{job_id}.json"
+        status_file = os.path.join(CACHE_STATUS_DIR, f"{job_id}.json")
         
         try:
             with open(status_file, "r") as f:
@@ -147,7 +188,7 @@ def register_callbacks_previsoes(app):
         text = status.get("text", "")
 
         if status.get("status") == "complete":
-            result_file = f"cache_results/{job_id}.json"
+            result_file = os.path.join(CACHE_RESULTS_DIR, f"{job_id}.json")
             final_df = pd.read_json(result_file, orient="split")
 
             if 'data_previsao' in final_df.columns:
