@@ -224,8 +224,12 @@ textarea {
     gap: 1rem;
     width: 100%;
     flex-wrap: nowrap;
-    overflow-x: auto;
+    /* Remover overflow-x para não cortar o brilho do hover */
+    /* overflow-x: auto; */
     box-sizing: border-box;
+    /* Adicione padding vertical para dar espaço ao brilho */
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
 }
 .performance-cards-row .col {
     flex: 1 1 0;
@@ -237,7 +241,9 @@ textarea {
 .performance-cards-row .card {
     flex: 1 1 0;
     margin: 0;
-    margin-top: 1px;
+    /* Adicione espaçamento vertical para evitar corte do brilho */
+    margin-top: 8px;
+    margin-bottom: 8px;
     box-sizing: border-box;
     min-width: 0;
 }
