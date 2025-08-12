@@ -27,55 +27,54 @@ Este projeto integra coleta de dados fundamentalistas, modelagem (classificaçã
 
 ## 📐 Arquitetura Geral
 
-
-           +------------------------+
-           |   Investidor10 (web)   |
-           +-----------+------------+
-                       |
-                       | scraping
-                       v
-+----------------------+--------------------+
-|      scraper_indicadores.py (coleta)      |
-+----------------------+--------------------+
-                       |
-                       | INSERT/UPSERT
-                       v
-         +-------------------------------------+
-         |          PostgreSQL (DB)            |
-         |  - indicadores_fundamentalistas     |
-         |  - resultados_precos                |
-         |  - recomendacoes_acoes              |
-         +----------+---------------+----------+
-                    |               |
-        leitura p/ treino        leitura p/ exibição
-                    |               |
-                    v               v
-     +----------------------+   +----------------------------+
-     |  classificador.py    |   |        Dashboard           |
-     |  regressor_preco.py  |   |  (Dash: indicadores,       |
-     +----------+-----------+   |   previsões e recomendações)|
-                |               +----------------------------+
-                | modelos/      ^
-                v               |
-        +-----------------+     |
-        |  modelo/*.pkl   |     |
-        +-----------------+     |
-                                |
-                                |
-                                v
+```text
++------------------------+
+|   Investidor10 (web)   |
++-----------+------------+
+            |
+            | scraping
+            v
++-------------------------------+
+| scraper_indicadores.py        |
+|         (coleta)              |
++-------------------------------+
+            |
+            | INSERT/UPSERT
+            v
++-------------------------------------+
+|          PostgreSQL (DB)            |
+|  - indicadores_fundamentalistas     |
+|  - resultados_precos                |
+|  - recomendacoes_acoes              |
++----------+---------------+----------+
+           |               |
+leitura p/ treino        leitura p/ exibição
+           |               |
+           v               v
++----------------------+   +----------------------------+
+|  classificador.py    |   |        Dashboard           |
+|  regressor_preco.py  |   |  (Dash: indicadores,       |
++----------+-----------+   |   previsões e recomendações)|
+           | modelos/      +----------------------------+
+           v                             |
+   +-----------------+                   | 
+   |  modelo/*.pkl   |                   |
+   +-----------------+                   |
+           |                             |
+           v                             v                 
 +---------------------------------------------------------------------+
 | regressor_preco.py/recomendador_acoes.py (previsões/classificações) |
 +---------------------------------------------------------------------+
 
-           +----------------------------+
-           | executar_tarefas_diarias   |
-           | (orquestração diária)      |
-           +----------------------------+
++----------------------------+
+| executar_tarefas_diarias   |
+| (orquestração diária)      |
++----------------------------+
 
-           +----------------------------+
-           | backup.py (pg_dump/restore)|
-           +----------------------------+
-
++----------------------------+
+| backup.py (pg_dump/restore)|
++----------------------------+
+```
 
 ---
 
@@ -93,7 +92,7 @@ Este projeto integra coleta de dados fundamentalistas, modelagem (classificaçã
 
 ## 📁 Estrutura do Repositório
 
-
+```text
 tcc_docker/
 ├─ app/
 │  ├─ backups/                     # dumps de banco (.dump)
@@ -119,7 +118,7 @@ tcc_docker/
 ├─ Dockerfile
 ├─ docker-compose.yml
 └─ requirements.txt
-
+```
 
 ---
 
@@ -149,45 +148,43 @@ tcc_docker/
 
 **Tabelas principais:**
 
-1. **indicadores_fundamentalistas**
-    sql
-    CREATE TABLE IF NOT EXISTS public.indicadores_fundamentalistas (
-      acao                  TEXT        NOT NULL,
-      data_coleta           DATE        NOT NULL,
-      cotacao               NUMERIC,
-      pl                    NUMERIC,
-      pvp                   NUMERIC,
-      roe                   NUMERIC,
-      dividend_yield        NUMERIC,
-      margem_liquida        NUMERIC,
-      divida_liquida_patrimonio NUMERIC,
-      lpa                   NUMERIC,
-      vpa                   NUMERIC,
-      variacao_12m          NUMERIC,
-      PRIMARY KEY (acao, data_coleta)
-    );
-    
-2. **resultados_precos**
-    sql
-    CREATE TABLE IF NOT EXISTS public.resultados_precos (
-      acao           TEXT       NOT NULL,
-      data_previsao  DATE       NOT NULL,
-      preco_previsto NUMERIC    NOT NULL,
-      data_coleta    DATE       NOT NULL,
-      data_calculo   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (acao, data_previsao)
-    );
-    
-3. **recomendacoes_acoes**
-    sql
-    CREATE TABLE IF NOT EXISTS public.recomendacoes_acoes (
-      acao            TEXT        NOT NULL,
-      prob_sim        NUMERIC     NOT NULL,
-      prob_nao        NUMERIC     NOT NULL,
-      resultado       TEXT        NOT NULL,
-      data_insercao   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    
+```sql
+-- indicadores_fundamentalistas
+CREATE TABLE IF NOT EXISTS public.indicadores_fundamentalistas (
+  acao                  TEXT        NOT NULL,
+  data_coleta           DATE        NOT NULL,
+  cotacao               NUMERIC,
+  pl                    NUMERIC,
+  pvp                   NUMERIC,
+  roe                   NUMERIC,
+  dividend_yield        NUMERIC,
+  margem_liquida        NUMERIC,
+  divida_liquida_patrimonio NUMERIC,
+  lpa                   NUMERIC,
+  vpa                   NUMERIC,
+  variacao_12m          NUMERIC,
+  PRIMARY KEY (acao, data_coleta)
+);
+
+-- resultados_precos
+CREATE TABLE IF NOT EXISTS public.resultados_precos (
+  acao           TEXT       NOT NULL,
+  data_previsao  DATE       NOT NULL,
+  preco_previsto NUMERIC    NOT NULL,
+  data_coleta    DATE       NOT NULL,
+  data_calculo   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (acao, data_previsao)
+);
+
+-- recomendacoes_acoes
+CREATE TABLE IF NOT EXISTS public.recomendacoes_acoes (
+  acao            TEXT        NOT NULL,
+  prob_sim        NUMERIC     NOT NULL,
+  prob_nao        NUMERIC     NOT NULL,
+  resultado       TEXT        NOT NULL,
+  data_insercao   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
 **Conexão:**  
 Via `psycopg2` em `app/db_connection.py`, usando variáveis de ambiente:
