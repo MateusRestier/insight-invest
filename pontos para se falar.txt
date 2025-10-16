@@ -69,7 +69,7 @@ O processo de treino respeitou uma divisão hold-out temporal, separando os últ
 o modelo gera previsões para o período de teste e os resultados (preço real, preço previsto e erro percentual) são armazenados na tabela resultados_precos.
 Isso permite validar a assertividade da regressão ao longo do tempo e alimentar análises comparativas entre valor previsto e valor real de mercado.
 
-7. Problema: Processamento Lento na Previsão de Múltiplos Dias
+7. Problema: Processamento Lento na Previsão de Múltiplo(problema 7)s Dias
 A Preocupação:
 A implementação original para prever o preço de uma ação para vários dias no futuro era muito lenta, impactando negativamente a experiência do usuário no dashboard.
 Ao solicitar uma previsão para N dias, o sistema executava um loop que, para cada dia, realizava o ciclo completo de:
