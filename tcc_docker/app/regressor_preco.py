@@ -156,8 +156,8 @@ def executar_pipeline_regressor(
         mask_test  = pd.Series(False, index=dates.index)
     else:
         cutoff     = pd.to_datetime(data_calculo)
-        mask_train = dates <= cutoff
-        mask_test  = dates > cutoff
+        mask_train = dates < cutoff
+        mask_test  = dates == cutoff
 
     X_train, y_train = X[mask_train], y[mask_train]
     X_test,  y_test  = X[mask_test],  y[mask_test]
