@@ -17,6 +17,8 @@ services:
     build: .
     depends_on:
       - db
+    ports:
+      - "8050:8050"
     environment:
       DB_HOST: db
       DB_NAME: stocks
