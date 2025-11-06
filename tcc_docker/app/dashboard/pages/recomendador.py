@@ -19,7 +19,7 @@ def layout_recomendador():
                     html.Div([
                         dcc.Input(
                             id="input-ticker-rec",
-                            value="ITUB4",
+                            value="BBAS3",
                             type="text",
                             placeholder="Ex: ITUB4",
                             style={"width": "150px", "margin-right": "10px"}
