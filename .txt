@@ -1,0 +1,14 @@
+explicar melhor os indicies q eu coleto, 2.2
+    explicar cada um, e dizer pq q eu coleto, "na leitura n da pra entende rpq escolho esses dados", descrever mais claramente o meu modelo
+    explicar pq usou as features para fazer o modelo, 
+    oq o codigo elva em consideração rpa recomendar ou n uma ação, explicar por feature
+
+explicar melhor no texto sobre o webscraping
+    explicar q faço isso pra conseguir os dados
+    quais ações eu pego, pq escolhi essas ações
+    
+colocar em algum momento que escolhi aleatoriamente o conjunto de ações, e n tem nenhuma vinculação com algum indice e algo definido pelo mercado
+
+
+
+explicar melhor o por que da justificativa das recomendações de ações de cada ticker, cada justificativa pre definida
