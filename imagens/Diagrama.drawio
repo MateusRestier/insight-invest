@@ -1,0 +1,104 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" version="29.1.0">
+  <diagram name="Página-1" id="rJ6T5QRmh7j4ujjaCVD-">
+    <mxGraphModel dx="1426" dy="743" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-38" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="140" width="400" x="130" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-2" parent="_55CzJYv8tYsAUr5QqQu-38" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="110" width="400" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-37" parent="_55CzJYv8tYsAUr5QqQu-38" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Interface Do Usuário (Dashboard)" vertex="1">
+          <mxGeometry height="30" width="187.09677419354838" x="106.45161290322581" y="85" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-40" parent="_55CzJYv8tYsAUr5QqQu-38" style="rounded=0;whiteSpace=wrap;html=1;" value="Página Previsões" vertex="1">
+          <mxGeometry height="60" width="103.22580645161291" x="19.354838709677423" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-39" parent="_55CzJYv8tYsAUr5QqQu-38" style="rounded=0;whiteSpace=wrap;html=1;" value="Página Recomendações" vertex="1">
+          <mxGeometry height="60" width="103.22580645161291" x="277.4193548387097" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-46" parent="_55CzJYv8tYsAUr5QqQu-38" style="rounded=0;whiteSpace=wrap;html=1;" value="Pagina Indicadores" vertex="1">
+          <mxGeometry height="60" width="103.22580645161291" x="148.38709677419357" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-60" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="540" y="115" />
+              <mxPoint x="540" y="650" />
+            </Array>
+            <mxPoint x="510" y="650" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Coleta de Dados&lt;br&gt;(scraper_indicadores.py)" vertex="1">
+          <mxGeometry height="60" width="200" x="220" y="85" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-54" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" target="_55CzJYv8tYsAUr5QqQu-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-59" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;" target="_55CzJYv8tYsAUr5QqQu-46">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="270" y="240" />
+              <mxPoint x="290" y="240" />
+              <mxPoint x="290" y="363" />
+              <mxPoint x="300" y="363" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-62" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="_55CzJYv8tYsAUr5QqQu-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Armazenamento&lt;div&gt;(Banco de Dados)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="200" x="120" y="229" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-21" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="_55CzJYv8tYsAUr5QqQu-20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Criação do Modelo&lt;div&gt;(classificador.py)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="392.5" y="229" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-55" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="_55CzJYv8tYsAUr5QqQu-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-64" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="_55CzJYv8tYsAUr5QqQu-40">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-10" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;div&gt;Previsão do Preço da Ação&lt;/div&gt;(regressor_preco.py)" vertex="1">
+          <mxGeometry height="60" width="160" x="120" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-17" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Importa os Dados" vertex="1">
+          <mxGeometry height="30" width="60" x="109" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-18" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Carrega as Previsões" vertex="1">
+          <mxGeometry height="30" width="70" x="169" y="409" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-19" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Importa os Dados" vertex="1">
+          <mxGeometry height="30" width="60" x="325.5" y="227" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-57" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=0;exitDx=0;exitDy=0;entryX=0.94;entryY=0.95;entryDx=0;entryDy=0;entryPerimeter=0;" target="_55CzJYv8tYsAUr5QqQu-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-20" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;div&gt;Classificar Ações&lt;/div&gt;(recomendador_acoes.py)" vertex="1">
+          <mxGeometry height="60" width="160" x="350.65" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-22" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Importar Modelo" vertex="1">
+          <mxGeometry height="30" width="60" x="433" y="397" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-27" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Carrega as Classificações" vertex="1">
+          <mxGeometry height="30" width="85" x="312" y="326" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-31" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;rotation=0;" value="Carrega os Dados" vertex="1">
+          <mxGeometry height="30" width="60" x="156" y="119" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-48" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="_55CzJYv8tYsAUr5QqQu-39">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_55CzJYv8tYsAUr5QqQu-58" edge="1" parent="1" source="_55CzJYv8tYsAUr5QqQu-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.165;entryY=0.033;entryDx=0;entryDy=0;entryPerimeter=0;" target="_55CzJYv8tYsAUr5QqQu-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
