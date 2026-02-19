@@ -29,7 +29,7 @@ def enviar_email_com_anexo(caminho_anexo):
 def criar_backup():
     data = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     dump_name = f"backup_{data}.dump"
-    dump_in_container = f"/var/lib/postgresql/data/{dump_name}"
+    dump_in_container = f"/tmp/{dump_name}"  # Mudado para /tmp/
     dump_local = BACKUP_DIR / dump_name
 
     print("🟡 Criando backup dentro do container...")
@@ -69,23 +69,18 @@ def restaurar_backup():
         print("❌ Escolha inválida.")
         return
 
-    print("⬆️ Enviando arquivo para o container...")
-    subprocess.run([
-        "docker", "cp",
-        str(arquivo),
-        f"{CONTAINER_NAME}:/var/lib/postgresql/data/{arquivo.name}"
-    ], check=True)
-
-    print("♻️ Restaurando o banco de dados...")
-    subprocess.run([
-        "docker", "exec", "-t", CONTAINER_NAME,
-        "pg_restore",
-        "-U", DB_USER,
-        "-d", DB_NAME,
-        "--clean",        # remove objetos existentes antes de restaurar
-        "--if-exists",    # só tenta dropar se o objeto já existir
-        f"/var/lib/postgresql/data/{arquivo.name}"
-    ], check=True)
+    print("♻️ Restaurando o banco de dados via stdin...")
+    # Abordagem via stdin para evitar problemas com caminhos com espaços
+    with open(arquivo, 'rb') as f:
+        subprocess.run([
+            "docker", "exec", "-i", CONTAINER_NAME,
+            "pg_restore",
+            "-U", DB_USER,
+            "-d", DB_NAME,
+            "--clean",        # remove objetos existentes antes de restaurar
+            "--if-exists",    # só tenta dropar se o objeto já existir
+            "--verbose"       # mostra progresso
+        ], stdin=f, check=True)
 
     print("✅ Banco restaurado com sucesso!")
 
