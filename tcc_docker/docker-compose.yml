@@ -18,8 +18,9 @@ services:
     networks:
       - custom_net
 
-  scraper:
+  dashboard:
     build: .
+    restart: always
     depends_on:
       db:
         condition: service_healthy
@@ -34,7 +35,26 @@ services:
     volumes:
       - ./app:/app
     working_dir: /app
-    command: tail -f /dev/null
+    command: python dashboard/app.py
+    networks:
+      - custom_net
+
+  scheduler:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
+      DB_PORT: 5432
+    volumes:
+      - ./app:/app
+    working_dir: /app
+    command: python executar_tarefas_diarias.py
     networks:
       - custom_net
 
