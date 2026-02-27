@@ -1,3 +1,26 @@
-tcc_docker/app/__pycache__/
-tcc_docker/app/dashboard/__pycache__/
-tcc_docker/app/dashboard/pages/__pycache__/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Variáveis de ambiente (nunca commitar credenciais)
+.env
+
+# Modelos treinados (gerados em runtime, não pertencem ao repositório)
+tcc_docker/app/modelo/*.pkl
+
+# Cache do dashboard (gerados em runtime)
+tcc_docker/app/cache_status/
+tcc_docker/app/cache_results/
+
+# IDEs
+.vscode/
+.idea/
+*.swp

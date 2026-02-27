@@ -1,55 +1,54 @@
 import subprocess
 import datetime
+import os
+import shutil
 from pathlib import Path
-import win32com.client as win32
 
-# Info do container e banco
-CONTAINER_NAME = "tcc_docker-db-1"
-DB_NAME = "stocks"
-DB_USER = "user"
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_NAME = os.getenv("DB_NAME", "stocks")
+DB_USER = os.getenv("DB_USER", "user")
+DB_PASS = os.getenv("DB_PASS", "password")
+DB_PORT = os.getenv("DB_PORT", "5432")
+POSTGRES_CONTAINER = os.getenv("POSTGRES_CONTAINER", "tcc_docker-db-1")
 
-# Caminho da pasta atual
 BASE_DIR = Path(__file__).parent
 BACKUP_DIR = BASE_DIR / "backups"
 BACKUP_DIR.mkdir(exist_ok=True)
 
-def enviar_email_com_anexo(caminho_anexo):
-    try:
-        outlook = win32.Dispatch('outlook.application')
-        mail = outlook.CreateItem(0)
-        mail.To = "mateusrestier1@gmail.com; groundfordtv@gmail.com"
-        mail.Subject = f"Backup do banco - {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}"
-        mail.Body = "Segue em anexo o arquivo de backup gerado automaticamente."
-        mail.Attachments.Add(str(caminho_anexo))
-        mail.Send()
-        print("📧 Email enviado com sucesso!")
-    except Exception as e:
-        print(f"❌ Erro ao enviar email: {e}")
+def _pg_env():
+    env = os.environ.copy()
+    env["PGPASSWORD"] = DB_PASS
+    return env
 
 def criar_backup():
     data = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     dump_name = f"backup_{data}.dump"
-    dump_in_container = f"/tmp/{dump_name}"  # Mudado para /tmp/
     dump_local = BACKUP_DIR / dump_name
 
-    print("🟡 Criando backup dentro do container...")
-    subprocess.run([
-        "docker", "exec", "-t", CONTAINER_NAME,
-        "pg_dump", "-U", DB_USER, "-d", DB_NAME,
-        "-F", "c", "-f", dump_in_container
-    ], check=True)
+    print("🟡 Criando backup do banco de dados...")
 
-    print("🟢 Copiando backup para o diretório local...")
-    subprocess.run([
-        "docker", "cp",
-        f"{CONTAINER_NAME}:{dump_in_container}",
-        str(dump_local)
-    ], check=True)
+    if shutil.which("pg_dump"):
+        # Dentro do container: pg_dump disponível via postgresql-client
+        subprocess.run([
+            "pg_dump",
+            "-h", DB_HOST, "-p", DB_PORT, "-U", DB_USER, "-d", DB_NAME,
+            "-F", "c", "-f", str(dump_local)
+        ], check=True, env=_pg_env())
+    else:
+        # No host sem postgres instalado: delega para o container do banco via docker exec
+        dump_in_container = f"/tmp/{dump_name}"
+        subprocess.run([
+            "docker", "exec", "-t", POSTGRES_CONTAINER,
+            "pg_dump", "-U", DB_USER, "-d", DB_NAME,
+            "-F", "c", "-f", dump_in_container
+        ], check=True)
+        subprocess.run([
+            "docker", "cp",
+            f"{POSTGRES_CONTAINER}:{dump_in_container}",
+            str(dump_local)
+        ], check=True)
 
     print(f"✅ Backup salvo com sucesso em: {dump_local}")
-
-    # Envia o backup por email
-    enviar_email_com_anexo(dump_local)
 
 def restaurar_backup():
     print("\n📁 Arquivos disponíveis na pasta de backup:")
@@ -69,18 +68,24 @@ def restaurar_backup():
         print("❌ Escolha inválida.")
         return
 
-    print("♻️ Restaurando o banco de dados via stdin...")
-    # Abordagem via stdin para evitar problemas com caminhos com espaços
-    with open(arquivo, 'rb') as f:
-        subprocess.run([
-            "docker", "exec", "-i", CONTAINER_NAME,
-            "pg_restore",
-            "-U", DB_USER,
-            "-d", DB_NAME,
-            "--clean",        # remove objetos existentes antes de restaurar
-            "--if-exists",    # só tenta dropar se o objeto já existir
-            "--verbose"       # mostra progresso
-        ], stdin=f, check=True)
+    print("♻️ Restaurando o banco de dados...")
+
+    if shutil.which("pg_restore"):
+        # Dentro do container: pg_restore disponível via postgresql-client
+        with open(arquivo, "rb") as f:
+            subprocess.run([
+                "pg_restore",
+                "-h", DB_HOST, "-p", DB_PORT, "-U", DB_USER, "-d", DB_NAME,
+                "--clean", "--if-exists", "--verbose"
+            ], stdin=f, check=True, env=_pg_env())
+    else:
+        # No host sem postgres instalado: delega para o container do banco via docker exec
+        with open(arquivo, "rb") as f:
+            subprocess.run([
+                "docker", "exec", "-i", POSTGRES_CONTAINER,
+                "pg_restore", "-U", DB_USER, "-d", DB_NAME,
+                "--clean", "--if-exists", "--verbose"
+            ], stdin=f, check=True)
 
     print("✅ Banco restaurado com sucesso!")
 

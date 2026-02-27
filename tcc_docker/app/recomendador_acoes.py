@@ -1,4 +1,4 @@
-import os, pandas as pd, numpy as np, joblib, pyodbc
+import os, pandas as pd, numpy as np, joblib
 from scraper_indicadores import coletar_indicadores
 from db_connection import get_connection
 from concurrent.futures import ProcessPoolExecutor, as_completed

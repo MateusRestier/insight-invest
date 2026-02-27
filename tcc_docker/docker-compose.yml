@@ -3,27 +3,33 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_DB: stocks
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - custom_net
 
   scraper:
     build: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8050:8050"
     environment:
       DB_HOST: db
-      DB_NAME: stocks
-      DB_USER: user
-      DB_PASS: password
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
       DB_PORT: 5432
     volumes:
       - ./app:/app
@@ -38,7 +44,3 @@ volumes:
 networks:
   custom_net:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-          gateway: 172.20.0.1

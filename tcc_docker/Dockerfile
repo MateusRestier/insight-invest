@@ -1,5 +1,10 @@
-# Usando Python 3.12
-FROM python:3.12
+# Usando Python 3.12-slim para imagem menor
+FROM python:3.12-slim
+
+# Instalar postgresql-client para pg_dump/pg_restore rodarem direto no container
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
 # Definir o diretório de trabalho
 WORKDIR /app
