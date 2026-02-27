@@ -41,6 +41,7 @@ services:
 
   scheduler:
     build: .
+    profiles: ["scheduler"]
     restart: "no"
     depends_on:
       db:
