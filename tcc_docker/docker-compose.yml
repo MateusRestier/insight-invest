@@ -33,7 +33,7 @@ services:
       DB_PASS: ${POSTGRES_PASSWORD}
       DB_PORT: 5432
     volumes:
-      - ./app:/app
+      - modelo:/app/modelo
     working_dir: /app
     command: python dashboard/app.py
     networks:
@@ -41,7 +41,7 @@ services:
 
   scheduler:
     build: .
-    restart: always
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
@@ -52,7 +52,8 @@ services:
       DB_PASS: ${POSTGRES_PASSWORD}
       DB_PORT: 5432
     volumes:
-      - ./app:/app
+      - modelo:/app/modelo
+      - backups:/app/backups
     working_dir: /app
     command: python executar_tarefas_diarias.py
     networks:
@@ -60,6 +61,8 @@ services:
 
 volumes:
   postgres_data:
+  modelo:
+  backups:
 
 networks:
   custom_net:
