@@ -41,8 +41,7 @@ services:
 
   scheduler:
     build: .
-    profiles: ["scheduler"]
-    restart: "no"
+    restart: always
     depends_on:
       db:
         condition: service_healthy
