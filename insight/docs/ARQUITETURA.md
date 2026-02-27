@@ -231,7 +231,7 @@ Dashboard (http://localhost:8050)
 | **Classificador CV** | 5-10 min | multiprocessing | ~1.5 GB |
 | **Regressor (10 dias)** | 3-5 min | sequencial | ~800 MB |
 | **Recomendações (400+ tickers)** | 2-4 min | CPU count-1 | ~1.2 GB |
-| **Backup** | ~1 min | docker exec | ~100 MB |
+| **Backup** | ~1 min | pg_dump direto | ~100 MB |
 | **Total Diário** | **7-12 min** | - | - |
 
 ---
@@ -251,10 +251,10 @@ Dashboard (http://localhost:8050)
 ## Segurança e Confiabilidade
 
 ### Backup Automático
-- **Frequência:** Diário às 01:00
-- **Método:** `pg_dump` com formato custom
-- **Armazenamento:** Local + Email
-- **Restore:** Via stdin/stdout (suporta caminhos com espaços)
+- **Frequência:** Diário às 01:00 (via container `scheduler`)
+- **Método:** `pg_dump` direto (dentro do container) ou via `docker exec` (do host)
+- **Armazenamento:** Volume Docker `backups` (arquivo `.dump`)
+- **Restore:** Via `pg_restore` com stdin/stdout
 
 ### Idempotência
 - **Scraper:** `ON CONFLICT (acao, data_coleta) DO UPDATE`

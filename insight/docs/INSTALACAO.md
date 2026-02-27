@@ -19,53 +19,68 @@
 ### 1️⃣ Clonar o Repositório
 
 ```bash
-git clone https://github.com/seu-usuario/insight-invest.git
-cd insight-invest/tcc_docker
+git clone https://github.com/MateusRestier/insight-invest.git
+cd insight-invest/insight
 ```
 
-### 2️⃣ Subir o Banco de Dados
+### 2️⃣ Criar o arquivo de variáveis de ambiente
 
 ```bash
-docker compose up -d db
+cp .env.example .env
 ```
 
-**Verificar se está rodando:**
+Edite o `.env` com os valores desejados (para uso local, os valores padrão já funcionam):
+
+```env
+POSTGRES_DB=stocks
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+```
+
+### 3️⃣ Subir os containers
+
+```bash
+docker compose up --build
+```
+
+Isso sobe automaticamente 3 containers:
+- **db** → PostgreSQL (banco de dados)
+- **dashboard** → Interface web em http://localhost:8050
+- **scheduler** → Orquestrador de tarefas diárias (roda às 01:00)
+
+**Verificar se está tudo rodando:**
 ```bash
 docker compose ps
 ```
 
 Deve mostrar:
 ```
-NAME                STATUS
-tcc_docker-db-1     Up
+NAME                   STATUS
+insight-db-1           Up (healthy)
+insight-dashboard-1    Up
+insight-scheduler-1    Up
 ```
 
-### 3️⃣ Restaurar um Backup (Opcional)
+### 4️⃣ Restaurar um Backup (Opcional)
 
-Se você tem um arquivo de backup:
+Se você tem um arquivo `.dump`, restaure antes de subir os outros containers:
 
 ```bash
+# Suba só o banco primeiro
+docker compose up -d db
+
+# Restaure o backup
 python app/backup.py
-# Escolha opção 2 (Restaurar)
-# Selecione o arquivo .dump
+# Escolha opção 2 (Restaurar) e selecione o arquivo
+
+# Suba o restante
+docker compose up -d dashboard scheduler
 ```
 
-### 4️⃣ Construir a Imagem da Aplicação
+### 5️⃣ Executar o Scraper (Primeira Coleta)
 
 ```bash
-docker compose build scraper
-```
-
-### 5️⃣ Subir a Aplicação
-
-```bash
-docker compose up -d scraper
-```
-
-### 6️⃣ Executar o Scraper (Primeira Coleta)
-
-```bash
-docker compose exec scraper python scraper_indicadores.py
+docker compose exec dashboard python scraper_indicadores.py
 ```
 
 Aguarde ~1-2 minutos. Você verá mensagens como:
@@ -75,10 +90,10 @@ Aguarde ~1-2 minutos. Você verá mensagens como:
 ...
 ```
 
-### 7️⃣ Treinar o Classificador
+### 6️⃣ Treinar o Classificador
 
 ```bash
-docker compose exec scraper python classificador.py
+docker compose exec dashboard python classificador.py
 ```
 
 Aguarde ~5-10 minutos. Você verá:
@@ -88,25 +103,23 @@ Aguarde ~5-10 minutos. Você verá:
 - Validação cruzada temporal
 - Métricas finais (Acurácia, ROC-AUC)
 
-### 8️⃣ Gerar Previsões de Preços
+### 7️⃣ Gerar Previsões de Preços
 
 ```bash
-docker compose exec scraper python regressor_preco.py
+docker compose exec dashboard python regressor_preco.py
 ```
 
-### 9️⃣ Gerar Recomendações
+### 8️⃣ Gerar Recomendações
 
 ```bash
-docker compose exec scraper python recomendador_acoes.py
+docker compose exec dashboard python recomendador_acoes.py
 ```
 
-### 🔟 Acessar o Dashboard
-
-```bash
-docker compose exec scraper python dashboard/app.py
-```
+### 9️⃣ Acessar o Dashboard
 
 Abra o navegador em: **http://localhost:8050**
+
+O dashboard já está rodando desde o passo 3 — não precisa executar nada adicional.
 
 ---
 
@@ -141,8 +154,8 @@ psql -U postgres
 
 ```sql
 CREATE DATABASE stocks;
-CREATE USER user WITH PASSWORD 'password';
-GRANT ALL PRIVILEGES ON DATABASE stocks TO user;
+CREATE USER "user" WITH PASSWORD 'password';
+GRANT ALL PRIVILEGES ON DATABASE stocks TO "user";
 \q
 ```
 
@@ -165,7 +178,7 @@ brew install python@3.12
 ### 4️⃣ Criar Ambiente Virtual
 
 ```bash
-cd insight-invest/tcc_docker
+cd insight-invest/insight
 python -m venv venv
 
 # Windows
@@ -180,8 +193,6 @@ source venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
-
-**Nota:** Se estiver no Windows, remova as linhas `pywin32` e `pyodbc` do requirements.txt antes.
 
 ### 6️⃣ Configurar Variáveis de Ambiente
 
@@ -266,40 +277,28 @@ LIMIT 20;
 
 ---
 
-## Orquestração Diária (Opcional)
+## Orquestração Diária
 
-Para executar tarefas automaticamente todos os dias às 01:00:
-
-### Com Docker
+O container `scheduler` já cuida da execução automática diária às 01:00 enquanto estiver rodando. Basta manter os containers no ar:
 
 ```bash
-docker compose exec scraper python executar_tarefas_diarias.py
+docker compose up -d
 ```
 
-**Deixa rodando em background:**
+Para verificar quando foi a última execução:
 ```bash
-docker compose exec -d scraper python executar_tarefas_diarias.py
+docker compose logs scheduler
 ```
 
-### Sem Docker
+### Sem Docker (Linux - cron)
 
-**Windows (Task Scheduler):**
-1. Abra "Task Scheduler"
-2. Create Task → Nome: "INSIGHT-INVEST Daily"
-3. Trigger: Daily at 01:00
-4. Action: Start a program
-   - Program: `python`
-   - Arguments: `app/executar_tarefas_diarias.py`
-   - Start in: `d:\caminho\para\tcc_docker`
-
-**Linux (cron):**
 ```bash
 crontab -e
 ```
 
 Adicione:
 ```cron
-0 1 * * * cd /caminho/para/tcc_docker && python app/executar_tarefas_diarias.py >> logs/daily.log 2>&1
+0 1 * * * cd /caminho/para/insight && python app/executar_tarefas_diarias.py >> logs/daily.log 2>&1
 ```
 
 ---
@@ -311,10 +310,6 @@ Adicione:
 ```bash
 pip install psycopg2-binary==2.9.10
 ```
-
-### Erro: "pywin32 not found" no Docker
-
-Remova a linha `pywin32==306` do `requirements.txt`
 
 ### Erro: "Connection refused" no PostgreSQL
 
@@ -362,11 +357,12 @@ Após a instalação bem-sucedida:
 ## Comandos Úteis
 
 ```bash
-# Ver logs do container
-docker compose logs -f scraper
+# Ver logs em tempo real
+docker compose logs -f dashboard
+docker compose logs -f scheduler
 
 # Entrar no container
-docker compose exec scraper bash
+docker compose exec dashboard bash
 
 # Parar tudo
 docker compose down

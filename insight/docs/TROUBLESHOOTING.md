@@ -2,27 +2,6 @@
 
 ## 🐳 Problemas com Docker
 
-### ❌ Erro: "pywin32 not found" ao fazer build
-
-**Sintoma:**
-```
-ERROR: No matching distribution found for pywin32
-```
-
-**Causa:** `pywin32` é uma biblioteca específica do Windows e não funciona em containers Linux.
-
-**Solução:**
-```bash
-# Edite requirements.txt e remova as linhas:
-# pywin32==306
-# pyodbc==5.1.0
-
-# Rebuild
-docker compose build --no-cache
-```
-
----
-
 ### ❌ Erro: "EvalSymlinks: too many links" no docker cp
 
 **Sintoma:**
@@ -63,7 +42,7 @@ docker compose ps
 
 # Ver logs
 docker compose logs db
-docker compose logs scraper
+docker compose logs dashboard
 ```
 
 **Soluções:**
@@ -98,7 +77,7 @@ docker compose up -d
 
 **Sintoma:**
 ```bash
-docker compose exec scraper python app.py
+docker compose exec dashboard python app.py
 # Error: no such service: scraper
 ```
 
@@ -110,7 +89,7 @@ docker compose exec scraper python app.py
 docker compose ps
 
 # Se não aparecer, subir
-docker compose up -d scraper
+docker compose up -d dashboard
 
 # Usar nome correto (pode ser "app" ou "scraper")
 docker compose exec <nome-correto> python app.py
@@ -266,7 +245,7 @@ CREATE TABLE IF NOT EXISTS public.recomendacoes_acoes (
 
 **Opção 3: Executar scraper (cria dados)**
 ```bash
-docker compose exec scraper python scraper_indicadores.py
+docker compose exec dashboard python scraper_indicadores.py
 ```
 
 ---
@@ -359,7 +338,7 @@ FileNotFoundError: [Errno 2] No such file or directory: 'modelo/modelo_classific
 **Solução:**
 ```bash
 # Treinar modelo
-docker compose exec scraper python classificador.py
+docker compose exec dashboard python classificador.py
 
 # Verificar se foi criado
 ls -la app/modelo/
@@ -445,7 +424,7 @@ Dashboard abre mas gráficos não aparecem
 **Diagnóstico:**
 ```bash
 # Ver logs do dashboard
-docker compose logs scraper
+docker compose logs dashboard
 
 # Ver console do browser (F12)
 ```
@@ -531,7 +510,7 @@ find . -type f -name "*.pyc" -delete
 3. **Re-treinar modelo:**
 ```bash
 rm app/modelo/*.pkl
-docker compose exec scraper python classificador.py
+docker compose exec dashboard python classificador.py
 ```
 
 ---
@@ -549,57 +528,6 @@ ImportError: cannot import name 'X' from partially initialized module 'Y' (most 
 1. Reorganize imports
 2. Use `import` local (dentro de função)
 3. Refatore para remover dependência circular
-
----
-
-## 📧 Problemas com Email (Backup)
-
-### ❌ Erro: "Outlook not found"
-
-**Sintoma:**
-```
-❌ Erro ao enviar email: Outlook not found
-```
-
-**Causa:** Sistema não tem Outlook instalado ou não está configurado.
-
-**Solução:**
-
-**Opção 1:** Comentar função de email
-```python
-# Em backup.py
-def criar_backup():
-    # ... código do backup ...
-
-    # enviar_email_com_anexo(dump_local)  # Comentar
-```
-
-**Opção 2:** Usar SMTP em vez de Outlook
-```python
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-
-def enviar_email_smtp(caminho_anexo):
-    msg = MIMEMultipart()
-    msg['From'] = "seu-email@gmail.com"
-    msg['To'] = "destino@gmail.com"
-    msg['Subject'] = f"Backup - {datetime.now()}"
-
-    with open(caminho_anexo, 'rb') as f:
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(f.read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename={caminho_anexo.name}')
-        msg.attach(part)
-
-    server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.starttls()
-    server.login("seu-email@gmail.com", "sua-senha-app")
-    server.send_message(msg)
-    server.quit()
-```
 
 ---
 
@@ -645,7 +573,7 @@ if __name__ == "__main__":
 
 ```bash
 # Logs em tempo real
-docker compose logs -f scraper
+docker compose logs -f dashboard
 
 # Últimas 100 linhas
 docker compose logs --tail=100 scraper
@@ -702,4 +630,4 @@ docker compose up -d
 
 ---
 
-**Última atualização:** 2025-02-19
+**Última atualização:** 2026-02-27

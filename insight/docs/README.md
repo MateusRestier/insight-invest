@@ -45,16 +45,14 @@ Detalhamento técnico dos modelos de ML:
 
 ---
 
-### 🎯 [APRESENTACAO_ENTREVISTA.md](APRESENTACAO_ENTREVISTA.md)
-Guia completo para apresentar o projeto em entrevistas:
-- Elevator pitch (30 segundos)
-- Estrutura de apresentação (10-15 min)
-- Desafios técnicos resolvidos
-- Perguntas frequentes e respostas prontas
-- Roteiro de demonstração
-- Dicas do que fazer e não fazer
+### 🛟 [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+Soluções para os problemas mais comuns:
+- Problemas com Docker e containers
+- Erros de conexão com PostgreSQL
+- Problemas com scraping e ML
+- Dashboard não carrega
 
-**Leia se você vai:** Apresentar o projeto em processo seletivo, defesa de TCC ou entrevista técnica.
+**Leia se você tiver:** Algum erro durante a instalação ou uso do sistema.
 
 ---
 
@@ -64,9 +62,9 @@ Guia completo para apresentar o projeto em entrevistas:
 docs/
 ├── README.md (você está aqui)
 ├── ARQUITETURA.md (visão técnica)
-├── INSTALACAO.md (setup e troubleshooting)
+├── INSTALACAO.md (setup e execução)
 ├── MACHINE_LEARNING.md (detalhes dos modelos)
-└── APRESENTACAO_ENTREVISTA.md (guia para entrevistas)
+└── TROUBLESHOOTING.md (soluções de problemas)
 ```
 
 ---
@@ -78,12 +76,6 @@ docs/
 2. ✅ Siga [INSTALACAO.md](INSTALACAO.md) para rodar localmente
 3. ✅ Explore o dashboard em http://localhost:8050
 4. ✅ Leia [MACHINE_LEARNING.md](MACHINE_LEARNING.md) para detalhes técnicos
-
-### Se você vai APRESENTAR o projeto:
-1. ✅ Leia [APRESENTACAO_ENTREVISTA.md](APRESENTACAO_ENTREVISTA.md)
-2. ✅ Pratique o elevator pitch (30 segundos)
-3. ✅ Prepare demonstração prática (5 minutos)
-4. ✅ Revise perguntas frequentes
 
 ### Se você está DESENVOLVENDO:
 1. ✅ [ARQUITETURA.md](ARQUITETURA.md) → Entenda as decisões de design
@@ -196,4 +188,4 @@ Projeto acadêmico - TCC de Ciência da Computação
 
 ---
 
-**Última atualização:** 2025-02-19
+**Última atualização:** 2026-02-27
