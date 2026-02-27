@@ -9,7 +9,7 @@ DB_NAME = os.getenv("DB_NAME", "stocks")
 DB_USER = os.getenv("DB_USER", "user")
 DB_PASS = os.getenv("DB_PASS", "password")
 DB_PORT = os.getenv("DB_PORT", "5432")
-POSTGRES_CONTAINER = os.getenv("POSTGRES_CONTAINER", "tcc_docker-db-1")
+POSTGRES_CONTAINER = os.getenv("POSTGRES_CONTAINER", "insight-db-1")
 
 BASE_DIR = Path(__file__).parent
 BACKUP_DIR = BASE_DIR / "backups"

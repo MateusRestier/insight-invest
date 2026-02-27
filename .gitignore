@@ -14,11 +14,11 @@ env/
 .env
 
 # Modelos treinados (gerados em runtime, não pertencem ao repositório)
-tcc_docker/app/modelo/*.pkl
+insight/app/modelo/*.pkl
 
 # Cache do dashboard (gerados em runtime)
-tcc_docker/app/cache_status/
-tcc_docker/app/cache_results/
+insight/app/cache_status/
+insight/app/cache_results/
 
 # IDEs
 .vscode/
