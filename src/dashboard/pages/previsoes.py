@@ -1,25 +1,14 @@
 from dash import html, dcc, Input, Output, State, no_update, dash_table
 import dash_bootstrap_components as dbc, pandas as pd, threading, uuid, json, os
+from pathlib import Path
 from datetime import date
-from regressor_preco import executar_pipeline_multidia
+from src.models.regressor_preco import executar_pipeline_multidia
 
 # --- LOCALIZAÇÃO DO REPOSITÓRIO BASE ---
-def get_repo_base():
-    # Caminho absoluto deste arquivo
-    this_file = os.path.abspath(__file__)
-    # Procura por "app" no caminho
-    parts = this_file.split(os.sep)
-    if "app" in parts:
-        idx = parts.index("app")
-        repo_base = os.sep.join(parts[:idx+1])
-        return repo_base
-    else:
-        raise RuntimeError("Não foi possível localizar o diretório da pasta app.")
-
-REPO_BASE = get_repo_base()
-DASHBOARD_DIR = os.path.join(REPO_BASE, "dashboard")
-CACHE_STATUS_DIR = os.path.join(DASHBOARD_DIR, "cache_status")
-CACHE_RESULTS_DIR = os.path.join(DASHBOARD_DIR, "cache_results")
+# src/dashboard/pages/previsoes.py → src/dashboard/pages → src/dashboard → src → project root
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+CACHE_STATUS_DIR = str(_PROJECT_ROOT / "cache_status")
+CACHE_RESULTS_DIR = str(_PROJECT_ROOT / "cache_results")
 # -----------------------------------------
 
 # --- CONFIGURAÇÃO DAS PASTAS DE CACHE ---

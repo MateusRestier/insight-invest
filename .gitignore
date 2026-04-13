@@ -14,11 +14,14 @@ env/
 .env
 
 # Modelos treinados (gerados em runtime, não pertencem ao repositório)
-insight/app/modelo/*.pkl
+modelo/*.pkl
 
 # Cache do dashboard (gerados em runtime)
-insight/app/cache_status/
-insight/app/cache_results/
+cache_status/
+cache_results/
+
+# Backups de banco (gerados em runtime)
+backups/
 
 # IDEs
 .vscode/

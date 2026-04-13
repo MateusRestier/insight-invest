@@ -93,31 +93,41 @@ leitura p/ treino        leitura p/ exibição
 ## 📁 Estrutura do Repositório
 
 ```text
-tcc_docker/
-├─ app/
-│  ├─ backups/                     # dumps de banco (.dump)
-│  ├─ dashboard/
-│  │  ├─ assets/
-│  │  │  └─ style.css              # estilos do dashboard
-│  │  ├─ cache_results/            # resultados de previsões sob demanda (JSON)
-│  │  ├─ cache_status/             # status/progresso de jobs (JSON)
-│  │  ├─ pages/
-│  │  │  ├─ indicadores.py         # página: top-10 métricas + previsto×real + KPIs
-│  │  │  ├─ previsoes.py           # página: previsão multi-dia sob demanda (com progresso)
-│  │  │  └─ recomendador.py        # página: recomendação pontual + cards de indicadores
-│  │  ├─ app.py                    # bootstrap do Dash
-│  │  └─ callbacks.py              # roteamento de abas + registro de callbacks
-│  ├─ modelo/                      # artefatos de modelos (.pkl)
+insight-invest/
+├─ .env.example                    # variáveis de ambiente (template)
+├─ Dockerfile                      # imagem da aplicação
+├─ docker-compose.yml              # orquestra db + dashboard + scheduler
+├─ requirements.txt                # dependências Python
+├─ docs/                           # documentação técnica
+│  ├─ ARQUITETURA.md
+│  ├─ INSTALACAO.md
+│  ├─ MACHINE_LEARNING.md
+│  └─ TROUBLESHOOTING.md
+├─ src/                            # código-fonte principal
+│  ├─ core/
+│  │  └─ db_connection.py          # conexão PostgreSQL
+│  ├─ data/
+│  │  └─ scraper_indicadores.py    # scraping de indicadores
+│  ├─ models/
+│  │  ├─ classificador.py          # treino do classificador
+│  │  ├─ recomendador_acoes.py     # grava recomendações no DB
+│  │  └─ regressor_preco.py        # treino/regressão de preço
+│  └─ dashboard/
+│     ├─ assets/style.css          # estilos do dashboard
+│     ├─ app.py                    # bootstrap do Dash
+│     ├─ callbacks.py              # roteamento de abas + registro de callbacks
+│     └─ pages/
+│        ├─ indicadores.py         # página: top-10 métricas + previsto×real + KPIs
+│        ├─ previsoes.py           # página: previsão multi-dia sob demanda
+│        └─ recomendador.py        # página: recomendação pontual + cards
+├─ scripts/
 │  ├─ backup.py                    # pg_dump/restore
-│  ├─ classificador.py             # treino do classificador
-│  ├─ db_connection.py             # conexão PostgreSQL
-│  ├─ executar_tarefas_diarias.py  # orquestração diária
-│  ├─ recomendador_acoes.py        # grava recomendações no DB
-│  ├─ regressor_preco.py           # treino/regressão de preço
-│  └─ scraper_indicadores.py       # scraping de indicadores
-├─ Dockerfile
-├─ docker-compose.yml
-└─ requirements.txt
+│  └─ executar_tarefas_diarias.py  # orquestração diária agendada
+├─ backups/                        # dumps de banco (.dump) — gerado em runtime
+├─ modelo/                         # artefatos de modelos (.pkl) — gerado em runtime
+├─ cache_status/                   # status de jobs de previsão — gerado em runtime
+├─ cache_results/                  # resultados de previsões — gerado em runtime
+└─ tcc/                            # material de referência do TCC
 ```
 
 ---
@@ -187,7 +197,7 @@ CREATE TABLE IF NOT EXISTS public.recomendacoes_acoes (
 ```
 
 **Conexão:**  
-Via `psycopg2` em `app/db_connection.py`, usando variáveis de ambiente:
+Via `psycopg2` em `src/core/db_connection.py`, usando variáveis de ambiente:
 
 - `DB_HOST` (padrão: localhost)
 - `DB_NAME` (padrão: stocks)
@@ -210,7 +220,7 @@ Via `psycopg2` em `app/db_connection.py`, usando variáveis de ambiente:
 
 ## 📈 Dashboard (Dash/Plotly)
 
-Local: `app/dashboard`
+Local: `src/dashboard/`
 
 - **app.py**: Inicializa o Dash (tema Bootstrap), expõe server e páginas.
 - **callbacks.py**: Roteamento de abas e registro de callbacks.
@@ -249,13 +259,13 @@ export DB_HOST=localhost DB_NAME=stocks DB_USER=user DB_PASS=password DB_PORT=54
 # (Windows - PowerShell)
 # $env:DB_HOST="localhost"; $env:DB_NAME="stocks"; $env:DB_USER="user"; $env:DB_PASS="password"; $env:DB_PORT="5432"
 
-# 3) Executar componentes
-python app/scraper_indicadores.py
-python app/classificador.py
-python app/regressor_preco.py
-python app/recomendador_acoes.py
-python app/executar_tarefas_diarias.py
-python app/dashboard/app.py
+# 3) Executar componentes (a partir da raiz do projeto, com PYTHONPATH=.)
+PYTHONPATH=. python src/data/scraper_indicadores.py
+PYTHONPATH=. python src/models/classificador.py
+PYTHONPATH=. python src/models/regressor_preco.py
+PYTHONPATH=. python src/models/recomendador_acoes.py
+PYTHONPATH=. python scripts/executar_tarefas_diarias.py
+PYTHONPATH=. python src/dashboard/app.py
 
 
 ---
@@ -269,13 +279,13 @@ docker build -t tcc-app .
 # Rodar o scraper dentro do container
 docker run --rm \
   -e DB_HOST=host.docker.internal -e DB_NAME=stocks -e DB_USER=user -e DB_PASS=password -e DB_PORT=5432 \
-  -v "$PWD/app/backups:/app/backups" \
-  tcc-app python scraper_indicadores.py
+  -v "$PWD/backups:/app/backups" \
+  tcc-app python src/data/scraper_indicadores.py
 
 # Rodar o dashboard na porta 8050
 docker run --rm -p 8050:8050 \
   -e DB_HOST=host.docker.internal -e DB_NAME=stocks -e DB_USER=user -e DB_PASS=password -e DB_PORT=5432 \
-  tcc-app python dashboard/app.py
+  tcc-app python src/dashboard/app.py
 
 ---
 
@@ -295,28 +305,25 @@ docker compose down
 
 ## 🛡️ Backups e Restauração
 
-Gerenciados por `app/backup.py`.
+Gerenciados por `scripts/backup.py`.
 
-- **Backup:** Cria dump via `pg_dump` e salva em `app/backups/` com timestamp.
+- **Backup:** Cria dump via `pg_dump` e salva em `backups/` com timestamp.
 - **Restauração:** Restaura um `.dump` existente para o banco ativo.
 
 Exemplos:
 
-# Criar backup
-python app/backup.py --criar
-
-# Restaurar (interativo)
-python app/backup.py --restaurar
+# Criar backup ou restaurar (menu interativo)
+PYTHONPATH=. python scripts/backup.py
 
 ---
 
 ## ⚡ Caches e Artefatos
 
-- **Modelos:** `app/modelo/*.pkl`
+- **Modelos:** `modelo/*.pkl`
 - **Dashboard – caches:**
-  - `app/dashboard/cache_status/` (status/progresso dos jobs)
-  - `app/dashboard/cache_results/` (resultados das previsões)
-- **Backups:** `app/backups/*.dump`
+  - `cache_status/` (status/progresso dos jobs)
+  - `cache_results/` (resultados das previsões)
+- **Backups:** `backups/*.dump`
 
 ---
 

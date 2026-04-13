@@ -1,20 +1,15 @@
-import os, joblib, pandas as pd, numpy as np, psycopg2
+import os, sys, joblib, pandas as pd, numpy as np, psycopg2
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
 from sklearn.model_selection import TimeSeriesSplit, RandomizedSearchCV
-
-# Tenta importar do local padrão do seu projeto TCC
-try:
-    from app.db_connection import get_connection
-except ImportError:
-    try:
-        from db_connection import get_connection #
-        print("Importou 'get_connection' do diretório atual.") #
-    except ImportError as e:
-        print(f"Erro ao importar 'get_connection': {e}")
-        print("Certifique-se de que db_connection.py está acessível e as variáveis de ambiente do DB estão configuradas.")
-        exit()
+from src.core.db_connection import get_connection
 
 
 def carregar_dados_completos_do_banco():
@@ -247,8 +242,7 @@ def executar_pipeline_classificador():
 
 
     # 3) Monta X, y e dates
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    modelo_base_path = os.path.join(script_dir, "modelo")
+    modelo_base_path = str(_PROJECT_ROOT / "modelo")
     X, y, X_colunas_nomes, _, dates = preparar_X_y_para_modelo(df_com_rotulos, modelo_base_path)
 
     if X is None or y is None or X.empty or y.empty:

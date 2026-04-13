@@ -1,7 +1,7 @@
 from dash import html, dcc, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
-from scraper_indicadores import coletar_indicadores
-from recomendador_acoes import recomendar_acao
+from src.data.scraper_indicadores import coletar_indicadores
+from src.models.recomendador_acoes import recomendar_acao
 
 # -----------------------------------------------------------------------------
 # Layout e callbacks para a página "Recomendador de Ações"

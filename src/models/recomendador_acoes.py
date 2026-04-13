@@ -1,6 +1,12 @@
-import os, pandas as pd, numpy as np, joblib
-from scraper_indicadores import coletar_indicadores
-from db_connection import get_connection
+import os, sys, pandas as pd, numpy as np, joblib
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from src.data.scraper_indicadores import coletar_indicadores
+from src.core.db_connection import get_connection
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Lista de features EXATAMENTE como o modelo foi treinado
@@ -37,13 +43,19 @@ def calcular_preco_sobre_graham_para_recomendacao(dados_acao_dict):
     return dados_copy
 
 def carregar_artefatos_modelo():
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    modelo_path = os.path.join(base_path, "modelo", "modelo_classificador_desempenho.pkl")
-    if not os.path.exists(modelo_path):
+    modelo_path = _PROJECT_ROOT / "modelo" / "modelo_classificador_desempenho.pkl"
+    if not modelo_path.is_file():
         raise FileNotFoundError(
-            f"Modelo não encontrado em {modelo_path}. Execute o classificador.py primeiro."
+            "Modelo de classificação ainda não foi gerado.\n\n"
+            f"Caminho esperado:\n  {modelo_path}\n\n"
+            "Treine o classificador (exige PostgreSQL com dados em "
+            "indicadores_fundamentalistas), na raiz do repositório:\n\n"
+            "  PowerShell:\n"
+            '    $env:PYTHONPATH="."; python src/models/classificador.py\n\n'
+            "  bash:\n"
+            "    PYTHONPATH=. python src/models/classificador.py\n"
         )
-    modelo = joblib.load(modelo_path)
+    modelo = joblib.load(str(modelo_path))
     return modelo
 
 

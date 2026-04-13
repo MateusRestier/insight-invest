@@ -1,18 +1,15 @@
 import schedule
 import time
+import sys
+import os
 from datetime import date
-from db_connection import get_connection
 
-# importa o main do scraper
-from scraper_indicadores import main as scraper_main
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# importa a função de previsão do regressor
-from regressor_preco import executar_pipeline_regressor
-
-# importa nossa função paralela de recomendação em lote
-from recomendador_acoes import recomendar_varias_acoes
-
-# importa a função de backup direto
+from src.core.db_connection import get_connection
+from src.data.scraper_indicadores import main as scraper_main
+from src.models.regressor_preco import executar_pipeline_regressor
+from src.models.recomendador_acoes import recomendar_varias_acoes
 from backup import criar_backup
 
 def tarefa_diaria():

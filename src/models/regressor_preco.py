@@ -1,9 +1,16 @@
+import sys
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import pandas as pd, numpy as np
 from datetime import datetime, timedelta, date
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from db_connection import get_connection
-from classificador import calcular_features_graham_estrito
+from src.core.db_connection import get_connection
+from src.models.classificador import calcular_features_graham_estrito
 
 # 1) Carrega o histórico
 def carregar_dados_do_banco():
@@ -323,7 +330,6 @@ def executar_pipeline_multidia(
 
 if __name__ == "__main__":
     from datetime import datetime, date, timedelta
-    from regressor_preco import executar_pipeline_regressor, obter_data_calculo_maxima
 
     # número padrão de dias
     try:

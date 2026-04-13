@@ -35,7 +35,7 @@ services:
     volumes:
       - modelo:/app/modelo
     working_dir: /app
-    command: python dashboard/app.py
+    command: python src/dashboard/app.py
     networks:
       - custom_net
 
@@ -55,7 +55,7 @@ services:
       - modelo:/app/modelo
       - backups:/app/backups
     working_dir: /app
-    command: python executar_tarefas_diarias.py
+    command: python scripts/executar_tarefas_diarias.py
     networks:
       - custom_net
 

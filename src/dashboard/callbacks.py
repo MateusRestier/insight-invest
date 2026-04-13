@@ -1,8 +1,8 @@
 import dash
 from dash import Input, Output, no_update, html
-from dashboard.pages.indicadores import layout_indicadores, register_callbacks_indicadores
-from dashboard.pages.previsoes   import layout_previsoes,   register_callbacks_previsoes
-from dashboard.pages.recomendador import layout_recomendador, register_callbacks_recomendador
+from src.dashboard.pages.indicadores import layout_indicadores, register_callbacks_indicadores
+from src.dashboard.pages.previsoes   import layout_previsoes,   register_callbacks_previsoes
+from src.dashboard.pages.recomendador import layout_recomendador, register_callbacks_recomendador
 
 def register_callbacks(app):
     # Callback de troca de aba: injeta o layout certo em #tab-content

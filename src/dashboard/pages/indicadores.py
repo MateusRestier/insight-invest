@@ -6,7 +6,7 @@ import plotly.express as px
 import numpy as np
 from dash import dash_table
 
-from db_connection import get_connection
+from src.core.db_connection import get_connection
 
 # ----------------------------------------------------------------------
 # Layout da página "Indicadores"
