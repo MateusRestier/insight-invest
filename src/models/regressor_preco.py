@@ -42,8 +42,9 @@ def adicionar_preco_futuro(df, n_dias):
     df = df.copy()
     df['data_futura_alvo'] = df['data_coleta'] + pd.Timedelta(days=n_dias)
 
-    def _por_acao(grp):
+    def _por_acao(grp, acao_key):
         grp = grp.sort_values('data_coleta')
+        grp['acao'] = acao_key
         left = grp[['data_futura_alvo']].copy().sort_values('data_futura_alvo')
         right = grp[['data_coleta', 'cotacao']].copy().sort_values('data_coleta')
 
@@ -59,7 +60,9 @@ def adicionar_preco_futuro(df, n_dias):
         grp = grp.assign(preco_futuro_N_dias=merged['cotacao'].values)
         return grp
 
-    df = df.groupby('acao', group_keys=False).apply(_por_acao)
+    df = df.groupby('acao', group_keys=False, dropna=False).apply(
+        lambda grp: _por_acao(grp, grp.name)
+    )
     df = df.drop(columns=['data_futura_alvo'])
 
     # Em algumas versões/cenários de pandas, 'acao' pode virar nível de índice
@@ -73,6 +76,19 @@ def adicionar_preco_futuro(df, n_dias):
 
 # 3) Prepara X, y, dates
 def preparar_dados_regressao(df, n_dias):
+    # Fallback caso 'acao' seja movida para índice durante transformações
+    acao_fallback = None
+    if 'acao' in df.columns:
+        acao_fallback = df['acao'].copy()
+    elif isinstance(df.index, pd.MultiIndex) and 'acao' in df.index.names:
+        acao_fallback = pd.Series(
+            df.index.get_level_values('acao'),
+            index=df.index,
+            name='acao'
+        )
+    elif df.index.name == 'acao':
+        acao_fallback = pd.Series(df.index, index=df.index, name='acao')
+
     df = calcular_features_graham_estrito(df)
     df = adicionar_preco_futuro(df, n_dias)
     df = df.dropna(subset=['preco_futuro_N_dias']).copy()
@@ -82,6 +98,8 @@ def preparar_dados_regressao(df, n_dias):
             df = df.reset_index(level='acao')
         elif df.index.name == 'acao':
             df = df.reset_index()
+        elif acao_fallback is not None:
+            df['acao'] = acao_fallback.reindex(df.index).values
         else:
             raise KeyError("Coluna 'acao' ausente após preparação dos dados de regressão.")
 

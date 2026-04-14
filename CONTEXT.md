@@ -51,6 +51,29 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.9] Hardening extra coluna `acao` no regressor
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`src/models/regressor_preco.py`**:
+  - em `adicionar_preco_futuro()`, `groupby/apply` agora injeta `acao` explicitamente por grupo (`grp.name`) e usa `dropna=False`.
+  - em `preparar_dados_regressao()`, adicionado `acao_fallback` antes transformações e restauração por `reindex` caso `acao` suma das colunas.
+
+#### Decisões e motivos
+
+- Logs Railway ainda mostravam `KeyError: "Coluna 'acao' ausente após preparação dos dados de regressão."`.
+- Variações de estrutura após `groupby/apply` em pandas podem remover/realocar `acao`.
+- Preservar `acao` na origem + fallback defensivo reduz risco entre versões/ambientes.
+
+#### Pendências / próximos passos
+
+- Rodar Action `Treinar Modelos` novamente.
+- Confirmar logs sem `KeyError: 'acao'` e sem exceção ASGI.
+- Validar fluxo completo: treino, recomendação, aba **Prever preço**.
+
+---
 ### [v2.8] Fix KeyError 'acao' no regressor
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
