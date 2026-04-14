@@ -209,13 +209,44 @@ def register_callbacks_recomendador(app):
         prob_sim = float(prob.get("recomendada", 0.0))
         resultado = payload.get("resultado", "Sem resultado")
         ticker_resp = payload.get("ticker", ticker).upper()
+        indicadores_chave = payload.get("indicadores_chave", {})
+        justificativas_positivas = payload.get("justificativas_positivas", [])
+        justificativas_negativas = payload.get("justificativas_negativas", [])
 
-        return (
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📈  Relatório para: {ticker_resp}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"Resultado do Modelo: {resultado}\n\n"
-            "🔢  Probabilidades:\n"
-            f"   ❌ Não Recomendada: {prob_nao:.2%}\n"
-            f"   ✅ Recomendada:    {prob_sim:.2%}\n"
-        )
+        linhas = [
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"📈  Relatório para: {ticker_resp}",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "",
+            f"Resultado do Modelo: {resultado}",
+            "",
+            "🔢  Probabilidades:",
+            f"   ❌ Não Recomendada: {prob_nao:.2%}",
+            f"   ✅ Recomendada:    {prob_sim:.2%}",
+        ]
+
+        if indicadores_chave:
+            linhas.extend(["", "🧮  Indicadores Chave", "─────────────────────────────"])
+            for feat, val in indicadores_chave.items():
+                nome = feat.replace("_", " ").title()
+                if val is None:
+                    linhas.append(f"   • {nome:<22}: {'Não disponível':>8}")
+                elif feat in {"dividend_yield", "roe", "variacao_12m", "margem_liquida"}:
+                    linhas.append(f"   • {nome:<22}: {val:>8.2f}%")
+                else:
+                    linhas.append(f"   • {nome:<22}: {val:>8.2f}")
+            linhas.append("─────────────────────────────")
+
+        if justificativas_positivas:
+            linhas.extend(["", "✅ Pontos Positivos:"])
+            linhas.extend([f"   + {item}" for item in justificativas_positivas])
+        else:
+            linhas.extend(["", "✅ Pontos Positivos:", "   + Nenhum ponto positivo destacado."])
+
+        if justificativas_negativas:
+            linhas.extend(["", "⚠️ Pontos de Atenção:"])
+            linhas.extend([f"   - {item}" for item in justificativas_negativas])
+        else:
+            linhas.extend(["", "⚠️ Pontos de Atenção:", "   - Nenhum ponto negativo destacado."])
+
+        return "\n".join(linhas)

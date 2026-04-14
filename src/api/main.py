@@ -109,11 +109,13 @@ def recomendar(background_tasks: BackgroundTasks, _key: str = Security(verificar
 def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
     from src.models.recomendador_acoes import (
         FEATURES_ESPERADAS_PELO_MODELO,
+        FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR,
         calcular_preco_sobre_graham_para_recomendacao,
         carregar_artefatos_modelo,
         coletar_indicadores,
     )
     import pandas as pd
+    import numpy as np
 
     ticker = ticker.strip().upper()
     if not ticker:
@@ -161,6 +163,104 @@ def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
     else:
         resultado = "FORTEMENTE NÃO RECOMENDADA para compra"
 
+    def _v(col):
+        if col not in x_final.columns:
+            return np.nan
+        return pd.to_numeric(x_final[col].iloc[0], errors="coerce")
+
+    pl = _v("pl")
+    pvp = _v("pvp")
+    dy = _v("dividend_yield")
+    roe = _v("roe")
+    psg = _v("preco_sobre_graham")
+    var12m = _v("variacao_12m")
+    margem_liq = _v("margem_liquida")
+    p_ebit = _v("p_ebit")
+
+    justificativas_positivas = []
+    justificativas_negativas = []
+
+    if pd.notna(pl):
+        if pl <= 0:
+            justificativas_negativas.append(f"Empresa com prejuízo (P/L={pl:.2f}).")
+        elif 0 < pl < 2:
+            justificativas_negativas.append(f"P/L excessivamente baixo ({pl:.2f}), pode indicar alto risco ou distorções.")
+        elif 2 <= pl < 10:
+            justificativas_positivas.append(f"P/L baixo ({pl:.2f}), pode indicar subavaliação.")
+        elif 10 <= pl < 20:
+            justificativas_positivas.append(f"P/L em nível razoável ({pl:.2f}).")
+        elif pl >= 20:
+            justificativas_negativas.append(f"P/L elevado ({pl:.2f}).")
+
+    if pd.notna(pvp):
+        if pvp <= 0:
+            justificativas_negativas.append(f"Patrimônio líquido negativo ou zero (P/VP={pvp:.2f}).")
+        elif 0 < pvp < 1:
+            justificativas_positivas.append(f"P/VP < 1 ({pvp:.2f}), pode estar descontada em relação ao VPA.")
+        elif 1 <= pvp < 2:
+            justificativas_positivas.append(f"P/VP razoável ({pvp:.2f}).")
+        elif pvp >= 2:
+            justificativas_negativas.append(f"P/VP pode ser considerado alto ({pvp:.2f}).")
+
+    if pd.notna(dy):
+        if dy >= 6:
+            justificativas_positivas.append(f"Excelente Dividend Yield ({dy:.2f}%).")
+        elif 4 <= dy < 6:
+            justificativas_positivas.append(f"Bom Dividend Yield ({dy:.2f}%).")
+        elif 0 <= dy < 2:
+            justificativas_negativas.append(f"Dividend Yield baixo ({dy:.2f}%).")
+        elif dy < 0:
+            justificativas_negativas.append(f"Dividend Yield negativo ({dy:.2f}%), requer atenção.")
+
+    if pd.notna(roe):
+        if roe > 50:
+            justificativas_negativas.append(f"ROE extremamente alto ({roe:.2f}%), pode indicar distorção contábil ou patrimônio muito baixo.")
+        elif 20 <= roe <= 50:
+            justificativas_positivas.append(f"Excelente rentabilidade (ROE {roe:.2f}%).")
+        elif 15 <= roe < 20:
+            justificativas_positivas.append(f"Boa rentabilidade (ROE {roe:.2f}%).")
+        elif 0 <= roe < 10:
+            justificativas_negativas.append(f"Rentabilidade (ROE {roe:.2f}%) pode ser melhorada.")
+        elif roe < 0:
+            justificativas_negativas.append(f"Rentabilidade negativa (ROE {roe:.2f}%).")
+
+    if pd.notna(psg):
+        if psg < 0.75:
+            justificativas_positivas.append(f"Preço atrativo pelo Valor de Graham (P/VG {psg:.2f}).")
+        elif 0.75 <= psg < 1.2:
+            justificativas_positivas.append(f"Preço razoável pelo Valor de Graham (P/VG {psg:.2f}).")
+        elif psg >= 1.5:
+            justificativas_negativas.append(f"Preço elevado pelo Valor de Graham (P/VG {psg:.2f}).")
+
+    if pd.notna(var12m):
+        if var12m > 15:
+            justificativas_positivas.append(f"Boa valorização recente (Variação 12M: {var12m:.2f}%).")
+        elif var12m < -15:
+            justificativas_negativas.append(f"Desvalorização considerável recente (Variação 12M: {var12m:.2f}%).")
+
+    if pd.notna(margem_liq):
+        if margem_liq > 40:
+            justificativas_negativas.append(f"Margem líquida extremamente alta ({margem_liq:.2f}%), pode indicar lucro não recorrente.")
+        elif 15 < margem_liq <= 40:
+            justificativas_positivas.append(f"Excelente margem líquida ({margem_liq:.2f}%).")
+        elif 5 <= margem_liq <= 15:
+            justificativas_positivas.append(f"Margem líquida razoável ({margem_liq:.2f}%).")
+        elif margem_liq < 5:
+            justificativas_negativas.append(f"Margem líquida apertada ou negativa ({margem_liq:.2f}%).")
+
+    if pd.notna(p_ebit):
+        if p_ebit <= 0:
+            justificativas_negativas.append(f"EBIT negativo ou zero (P/EBIT={p_ebit:.2f}).")
+        elif 0 < p_ebit < 10:
+            justificativas_positivas.append(f"P/EBIT atrativo ({p_ebit:.2f}).")
+        elif p_ebit >= 15:
+            justificativas_negativas.append(f"P/EBIT elevado ({p_ebit:.2f}).")
+
+    indicadores_chave = {}
+    for feat in FEATURES_CHAVE_PARA_EXIBIR_E_JUSTIFICAR:
+        val = _v(feat)
+        indicadores_chave[feat] = None if pd.isna(val) else float(val)
+
     return {
         "ticker": ticker,
         "resultado": resultado,
@@ -168,6 +268,9 @@ def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
             "nao_recomendada": prob_nao,
             "recomendada": prob_sim,
         },
+        "indicadores_chave": indicadores_chave,
+        "justificativas_positivas": justificativas_positivas,
+        "justificativas_negativas": justificativas_negativas,
     }
 
 @app.post("/modelo/upload")

@@ -51,6 +51,40 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.12] Relatório detalhado no recomendador via API
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`src/api/main.py`**:
+  - endpoint `POST /recomendacao/{ticker}` ampliado para retornar:
+    - `indicadores_chave`
+    - `justificativas_positivas`
+    - `justificativas_negativas`
+  - adicionada lógica heurística no endpoint para compor justificativas em formato estruturado.
+- **`src/dashboard/pages/recomendador.py`**:
+  - `update_recommend` passou a renderizar relatório completo:
+    - resultado + probabilidades;
+    - bloco de indicadores-chave;
+    - bloco de pontos positivos;
+    - bloco de pontos de atenção.
+- **`scripts/treinar_local_e_salvar.py`**:
+  - adicionada docstring de uso no topo com comandos de execução e pré-requisitos.
+
+#### Decisões e motivos
+
+- Após migração para recomendação via API, saída no dashboard ficou resumida.
+- Usuário solicitou retorno mais rico, como versão anterior.
+- Solução escolhida: enriquecer payload da API e manter dashboard apenas como camada de apresentação.
+
+#### Pendências / próximos passos
+
+- Deploy no Railway.
+- Validar no app produção com ticker real (ex: `BBAS3`, `PETR4`) se relatório completo aparece.
+- Opcional futuro: mover heurísticas para função compartilhada única (evitar duplicação entre API e módulo de recomendação).
+
+---
 ### [v2.11] Ajuste script local + fix deploy multipart
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor

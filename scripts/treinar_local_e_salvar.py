@@ -1,3 +1,24 @@
+"""
+Script utilitário para executar jobs de treino local e salvar resultados no Railway.
+
+Pré-requisitos:
+- Variáveis no `.env`: `DB_*`, `API_URL`, `API_KEY`.
+- Endpoint `/modelo/upload` disponível na API em produção.
+
+Exemplos:
+- Rodar tudo:
+    python scripts/treinar_local_e_salvar.py --job todos
+
+- Rodar só classificador + enviar modelo para Railway:
+    python scripts/treinar_local_e_salvar.py --job classificador
+
+- Rodar só regressor e salvar previsões no banco:
+    python scripts/treinar_local_e_salvar.py --job regressor --n-dias 10
+
+- Rodar só recomendações e salvar no banco:
+    python scripts/treinar_local_e_salvar.py --job recomendacoes
+"""
+
 import argparse
 import os
 import sys
