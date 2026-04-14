@@ -51,6 +51,44 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.2] FastAPI + deploy Render + GitHub Actions crons
+**Data:** 2026-04-14
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+- **`src/api/__init__.py`**: criado (vazio)
+- **`src/api/main.py`**: FastAPI com 5 endpoints:
+  - `GET /health` — sem auth, para UptimeRobot
+  - `GET /tarefas/status` — retorna tarefa em andamento
+  - `POST /tarefas/coletar` — 202, roda `scraper_orquestrador.main()` em background thread
+  - `POST /tarefas/treinar` — 202, roda classificador + regressor em background
+  - `POST /tarefas/recomendar` — 202, roda `recomendar_varias_acoes` em background
+  - Auth via `X-API-Key` header; retorna 409 se outra tarefa já estiver rodando
+- **`render.yaml`**: 2 web services com runtime Docker (`insight-invest-api` porta via `$PORT`, `insight-invest-dashboard` idem)
+- **`.github/workflows/coletar.yml`**: 2 crons dias úteis (21:00 e 23:00 UTC = 18:00 e 20:00 BRT, após fechamento do pregão), retry automático com 5 tentativas / 2 min de espera, 409 aborta silenciosamente
+- **`.github/workflows/treinar.yml`**: 04:00 UTC, mesmo padrão de retry
+- **`.github/workflows/recomendar.yml`**: 08:00 UTC, mesmo padrão de retry
+- **`requirements.txt`**: adicionado `fastapi==0.115.12`, `uvicorn==0.34.0`
+- **`src/dashboard/app.py`**: porta via `int(os.getenv("PORT", 8050))` para compatibilidade com Render
+- **`src/data/scraper_orquestrador.py`**: removido import morto `ThreadPoolExecutor`
+
+#### Decisões e motivos
+
+- **202 Accepted + BackgroundTasks**: Render free tier mata requests após 30s; tarefas longas (coleta de 148 tickers) precisam rodar em background. O caller (GitHub Actions) só precisa confirmar que o disparo foi aceito.
+- **Mutex global `_tarefa_em_andamento`**: evita execuções paralelas acidentais; 409 é retornado se já houver tarefa rodando. O orquestrador já é sequencial, então não há risco de race condition interna.
+- **Crons após fechamento do pregão**: cotação e indicadores derivados (P/L, P/VP etc.) ficam estáveis após 17:55 BRT. Coletar durante o pregão capturaria preços mid-day, menos representativos para análise fundamentalista.
+- **Orquestrador sequencial**: já era assim antes; confirmado que não usa ThreadPoolExecutor (import foi removido). Scrapers individuais mantêm paralelismo quando rodados standalone.
+- **`sync: false` no render.yaml**: variáveis sensíveis (DB_PASS, API_KEY) não são commitadas; preenchidas manualmente no painel do Render.
+
+#### Pendências / próximos passos
+
+- Fazer push e deploy no Render (Blueprint via render.yaml)
+- Preencher variáveis de ambiente nos serviços do Render
+- Adicionar GitHub Secrets: `API_URL` e `API_KEY`
+- Configurar UptimeRobot para pingar `GET /health` a cada 5 min (evitar sleep do free tier)
+
+---
 ### [v2.1] Migração banco de dados local → Supabase
 **Data:** 2026-04-14
 **IA:** Claude Sonnet 4.6 via Claude Code

@@ -46,22 +46,10 @@ services:
     networks:
       - custom_net
 
-  scheduler:
-    build: .
-    restart: always
-    env_file: .env
-    volumes:
-      - modelo:/app/modelo
-      - backups:/app/backups
-    working_dir: /app
-    command: python scripts/executar_tarefas_diarias.py
-    networks:
-      - custom_net
 
 volumes:
   postgres_data:
   modelo:
-  backups:
 
 networks:
   custom_net:
