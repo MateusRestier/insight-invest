@@ -1,3 +1,4 @@
+import atexit
 import os
 import sys
 import time
@@ -13,6 +14,18 @@ if str(_PROJECT_ROOT) not in sys.path:
 import fundamentus
 import yfinance as yf
 from src.core.db_connection import get_connection
+
+
+def _limpar_cache_fundamentus():
+    """Remove o http_cache.sqlite criado pelo requests_cache do fundamentus."""
+    cache = Path("http_cache.sqlite")
+    if cache.exists():
+        try:
+            cache.unlink()
+        except Exception:
+            pass
+
+atexit.register(_limpar_cache_fundamentus)
 
 
 # ── Mapeamento Fundamentus → DB ───────────────────────────────────────────────
