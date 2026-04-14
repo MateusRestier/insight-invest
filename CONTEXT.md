@@ -81,10 +81,17 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 - **Orquestrador sequencial**: já era assim antes; confirmado que não usa ThreadPoolExecutor (import foi removido). Scrapers individuais mantêm paralelismo quando rodados standalone.
 - **`sync: false` no render.yaml**: variáveis sensíveis (DB_PASS, API_KEY) não são commitadas; preenchidas manualmente no painel do Render.
 
+#### Fixes de deploy (após v2.2)
+
+- **`.python-version`** + `PYTHON_VERSION=3.12.0` no `render.yaml`: Render usava Python 3.14 por padrão — `pandas==2.2.2` não tem wheel para 3.14 e falha na compilação
+- **`requests==2.32.3` → `>=2.32.4`**: `fundamentus==0.3.2` exige `requests>=2.32.4`
+- **`pandas==2.2.2` → `>=2.3.0`** e **`numpy==2.1.0` → `>=2.1.0`**: `fundamentus==0.3.2` exige `pandas>=2.3.0`; pip resolveu para pandas 3.0.2 e numpy 2.4.4
+- **`src/dashboard/pages/recomendador.py`**: importava `scraper_indicadores` (nome antigo) — corrigido para `scraper_orquestrador.coletar_com_fallback`
+- **`render.yaml` `plan: free`**: Render criava instâncias Starter ($7/mês) por padrão
+- **`render.yaml` `runtime: docker` → `env: python`**: Docker runtime não aceita `startCommand` no Blueprint
+
 #### Pendências / próximos passos
 
-- Fazer push e deploy no Render (Blueprint via render.yaml)
-- Preencher variáveis de ambiente nos serviços do Render
 - Adicionar GitHub Secrets: `API_URL` e `API_KEY`
 - Configurar UptimeRobot para pingar `GET /health` a cada 5 min (evitar sleep do free tier)
 
