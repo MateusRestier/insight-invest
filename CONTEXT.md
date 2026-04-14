@@ -51,6 +51,32 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.5] Hardening de deploy Railway (healthcheck e fechamento de pendências)
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`railway.json`**:
+  - adicionado `healthcheckPath: "/health"` para o Railway validar serviço pelo endpoint correto.
+- **Validação de estado da migração**:
+  - confirmado que o repositório já estava consistente com modelo de serviço único (API + Dash no mesmo processo).
+
+#### Decisões e motivos
+
+- Healthcheck explícito reduz risco de falso negativo em boot/deploy e facilita diagnóstico no painel Railway.
+
+#### Pendências / próximos passos
+
+- No painel Railway:
+  - manter apenas um serviço de aplicação;
+  - confirmar variáveis `DB_*` e `API_KEY`;
+  - redeploy e teste de `GET /health` e `/`.
+- Se necessário, restaurar dump no PostgreSQL Railway:
+  - `python scripts/backup.py --restaurar --arquivo backups/backup_2025-11-10_18-37-02.dump`
+  - `python scripts/validar_restore.py`
+
+---
 ### [v2.4] Migração para Railway (serviço único + dump local)
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
