@@ -44,8 +44,13 @@ def adicionar_preco_futuro(df, n_dias):
 
     def _por_acao(grp):
         grp = grp.sort_values('data_coleta')
-        left = grp[['data_futura_alvo']].sort_values('data_futura_alvo')
-        right = grp[['data_coleta', 'cotacao']]
+        left = grp[['data_futura_alvo']].copy().sort_values('data_futura_alvo')
+        right = grp[['data_coleta', 'cotacao']].copy().sort_values('data_coleta')
+
+        # merge_asof exige dtypes idênticos nas chaves de data
+        left['data_futura_alvo'] = pd.to_datetime(left['data_futura_alvo']).astype('datetime64[ns]')
+        right['data_coleta'] = pd.to_datetime(right['data_coleta']).astype('datetime64[ns]')
+
         merged = pd.merge_asof(
             left=left, right=right,
             left_on='data_futura_alvo', right_on='data_coleta',

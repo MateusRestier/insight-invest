@@ -51,6 +51,31 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.7] Fix MergeError no treino regressor
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`src/models/regressor_preco.py`**:
+  - em `adicionar_preco_futuro()`, padronizado dtype das chaves de data usadas no `pd.merge_asof`:
+    - `left['data_futura_alvo']` convertido para `datetime64[ns]`;
+    - `right['data_coleta']` convertido para `datetime64[ns]`.
+  - `left` e `right` passaram a usar `.copy()` e ordenação explícita por suas colunas de data.
+
+#### Decisões e motivos
+
+- Logs Railway mostraram falha em background task de treino:
+  - `pandas.errors.MergeError: incompatible merge keys [0] dtype('<M8[us]') and dtype('<M8[s]')`.
+- `merge_asof` exige dtypes idênticos nas chaves; normalização explícita remove variação de precisão temporal entre datasets.
+
+#### Pendências / próximos passos
+
+- Rodar GitHub Action `Treinar Modelos` novamente.
+- Confirmar ausência de novo stacktrace `MergeError` em logs Railway.
+- Validar aba **Prever preço** após treino concluir.
+
+---
 ### [v2.5] Hardening de deploy Railway (healthcheck e fechamento de pendências)
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
