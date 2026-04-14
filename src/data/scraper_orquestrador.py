@@ -19,8 +19,6 @@ import time
 from pathlib import Path
 from datetime import date
 from typing import Dict, List, Optional
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))

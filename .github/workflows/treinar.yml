@@ -1,0 +1,42 @@
+name: Treinar Modelos
+
+on:
+  schedule:
+    # 04:00 UTC (01:00 BRT) — coleta do cron das 00:00 UTC já concluída
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  treinar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar treino (com retry)
+        run: |
+          MAX_TENTATIVAS=5
+          ESPERA=120
+
+          for i in $(seq 1 $MAX_TENTATIVAS); do
+            echo "Tentativa $i/$MAX_TENTATIVAS..."
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 30 \
+              -X POST "${{ secrets.API_URL }}/tarefas/treinar" \
+              -H "X-API-Key: ${{ secrets.API_KEY }}")
+
+            echo "HTTP $STATUS"
+
+            if [ "$STATUS" = "202" ]; then
+              echo "Treino iniciado com sucesso."
+              exit 0
+            elif [ "$STATUS" = "409" ]; then
+              echo "Tarefa já em andamento. Abortando."
+              exit 0
+            fi
+
+            if [ $i -lt $MAX_TENTATIVAS ]; then
+              echo "Aguardando ${ESPERA}s antes de retentar..."
+              sleep $ESPERA
+            fi
+          done
+
+          echo "Falha após $MAX_TENTATIVAS tentativas."
+          exit 1

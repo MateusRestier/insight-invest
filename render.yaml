@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: insight-invest-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: API_KEY
+        sync: false
+
+  - type: web
+    name: insight-invest-dashboard
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: python src/dashboard/app.py
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false

@@ -1,0 +1,46 @@
+name: Coletar Indicadores
+
+on:
+  schedule:
+    # 18:00 BRT (21:00 UTC) — disparo principal, logo após fechamento
+    # 20:00 BRT (23:00 UTC) — fallback
+    # Apenas dias úteis (seg-sex)
+    - cron: "0 21 * * 1-5"
+    - cron: "0 23 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar coleta (com retry)
+        run: |
+          MAX_TENTATIVAS=5
+          ESPERA=120  # 2 min entre tentativas (aguarda Render acordar)
+
+          for i in $(seq 1 $MAX_TENTATIVAS); do
+            echo "Tentativa $i/$MAX_TENTATIVAS..."
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 30 \
+              -X POST "${{ secrets.API_URL }}/tarefas/coletar" \
+              -H "X-API-Key: ${{ secrets.API_KEY }}")
+
+            echo "HTTP $STATUS"
+
+            if [ "$STATUS" = "202" ]; then
+              echo "Coleta iniciada com sucesso."
+              exit 0
+            elif [ "$STATUS" = "409" ]; then
+              echo "Tarefa já em andamento. Abortando (próximo cron assume)."
+              exit 0
+            fi
+
+            # 000 = timeout/conexão recusada (Render dormindo), 503 = iniciando
+            if [ $i -lt $MAX_TENTATIVAS ]; then
+              echo "Aguardando ${ESPERA}s antes de retentar..."
+              sleep $ESPERA
+            fi
+          done
+
+          echo "Falha após $MAX_TENTATIVAS tentativas."
+          exit 1

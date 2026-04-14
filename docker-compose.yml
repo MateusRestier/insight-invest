@@ -20,6 +20,19 @@ services:
     networks:
       - custom_net
 
+  api:
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - modelo:/app/modelo
+    working_dir: /app
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - custom_net
+
   dashboard:
     build: .
     restart: always

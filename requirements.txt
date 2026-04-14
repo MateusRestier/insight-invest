@@ -16,3 +16,5 @@ python-dotenv==1.0.1
 fundamentus==0.3.2
 yfinance==1.2.1
 html5lib==1.1
+fastapi==0.115.12
+uvicorn==0.34.0
