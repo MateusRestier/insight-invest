@@ -1,6 +1,6 @@
 from dash import html, dcc, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
-from src.data.scraper_indicadores import coletar_indicadores
+from src.data.scraper_orquestrador import coletar_com_fallback as coletar_indicadores
 from src.models.recomendador_acoes import recomendar_acao
 
 # -----------------------------------------------------------------------------
