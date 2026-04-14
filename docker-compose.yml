@@ -1,17 +1,19 @@
 services:
+  # Banco local opcional — usado apenas com: docker compose --profile local up
   db:
+    profiles: [local]
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-stocks}
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASS:-password}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-stocks}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,17 +23,9 @@ services:
   dashboard:
     build: .
     restart: always
-    depends_on:
-      db:
-        condition: service_healthy
     ports:
       - "8050:8050"
-    environment:
-      DB_HOST: db
-      DB_NAME: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASS: ${POSTGRES_PASSWORD}
-      DB_PORT: 5432
+    env_file: .env
     volumes:
       - modelo:/app/modelo
     working_dir: /app
@@ -42,15 +36,7 @@ services:
   scheduler:
     build: .
     restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DB_HOST: db
-      DB_NAME: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASS: ${POSTGRES_PASSWORD}
-      DB_PORT: 5432
+    env_file: .env
     volumes:
       - modelo:/app/modelo
       - backups:/app/backups
