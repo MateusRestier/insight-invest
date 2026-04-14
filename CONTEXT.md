@@ -51,6 +51,28 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.13] Cron mensal para treino no GitHub Actions
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`.github/workflows/treinar.yml`**:
+  - cron alterado de diário para mensal.
+  - novo agendamento:
+    - `0 4 1 * *` (04:00 UTC = 01:00 BRT, no dia 1 de cada mês).
+  - `workflow_dispatch` mantido para execução manual quando necessário.
+
+#### Decisões e motivos
+
+- Solicitação do usuário para reduzir frequência de treino automático e concentrar rotina mensal.
+
+#### Pendências / próximos passos
+
+- Validar na aba Actions se próximo agendamento automático está correto.
+- Manter execução manual disponível para re-treinos emergenciais.
+
+---
 ### [v2.12] Relatório detalhado no recomendador via API
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
