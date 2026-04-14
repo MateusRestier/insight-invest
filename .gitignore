@@ -20,6 +20,9 @@ modelo/*.pkl
 cache_status/
 cache_results/
 
+# Cache HTTP do fundamentus (requests_cache)
+http_cache.sqlite
+
 # Backups de banco (gerados em runtime)
 backups/
 
