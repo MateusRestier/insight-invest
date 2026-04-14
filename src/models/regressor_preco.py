@@ -60,13 +60,30 @@ def adicionar_preco_futuro(df, n_dias):
         return grp
 
     df = df.groupby('acao', group_keys=False).apply(_por_acao)
-    return df.drop(columns=['data_futura_alvo'])
+    df = df.drop(columns=['data_futura_alvo'])
+
+    # Em algumas versões/cenários de pandas, 'acao' pode virar nível de índice
+    if 'acao' not in df.columns:
+        if isinstance(df.index, pd.MultiIndex) and 'acao' in df.index.names:
+            df = df.reset_index(level='acao')
+        elif df.index.name == 'acao':
+            df = df.reset_index()
+
+    return df
 
 # 3) Prepara X, y, dates
 def preparar_dados_regressao(df, n_dias):
     df = calcular_features_graham_estrito(df)
     df = adicionar_preco_futuro(df, n_dias)
     df = df.dropna(subset=['preco_futuro_N_dias']).copy()
+
+    if 'acao' not in df.columns:
+        if isinstance(df.index, pd.MultiIndex) and 'acao' in df.index.names:
+            df = df.reset_index(level='acao')
+        elif df.index.name == 'acao':
+            df = df.reset_index()
+        else:
+            raise KeyError("Coluna 'acao' ausente após preparação dos dados de regressão.")
 
     features = [
         'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',

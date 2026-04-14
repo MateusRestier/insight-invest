@@ -51,6 +51,33 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.8] Fix KeyError 'acao' no regressor
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`src/models/regressor_preco.py`**:
+  - após `groupby('acao').apply(...)`, garantir `acao` como coluna:
+    - se `acao` virar nível índice (`MultiIndex` ou índice simples), aplicar `reset_index`.
+  - em `preparar_dados_regressao()`, adicionar checagem defensiva:
+    - tentar recuperar `acao` do índice;
+    - lançar `KeyError` explícito se coluna continuar ausente.
+
+#### Decisões e motivos
+
+- Logs Railway após disparo de `/tarefas/treinar` mostraram novo erro:
+  - `KeyError: 'acao'` em `acoes = df.loc[X.index, 'acao']`.
+- Em alguns cenários de pandas, `groupby/apply` altera estrutura e remove `acao` de `columns`.
+- Tratamento explícito torna pipeline estável entre ambientes/versões.
+
+#### Pendências / próximos passos
+
+- Rodar `Treinar Modelos` no GitHub Actions novamente.
+- Validar que erro `KeyError: 'acao'` não reaparece.
+- Confirmar atualização de previsões na aba **Prever preço**.
+
+---
 ### [v2.7] Fix MergeError no treino regressor
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
