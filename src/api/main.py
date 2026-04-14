@@ -3,6 +3,7 @@ import sys
 import threading
 from pathlib import Path
 from datetime import date
+import shutil
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -11,7 +12,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from dotenv import load_dotenv
 load_dotenv(_PROJECT_ROOT / ".env")
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Security
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Security, UploadFile, File
 from starlette.middleware.wsgi import WSGIMiddleware
 from fastapi.security.api_key import APIKeyHeader
 
@@ -167,6 +168,38 @@ def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
             "nao_recomendada": prob_nao,
             "recomendada": prob_sim,
         },
+    }
+
+@app.post("/modelo/upload")
+def upload_modelo(
+    arquivo: UploadFile = File(...),
+    _key: str = Security(verificar_chave),
+):
+    nome_esperado = "modelo_classificador_desempenho.pkl"
+    if arquivo.filename != nome_esperado:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nome inválido. Envie exatamente '{nome_esperado}'.",
+        )
+
+    if not arquivo.filename.lower().endswith(".pkl"):
+        raise HTTPException(status_code=400, detail="Arquivo deve ser .pkl")
+
+    modelo_dir = _PROJECT_ROOT / "modelo"
+    modelo_dir.mkdir(parents=True, exist_ok=True)
+    destino = modelo_dir / nome_esperado
+
+    try:
+        with destino.open("wb") as f:
+            shutil.copyfileobj(arquivo.file, f)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Falha ao salvar arquivo: {exc}") from exc
+    finally:
+        arquivo.file.close()
+
+    return {
+        "ok": True,
+        "arquivo": str(destino),
     }
 
 # Dashboard embutido no mesmo serviço HTTP (Railway)

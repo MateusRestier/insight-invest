@@ -102,8 +102,16 @@ def register_callbacks_recomendador(app):
         resultado = coletar_indicadores(ticker)
         if isinstance(resultado, str):
             return dbc.Alert(resultado, color="danger", dismissable=True)
-
-        dados, _ = resultado
+        if isinstance(resultado, tuple) and len(resultado) >= 1:
+            dados = resultado[0]
+        elif isinstance(resultado, dict):
+            dados = resultado
+        else:
+            return dbc.Alert(
+                "Falha ao interpretar dados coletados para o ticker.",
+                color="danger",
+                dismissable=True,
+            )
 
         display_names = {
             "acao": "Ação", "pl": "P/L", "psr": "P/SR", "pvp": "P/VP", "dy": "Dividend Yield",

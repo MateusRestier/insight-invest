@@ -51,6 +51,39 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.10] Upload de modelo + robustez no recomendador
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`scripts/treinar_local_e_salvar.py`** criado:
+  - pipeline local único para classificador + regressor + recomendações;
+  - flags `--sem-classificador`, `--sem-regressor`, `--sem-recomendacoes`, `--n-dias`, `--data-calculo`.
+- **`src/api/main.py`**:
+  - novo endpoint `POST /modelo/upload` (multipart) protegido por `X-API-Key`;
+  - valida nome `modelo_classificador_desempenho.pkl` e extensão `.pkl`;
+  - salva em `/_PROJECT_ROOT/modelo` (no Railway: `/app/modelo` com volume).
+- **`src/dashboard/pages/recomendador.py`**:
+  - fix para `update_indicators` aceitar retorno de `coletar_indicadores` como `tuple` ou `dict`;
+  - elimina erro `ValueError: too many values to unpack (expected 2)` observado em produção.
+
+#### Decisões e motivos
+
+- Treino local não copia automaticamente `.pkl` para Railway; foi necessário criar upload explícito do artefato.
+- Logs mostraram que coletor estava OK (`POST /tarefas/coletar 202`), mas o dashboard quebrava em callback do recomendador durante coleta concorrente.
+- Também confirmado em log que treino rodou por chamada separada (`POST /tarefas/treinar 202`), não por encadeamento interno do coletor.
+
+#### Pendências / próximos passos
+
+- Deploy das mudanças para liberar `POST /modelo/upload`.
+- Enviar `.pkl` local para produção via endpoint novo.
+- Validar em produção:
+  - `POST /modelo/upload` retorna `ok: true`;
+  - recomendador deixa de retornar erro 409 de modelo ausente;
+  - callback de indicadores sem erro 500.
+
+---
 ### [v2.9] Hardening extra coluna `acao` no regressor
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
