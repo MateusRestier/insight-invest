@@ -327,6 +327,26 @@ automaticamente pelas fontes de fallback. Nenhuma mudança de lógica foi necess
 - Avaliar se `beautifulsoup4` pode ser removido quando o Investidor10 não for mais fallback
 
 ---
+### [v2.6] Normalização de API_URL nos workflows
+**Data:** 2026-04-14  
+**IA:** Auto via Cursor
+
+#### O que foi feito
+- Em `.github/workflows/coletar.yml`, `.github/workflows/treinar.yml` e `.github/workflows/recomendar.yml`: normalização da URL base via:
+  - `BASE_URL="${{ secrets.API_URL }}"`
+  - `BASE_URL="${BASE_URL%/}"`
+- Endpoints `curl` alterados de `"${{ secrets.API_URL }}/tarefas/..."`
+  para `"$BASE_URL/tarefas/..."`.
+
+#### Decisões e motivos
+- Evitar URLs com `//tarefas/...` quando `API_URL` no secret termina com `/`.
+- Tornar workflow robusto sem depender de formato exato do secret.
+
+#### Pendências / próximos passos
+- Confirmar novos logs GitHub Actions com `POST /tarefas/...` (sem dupla barra).
+- Rodar smoke test de `Treinar` e `Recomendar` no app Railway.
+
+---
 ### [v1.1] Run pela IDE + mensagem quando falta `.pkl`
 **Data:** 2026-04-13  
 **IA:** Auto via Cursor

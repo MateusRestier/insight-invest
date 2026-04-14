@@ -17,12 +17,14 @@ jobs:
         run: |
           MAX_TENTATIVAS=5
           ESPERA=120  # 2 min entre tentativas (aguarda Render acordar)
+          BASE_URL="${{ secrets.API_URL }}"
+          BASE_URL="${BASE_URL%/}"
 
           for i in $(seq 1 $MAX_TENTATIVAS); do
             echo "Tentativa $i/$MAX_TENTATIVAS..."
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 30 \
-              -X POST "${{ secrets.API_URL }}/tarefas/coletar" \
+              -X POST "$BASE_URL/tarefas/coletar" \
               -H "X-API-Key: ${{ secrets.API_KEY }}")
 
             echo "HTTP $STATUS"
