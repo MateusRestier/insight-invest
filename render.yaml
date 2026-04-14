@@ -1,12 +1,12 @@
 services:
   - type: web
     name: insight-invest-api
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    env: python
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHONPATH
-        value: /app
+        value: "."
       - key: DB_HOST
         sync: false
       - key: DB_PORT
@@ -22,12 +22,12 @@ services:
 
   - type: web
     name: insight-invest-dashboard
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    env: python
+    buildCommand: pip install -r requirements.txt
     startCommand: python src/dashboard/app.py
     envVars:
       - key: PYTHONPATH
-        value: /app
+        value: "."
       - key: DB_HOST
         sync: false
       - key: DB_PORT
