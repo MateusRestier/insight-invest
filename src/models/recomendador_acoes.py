@@ -5,7 +5,15 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.data.scraper_fundamentus import coletar_indicadores
+from src.data.scraper_orquestrador import coletar_com_fallback as _coletar_orq
+
+def coletar_indicadores(ticker: str):
+    """Wrapper: usa orquestrador (Fundamentus→Yahoo→Investidor10) e devolve (dict, log)."""
+    dados = _coletar_orq(ticker)
+    if dados is None or dados.get('cotacao') is None:
+        return f"❌ {ticker} - sem dados em nenhuma fonte"
+    log = "\n".join(f"  {k}: {v}" for k, v in dados.items())
+    return dados, log
 from src.core.db_connection import get_connection
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
