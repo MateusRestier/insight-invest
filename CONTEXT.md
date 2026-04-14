@@ -51,6 +51,45 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.3] Recomendador via API (sem depender de arquivo local no dashboard)
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`src/api/main.py`**:
+  - fix em `_run_treinar`: `treinar_modelo` (inexistente) → `executar_pipeline_classificador`.
+  - novo endpoint síncrono `POST /recomendacao/{ticker}` (auth via `X-API-Key`) que:
+    - coleta dados (`coletar_indicadores`);
+    - calcula feature de Graham;
+    - carrega modelo (`modelo/modelo_classificador_desempenho.pkl`);
+    - retorna JSON com `ticker`, `resultado` e probabilidades.
+- **`src/dashboard/pages/recomendador.py`**:
+  - removida dependência direta de `recomendar_acao` local.
+  - callback do botão **Recomendar** agora chama a API via `requests.post` usando `API_URL` + `API_KEY`.
+  - mensagens de erro explícitas para ausência de env vars, falha de rede ou erro HTTP da API.
+- **`render.yaml`**:
+  - serviço `insight-invest-dashboard` recebeu env vars `API_URL` e `API_KEY` (ambas `sync: false`).
+- **`.env.example`**:
+  - adicionada variável `API_URL` com exemplo da URL do serviço API no Render.
+
+#### Decisões e motivos
+
+- **Motivo principal:** no Render free, API e dashboard rodam em serviços com filesystem isolado.  
+  Treinar na API não garante presença do `.pkl` no dashboard.
+- **Decisão:** dashboard virou cliente da API para recomendação pontual; modelo fica centralizado no serviço API.
+
+#### Pendências / próximos passos
+
+- Configurar no Render (serviço dashboard):
+  - `API_URL=https://insight-invest-api.onrender.com`
+  - `API_KEY=<mesmo valor do serviço API>`
+- Fazer deploy das mudanças e validar:
+  1. `POST /tarefas/treinar` sem `ImportError`;
+  2. botão **Recomendar** consumindo `POST /recomendacao/{ticker}`.
+- Investigar separadamente a aba **Prever Preço** (relato de clique sem resposta), pois não foi alterada nesta sessão.
+
+---
 ### [v2.2] FastAPI + deploy Render + GitHub Actions crons
 **Data:** 2026-04-14
 **IA:** Claude Sonnet 4.6 via Claude Code

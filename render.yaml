@@ -44,3 +44,7 @@ services:
         sync: false
       - key: DB_PASS
         sync: false
+      - key: API_URL
+        sync: false
+      - key: API_KEY
+        sync: false

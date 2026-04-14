@@ -103,6 +103,71 @@ def recomendar(background_tasks: BackgroundTasks, _key: str = Security(verificar
     background_tasks.add_task(_run_recomendar)
     return {"aceito": True, "tarefa": "recomendar"}
 
+@app.post("/recomendacao/{ticker}")
+def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
+    from src.models.recomendador_acoes import (
+        FEATURES_ESPERADAS_PELO_MODELO,
+        calcular_preco_sobre_graham_para_recomendacao,
+        carregar_artefatos_modelo,
+        coletar_indicadores,
+    )
+    import pandas as pd
+
+    ticker = ticker.strip().upper()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="Ticker inválido")
+
+    resultado_scraper = coletar_indicadores(ticker)
+    if isinstance(resultado_scraper, str) or resultado_scraper is None:
+        raise HTTPException(status_code=422, detail=f"Falha ao coletar dados para {ticker}")
+
+    dados_brutos, _ = resultado_scraper
+    dados_com_graham = calcular_preco_sobre_graham_para_recomendacao(dados_brutos)
+    df_para_previsao_raw = pd.DataFrame([dados_com_graham])
+
+    x_previsao = pd.DataFrame(columns=FEATURES_ESPERADAS_PELO_MODELO, index=[0])
+    for col in FEATURES_ESPERADAS_PELO_MODELO:
+        if col in df_para_previsao_raw.columns:
+            x_previsao.loc[0, col] = pd.to_numeric(df_para_previsao_raw.loc[0, col], errors="coerce")
+    x_final = x_previsao.fillna(0)[FEATURES_ESPERADAS_PELO_MODELO]
+
+    try:
+        modelo = carregar_artefatos_modelo()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar modelo: {exc}") from exc
+
+    try:
+        proba = modelo.predict_proba(x_final)[0]
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro durante previsão: {exc}") from exc
+
+    prob_nao = float(proba[0])
+    prob_sim = float(proba[1])
+
+    if prob_sim >= 0.75:
+        resultado = "FORTEMENTE RECOMENDADA para compra"
+    elif prob_sim >= 0.60:
+        resultado = "RECOMENDADA para compra"
+    elif prob_sim >= 0.50:
+        resultado = "PARCIALMENTE RECOMENDADA (Viés positivo)"
+    elif prob_sim >= 0.40:
+        resultado = "PARCIALMENTE NÃO RECOMENDADA (Viés negativo)"
+    elif prob_sim >= 0.25:
+        resultado = "NÃO RECOMENDADA para compra"
+    else:
+        resultado = "FORTEMENTE NÃO RECOMENDADA para compra"
+
+    return {
+        "ticker": ticker,
+        "resultado": resultado,
+        "probabilidades": {
+            "nao_recomendada": prob_nao,
+            "recomendada": prob_sim,
+        },
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=False)

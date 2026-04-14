@@ -1,7 +1,8 @@
+import os
+import requests
 from dash import html, dcc, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 from src.data.scraper_orquestrador import coletar_com_fallback as coletar_indicadores
-from src.models.recomendador_acoes import recomendar_acao
 
 # -----------------------------------------------------------------------------
 # Layout e callbacks para a página "Recomendador de Ações"
@@ -161,14 +162,44 @@ def register_callbacks_recomendador(app):
         if not n_clicks:
             return no_update
 
-        from io import StringIO
-        import sys
+        api_url = os.getenv("API_URL", "").rstrip("/")
+        api_key = os.getenv("API_KEY", "")
 
-        buffer = StringIO()
-        old_stdout = sys.stdout
-        sys.stdout = buffer
+        if not api_url or not api_key:
+            return "Configuração ausente: defina API_URL e API_KEY no serviço dashboard."
 
-        recomendar_acao(ticker)
+        if not ticker:
+            return "Ticker inválido."
 
-        sys.stdout = old_stdout
-        return buffer.getvalue()
+        try:
+            resp = requests.post(
+                f"{api_url}/recomendacao/{ticker.strip().upper()}",
+                headers={"X-API-Key": api_key},
+                timeout=45,
+            )
+        except requests.RequestException as exc:
+            return f"Falha ao chamar API de recomendação: {exc}"
+
+        if resp.status_code != 200:
+            try:
+                detalhe = resp.json().get("detail", resp.text)
+            except Exception:
+                detalhe = resp.text
+            return f"Erro da API ({resp.status_code}): {detalhe}"
+
+        payload = resp.json()
+        prob = payload.get("probabilidades", {})
+        prob_nao = float(prob.get("nao_recomendada", 0.0))
+        prob_sim = float(prob.get("recomendada", 0.0))
+        resultado = payload.get("resultado", "Sem resultado")
+        ticker_resp = payload.get("ticker", ticker).upper()
+
+        return (
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📈  Relatório para: {ticker_resp}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"Resultado do Modelo: {resultado}\n\n"
+            "🔢  Probabilidades:\n"
+            f"   ❌ Não Recomendada: {prob_nao:.2%}\n"
+            f"   ✅ Recomendada:    {prob_sim:.2%}\n"
+        )
