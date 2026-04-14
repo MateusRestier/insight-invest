@@ -5,7 +5,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.data.scraper_indicadores import coletar_indicadores
+from src.data.scraper_fundamentus import coletar_indicadores
 from src.core.db_connection import get_connection
 from concurrent.futures import ProcessPoolExecutor, as_completed
 

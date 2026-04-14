@@ -51,6 +51,86 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.0] Migração fonte de dados: Investidor10 → Fundamentus + Yahoo + Orquestrador
+**Data:** 2026-04-14  
+**IA:** Claude Sonnet 4.5 via Claude Code
+
+#### O que foi feito
+
+**Renomeação:**
+- `src/data/scraper_indicadores.py` → `src/data/scraper_investidor10.py` (via `git mv`, histórico preservado)
+
+**Novos arquivos em `src/data/`:**
+- `scraper_fundamentus.py` — coleta via lib `fundamentus` (raspagem do fundamentus.com.br)
+- `scraper_yahoo.py` — coleta via `yfinance .info` (snapshot atual, sem histórico)
+- `scraper_orquestrador.py` — coleta com fallback em cascata: Fundamentus → Yahoo → Investidor10
+
+**Atualização de imports:**
+- `src/models/recomendador_acoes.py` linha 8: `scraper_indicadores` → `scraper_fundamentus`
+- `scripts/executar_tarefas_diarias.py` linha 10: `scraper_indicadores.main` → `scraper_orquestrador.main`
+
+**`requirements.txt`:** adicionado `fundamentus==0.3.2` e `yfinance==1.2.1`
+
+#### Decisões arquiteturais
+
+**Por que 3 scrapers separados?**
+Cada fonte cobre lacunas das outras. Os scrapers podem ser executados isoladamente para
+diagnóstico de gaps.
+
+**Mapa de cobertura por fonte:**
+
+| Campo | Fundamentus | Yahoo | Investidor10 |
+|-------|-------------|-------|--------------|
+| payout | ❌ | ✅ (payoutRatio × 100) | ✅ |
+| margem_ebitda | ❌ | ✅ (ebitdaMargins × 100) | ✅ |
+| p_ebitda | ❌ | ❌ | ✅ |
+| ev_ebitda, ev_ebit, p_ebit, p_ativo... | ✅ | parcial | ✅ |
+| div_liq_*, patrimonio_ativos... | ✅ calculado | ❌ | ✅ |
+| variacao_12m | ✅ via yfinance | ✅ | ✅ |
+
+**Parse do fundamentus (todos strings):**
+- `pct`: `"6.6%"` → `float(strip('%'))` = 6.6
+- `ratio`: `"574"` → `float(s) / 100` = 5.74
+- `fin`: `"1223390000000"` → `float(s)` (valor em R$)
+- `direct`: `"49.03"` → `float(s)` (cotação)
+
+**Bancos (ITUB4, BBAS3, etc.):** fundamentus não retorna `Div_Liquida` nem `EBIT_12m`
+(estrutura contábil diferente). O scraper detecta isso via `eh_banco` e grava NULL
+nesses campos — sem erro, sem quebra. 7 campos ficam NULL para bancos mesmo com fallback
+(ev_ebitda, p_ebitda, p_ativo_circ_liq, div_liq_*, div_bruta_patrimonio).
+
+**Orquestrador sequencial (não paralelo):** Cada ticker chama até 3 fontes em série.
+Paralelizar introduziria race conditions nos rate limits simultâneos das 3 fontes.
+
+**Resultado do smoke test (PETR4):**
+- Fundamentus: 28/31 campos
+- Yahoo: +2 (margem_ebitda, payout)
+- Investidor10: +1 (p_ebitda)
+- **Total: 31/31 campos preenchidos**
+
+#### Diagnóstico de cobertura — 148 tickers testados
+
+**Fundamentus: 142/148 OK (96%)**
+
+8 tickers falham com `No tables found` (HTML divergente no fundamentus.com.br):
+`EMBR3, ELET3, ELET6, ARZZ3, TRPL4, RRRP3, MRFG3, GUAR3`
+
+Para esses 8:
+- Yahoo também falha (sufixo `.SA` não reconhecido no Yahoo Finance)
+- Investidor10 funciona → 29/31 campos (nulos: `margem_ebitda`, `p_ativo_circ_liq`)
+- `html5lib==1.1` adicionado ao requirements (dependência do fundamentus para HTML complexo)
+
+**Confirmação do orquestrador:** o `_mesclar()` já operava sobre todos os 31 campos,
+portanto qualquer NULL do fundamentus (estrutural ou por falha de ticker) é preenchido
+automaticamente pelas fontes de fallback. Nenhuma mudança de lógica foi necessária.
+
+#### Pendências / próximos passos
+- Investigar por que os 8 tickers retornam HTML sem tabelas no fundamentus (pode ser
+  bloqueio temporário ou estrutura de página diferente para alguns setores)
+- Investigar se os 7 campos NULL de bancos impactam o modelo (ML usa fillna(0))
+- Avaliar se `beautifulsoup4` pode ser removido quando o Investidor10 não for mais fallback
+
+---
 ### [v1.1] Run pela IDE + mensagem quando falta `.pkl`
 **Data:** 2026-04-13  
 **IA:** Auto via Cursor
