@@ -51,6 +51,91 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.14] Redesign completo de UX/UI do frontend (Dash + Bootstrap)
+**Data:** 2026-04-14  
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**Migração de tema e roteamento (`app.py`, `callbacks.py`)**
+
+- Tema migrado de `dbc.themes.LITERA` (claro) para `dbc.themes.DARKLY` (escuro nativo). Antes, todo o dark mode era forçado via `!important`, conflitando com o tema claro; o DARKLY elimina a maioria desses conflitos e provê alertas, badges, tabelas e acordeão no tema certo por padrão.
+- Roteamento substituído: o sistema anterior usava `n_clicks` de botões e `dcc.Tabs` para trocar de página, perdendo a URL ao navegar (F5 resetava para a home). Substituído por `dcc.Location(id="url") + dbc.NavLink(active="exact")`: cada página agora tem URL própria (`/`, `/previsoes`, `/recomendador`), bookmarkável e resistente a F5.
+- `callbacks.py` enxugado de ~70 linhas de lógica `ctx.triggered` / `no_update` para um callback de 4 linhas (`render_page` por `pathname`). Os callbacks de active-state dos NavLinks foram eliminados (gerenciados automaticamente pelo DBC com `active="exact"`).
+- Título do app definido: `title="Insight Invest"`.
+- Navbar com `style={"padding": "0.5rem 1rem"}` para respiração vertical mínima; brand com `font-weight: 600; letter-spacing: 0.02em`.
+
+**Sistema de cores (`style.css`)**
+
+Hierarquia de três camadas definida definitivamente:
+- `#13131f` — fundo geral da página (`body`)
+- `#1e1e2f` — cards de seção (os dois grandes blocos do indicadores, cards gerais)
+- `#2c2c3e` — navbar, inputs, cards internos (performance, recomendação top-10), fundo de tabela, fundo do gráfico de pizza
+
+Outros ajustes de cor:
+- `.recomendacao-positiva`: `green` → `#00cc96 !important`
+- `.recomendacao-negativa`: `red` → `#ff6b6b !important`
+- `.card-header.text-center` (seletor anterior: `.card .text-center`) — corrige contaminação indesejada de outros elementos com classe `text-center`
+- Hover no Dash DataTable: fundo `rgba(126,135,255,0.04)` + número `#b0b8ff` (antes ficava branco, ilegível)
+- Gauge do recomendador: `paper_bgcolor="rgba(0,0,0,0)"` — Plotly não aceita `"transparent"` (CSS keyword), apenas formatos de cor explícitos. Bug seria `ValueError: Invalid value`.
+
+**Filtros na página Indicadores (`indicadores.py`)**
+
+- Filtros de data migrados de `dcc.Dropdown` (lista de strings) para `dbc.Input(type="date", className="input-dark")` com `color-scheme: dark` no CSS para o seletor nativo do browser respeitar o tema escuro.
+- Layout dos 4 filtros reestruturado de `dbc.Row`/`dbc.Col` (Bootstrap grid) para `html.Div(className="filtros-indicadores")` + `html.Div(className="filter-col")`. Motivo: `dbc.Col` + react-select têm width intrínseca mínima que excedia o espaço disponível, forçando quebra de linha. O padrão CSS `flex: 1 1 0; min-width: 0` garante divisão igual independente do conteúdo.
+- `dbc.Label` adicionado a todos os 4 filtros para alinhamento vertical uniforme (dropdowns antes não tinham label e ficavam mais baixos).
+- `overflow: hidden` **não** foi adicionado ao `.filter-col` — isso teria clipado o menu suspenso do react-select, que é `position: absolute`. O `min-width: 0` é suficiente para evitar expansão da coluna.
+- Callbacks `populate_previsao_options` e `populate_calculo_options` eliminados. As datas agora vêm diretamente do input.
+- `_get_comparison_df()` passou a converter datas para string antes de retornar, corrigindo bug silencioso nos filtros de data.
+
+**Layout da página Indicadores (`indicadores.py`)**
+
+- Página dividida em dois `dbc.Card` com `dbc.CardHeader` distintos: "Ranking por Métrica" e "Comparação Preço Previsto × Real". Antes era tudo em um bloco sem hierarquia visual clara.
+- `dcc.Loading(type="dot", color="#5561ff")` envolvendo tabela + gráfico de pizza — feedback visual de carregamento sem spinner de tela cheia.
+- Cards de performance do modelo: layout vertical com `html.P` (label) + `html.H4` (valor), usando classes `.performance-card`, `.metric-label`, `.metric-value`. Antes eram genéricos e sem distinção visual.
+  - Métricas: MAE/MSE/RMSE formatados com 4 casas decimais; R² em %, MAPE em %.
+- Sidebar de recomendação renomeada: "Classificação das Ações à Esquerda" → "Recomendação do Modelo".
+- `hoverData` **removido** do callback `plot_error_distribution`. O input `Input('pie-error-dist', 'hoverData')` causava um round-trip completo ao banco a cada movimento de mouse no gráfico. O hover nativo do Plotly trata a interação no frontend sem callback.
+- `plot_bgcolor`/`paper_bgcolor` do gráfico de pizza: `#2c2c3e` (via parâmetro Python, não CSS).
+
+**Recomendador (`recomendador.py`)**
+
+- Output do recomendador migrado de `html.Pre` (bloco de texto terminal) para layout estruturado com componentes Bootstrap:
+  - `dbc.Alert` (verde/vermelho) para veredicto — ticker + resultado
+  - `go.Indicator` gauge (modo `gauge+number`) para probabilidade "Recomendada" — barra verde (#00cc96) ou vermelha (#ff6b6b), fundo `paper_bgcolor="rgba(0,0,0,0)"`, `height=190`
+  - `dbc.Table` para indicadores-chave (tabela compacta borderless com fundo transparente)
+  - `dbc.Accordion(always_open=True, flush=True)` para Pontos Positivos e Pontos de Atenção — sem callbacks, expansão gerenciada pelo componente DBC
+- `dbc.Input(className="input-dark")` substituindo `dcc.Input` (consistência visual com os demais inputs do app)
+- Indicadores da ação organizados em 5 grupos semânticos: Valuation, Rentabilidade, Dividendos, Endividamento, Outros. Cada grupo tem caption com `textTransform: uppercase; fontSize: 0.7rem; color: #9b9bb5`.
+- Erros retornam `dbc.Alert(color="danger"/"warning")` em vez de texto puro.
+
+**Previsões (`previsoes.py`)**
+
+- DataTable com `style_header={"backgroundColor":"#5561ff","color":"#ffffff","fontWeight":"bold"}` e `style_cell={"backgroundColor":"#1e1e2f"}` para consistência de tema.
+- Botão "Carregar" → "Gerar Previsão".
+- Inputs organizados em colunas separadas com `dbc.Label` ("Ticker" / "Dias à frente").
+
+**CSS responsivo (`style.css`)**
+
+- `.filtros-indicadores`: quebra para 2 por linha em ≤768px; 1 por linha em ≤480px
+- `.performance-cards-row`: quebra para 2 por linha em ≤900px; coluna única em ≤600px
+- Navbar brand: fonte menor em ≤576px; nav-items empilhados
+
+#### Decisões e motivos
+
+- **DARKLY em vez de continuar forçando dark mode no LITERA**: o custo de manutenção dos `!important`s crescia a cada componente novo (acordeão, badges, alertas). O DARKLY fornece base correta; nossos `!important`s restantes só cobrem o tom roxo-escuro do palette, não o combate ao tema claro.
+- **CSS flexbox puro nos filtros** (em vez de dbc.Col): react-select tem um minimum intrinsic width que o Bootstrap grid não consegue forçar para zero. `flex: 1 1 0; min-width: 0` é a forma correta de dividir espaço igualmente sem depender do conteúdo.
+- **Não usar `overflow: hidden` em `.filter-col`**: menus de `position: absolute` escapam do fluxo normal e não causam overflow; adicionar `hidden` os clipa sem necessidade.
+- **Remover hoverData do pie**: o padrão de "callback para realçar fatia no hover" é um antipadrão no Dash — força round-trip ao servidor a cada frame de mouse. Plotly faz highlight de hover nativamente no cliente.
+- **`rgba(0,0,0,0)` em vez de `"transparent"`**: Plotly usa seu próprio validador de cores, não o CSS. Strings sem prefixo `rgba/rgb/hex` são rejeitadas com `ValueError`.
+
+#### Pendências / próximos passos
+
+- Validar deploy no Railway após push (6 arquivos modificados).
+- Testar em mobile (320px) o layout dos filtros em 1 coluna e os cards de performance empilhados.
+- Avaliar se o gráfico de pizza precisa de altura mínima maior em telas muito pequenas (hoje `min-height: 300px`).
+
+---
 ### [v2.13] Cron mensal para treino no GitHub Actions
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
