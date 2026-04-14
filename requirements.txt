@@ -12,6 +12,7 @@ plotly==6.1.2
 requests==2.32.3
 beautifulsoup4==4.12.3
 schedule==1.2.2
+python-dotenv==1.0.1
 fundamentus==0.3.2
 yfinance==1.2.1
 html5lib==1.1
