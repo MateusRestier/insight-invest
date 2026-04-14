@@ -6,6 +6,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
       - key: PYTHONPATH
         value: "."
       - key: DB_HOST
@@ -28,6 +30,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python src/dashboard/app.py
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
       - key: PYTHONPATH
         value: "."
       - key: DB_HOST
