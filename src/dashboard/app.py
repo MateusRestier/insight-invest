@@ -16,8 +16,9 @@ from src.dashboard.callbacks import register_callbacks
 # -----------------------------------------------------------------------------
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.LITERA],  # tema mais leve e elegante
+    external_stylesheets=[dbc.themes.DARKLY],
     suppress_callback_exceptions=True,
+    title="Insight Invest",
 )
 server = app.server  # Expondo servidor para WSGI
 
@@ -26,47 +27,39 @@ server = app.server  # Expondo servidor para WSGI
 # -----------------------------------------------------------------------------
 app.layout = dbc.Container(
     [
+        dcc.Location(id="url", refresh=False),
+
         dbc.NavbarSimple(
-            brand="Sistema de Análise, Previsão e Recomendação de Ações",
-            color="primary",
+            brand="Insight Invest",
+            brand_href="/",
+            color="dark",
             dark=True,
             children=[
                 dbc.Nav(
                     [
-                        dbc.NavItem(dbc.NavLink("Indicadores", href="#tab-indicadores", id="tab-indicadores-link", className="nav-link")),
-                        dbc.NavItem(dbc.NavLink("Previsões de Preço", href="#tab-regressor", id="tab-regressor-link", className="nav-link")),
-                        dbc.NavItem(dbc.NavLink("Recomendações", href="#tab-recomendador", id="tab-recomendador-link", className="nav-link")),
+                        dbc.NavLink("Indicadores",        href="/",             active="exact",   className="px-3"),
+                        dbc.NavLink("Previsões de Preço", href="/previsoes",    active="exact",   className="px-3"),
+                        dbc.NavLink("Recomendações",      href="/recomendador", active="exact",   className="px-3"),
                     ],
                     pills=True,
-                    className="ml-auto",  # Garante que as abas fiquem à direita no menu hamburguer
+                    className="ms-auto gap-1",
                 ),
             ],
             fluid=True,
-            expand="lg",  # Transição para hambúrguer em telas pequenas
+            expand="lg",
             id="navbar",
-            brand_href="https://github.com/MateusRestier/insight-invest",
-            style={
-                "backgroundColor": "#2c2c3e",  # Ajuste a cor de fundo
-                "padding": "0 1rem",  # Controle o padding interno
-                "paddingTop": "10px",  # Adiciona espaço superior para aumentar a altura da navbar
-                "paddingBottom": "10px",  # Adiciona espaço inferior para garantir que os botões não fiquem colados
-                "width": "100%",  # Faz com que o fundo se estenda por toda a largura
-                "marginLeft": "0",  # Remove margem à esquerda
-                "marginRight": "0",  # Remove margem à direita
-            },
+            style={"backgroundColor": "#2c2c3e", "padding": "0.5rem 1rem"},
         ),
 
-        # Conteúdo das abas será injetado aqui
+        # Conteúdo das páginas é injetado aqui
         html.Div(id="tab-content", className="p-4"),
     ],
-    fluid=True,  # Garante que o conteúdo da página seja fluido
-    className="p-0",  # Remove qualquer padding do container principal
+    fluid=True,
+    className="p-0",
 )
 
-
-
 # -----------------------------------------------------------------------------
-# Registra callbacks importados de dashboard/callbacks.py
+# Registra callbacks
 # -----------------------------------------------------------------------------
 register_callbacks(app)
 

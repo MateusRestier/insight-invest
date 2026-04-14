@@ -88,13 +88,17 @@ def layout_previsoes():
             dbc.CardBody([
                 dbc.Row([
                     dbc.Col([
-                        dbc.Input(id="input-ticker-prev", type="text", placeholder="Ticker (ex: PETR4)", className="input-dark", value="PETR4"),
-                        dbc.Input(id="input-n-days-prev", type="number", min=1, step=1, value=10, placeholder="Dias à frente", className="input-dark mt-2"),
-                    ], width=12, sm=5, md=2),
-                        dbc.Col(
-                            dbc.Button("Carregar", id="btn-load-pred", className="w-100 btn-botaoacao"),
-                            width=12, sm=4, md=1
-                        ),
+                        dbc.Label("Ticker", html_for="input-ticker-prev", className="text-muted small mb-1"),
+                        dbc.Input(id="input-ticker-prev", type="text", placeholder="Ex: PETR4", className="input-dark", value="PETR4"),
+                    ], width=12, sm=4, md=2),
+                    dbc.Col([
+                        dbc.Label("Dias à frente", html_for="input-n-days-prev", className="text-muted small mb-1"),
+                        dbc.Input(id="input-n-days-prev", type="number", min=1, step=1, value=10, placeholder="Dias", className="input-dark"),
+                    ], width=12, sm=4, md=2),
+                    dbc.Col(
+                        dbc.Button("Gerar Previsão", id="btn-load-pred", className="w-100 btn-botaoacao"),
+                        width=12, sm=4, md=2, className="align-self-end"
+                    ),
                 ], className="g-2 mb-4", justify="start"),
 
                 # Envolva barra de progresso e texto em um Div controlável
@@ -109,6 +113,10 @@ def layout_previsoes():
                 dash_table.DataTable(
                     id="table-previsao", columns=[], data=[], page_size=20, sort_action="native",
                     style_table={"overflowX": "auto"},
+                    style_header={"backgroundColor": "#5561ff", "color": "#ffffff", "fontWeight": "bold"},
+                    style_cell={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "textAlign": "center",
+                                "padding": "6px", "whiteSpace": "normal", "height": "auto"},
+                    style_data_conditional=[{"if": {"state": "selected"}, "backgroundColor": "#5561ff", "color": "#ffffff"}],
                 )
             ])
         ])

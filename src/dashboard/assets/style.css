@@ -4,7 +4,7 @@
 
 /* --- Estrutura e Cores Gerais --- */
 body {
-    background-color: #1e1e2f;
+    background-color: #13131f;
     color: #e0e0e0;
 }
 hr {
@@ -43,6 +43,7 @@ textarea {
 /* ========================================================= */
 
 /* --- Navbar Principal --- */
+/* DARKLY usa #343a40 para bg-dark; sobrescrevemos com nosso roxo escuro */
 .navbar {
     background-color: #2c2c3e !important;
     margin-bottom: 0.5rem;
@@ -50,10 +51,9 @@ textarea {
     padding: 0 1rem;
 }
 .navbar .navbar-brand {
-    word-wrap: break-word;
-    white-space: normal;
-    text-align: center;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
 @media (max-width: 576px) {
     .navbar .navbar-brand {
@@ -72,17 +72,20 @@ textarea {
         margin-right: 10px;
     }
 }
-@media (max-width: 576px) {
-    .navbar-collapse {
-        justify-content: flex-start !important;
-        width: 100%;
-    }
-    .navbar-nav {
-        width: 100%;
-    }
-    .navbar-toggler {
-        margin-left: 0;
-    }
+/* --- Date Inputs Dark Theme --- */
+input[type="date"].input-dark,
+input[type="date"].form-control {
+    color-scheme: dark;
+    background-color: #2c2c3e;
+    color: #e0e0e0;
+    border: 1px solid #444;
+}
+input[type="date"].input-dark:focus,
+input[type="date"].form-control:focus {
+    background-color: #2c2c3e !important;
+    color: #e0e0e0 !important;
+    box-shadow: 0 0 8px #7e87ff !important;
+    border-color: #7e87ff !important;
 }
 
 /* --- Navbar Links e Abas --- */
@@ -124,12 +127,12 @@ textarea {
 
 /* --- Filtros e Dropdowns --- */
 .dropdown-dark select {
-  background-color: #1e1e2f !important;
+  background-color: #2c2c3e !important;
   color: #e0e0e0 !important;
   border: 1px solid #444 !important;
 }
 .dropdown-dark option {
-  background-color: #1e1e2f !important;
+  background-color: #2c2c3e !important;
   color: #e0e0e0 !important;
 }
 .dropdown-dark option:checked {
@@ -138,7 +141,7 @@ textarea {
 }
 /* dcc.Dropdown (react-select v1) */
 .dropdown-dark .Select-control {
-  background-color: #1e1e2f !important;
+  background-color: #2c2c3e !important;
   border-color: #444 !important;
 }
 .dropdown-dark .Select-placeholder,
@@ -164,29 +167,32 @@ textarea {
 }
 
 .filtros-indicadores {
-  gap: 0.5rem;          /* espaço entre colunas */
-  margin-bottom: 1.5rem;
-  flex-wrap: nowrap !important;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  align-items: flex-end; /* alinha bases — útil se labels tiverem alturas diferentes */
 }
 
-.filtros-indicadores .col {
-  /* make each filter flexível para caber no espaço disponível */
-  flex: 1 1 auto !important;
-  min-width: 0; /* permite encolher abaixo do seu conteúdo */
+.filter-col {
+  flex: 1 1 0;    /* divide espaço igualmente */
+  min-width: 0;   /* impede que react-select empurre a coluna */
+  /* overflow: visible (padrão) — necessário para o menu suspenso do dropdown */
 }
 
-/* MOBILE: torne os filtros empilháveis e 100% de largura */
-@media (max-width: 576px) {
+/* MOBILE: empilha os filtros em 2 por linha */
+@media (max-width: 768px) {
   .filtros-indicadores {
-    flex-wrap: wrap !important;       /* permite quebra de linha */
+    flex-wrap: wrap;
   }
-  .filtros-indicadores .col {
-    flex: 1 1 100% !important;        /* cada filtro ocupa toda a linha */
-    max-width: 100% !important;
-    padding: 0.25rem 0 !important;    /* espaçamento vertical */
+  .filter-col {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
   }
-  .filtros-indicadores .dropdown-dark {
-    width: 100% !important;           /* dropdowns stretch */
+}
+
+@media (max-width: 480px) {
+  .filter-col {
+    flex: 1 1 100%;
   }
   #pie-error-dist {
     height: 250px !important;
@@ -291,13 +297,41 @@ textarea {
     }
 }
 
-/* --- Cartões Gerais --- */
+/* --- Cartões Gerais (seções principais) --- */
 .card {
-    background-color: #2c2c3e;
+    background-color: #1e1e2f;
     color: #e0e0e0;
     border: none;
     border-radius: 8px;
     min-height: 40px;
+}
+
+/* --- Cartões de Performance do Modelo --- */
+.performance-card {
+    background-color: #2c2c3e !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.performance-card .card-body {
+    padding: 0.75rem 1rem;
+}
+.performance-card .metric-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #9b9bb5;
+    margin-bottom: 0.25rem;
+}
+.performance-card .metric-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #e0e0e0;
+    line-height: 1.2;
+}
+
+/* --- Cards de Recomendação dentro do painel lateral (top-10) --- */
+#cards-top10-recs .card {
+    background-color: #2c2c3e !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
 }
 /* Efeito de iluminação suave ao passar o mouse */
 .card:hover {
@@ -310,32 +344,32 @@ textarea {
     color: #fff;
 }
 
-.card .text-center {
-    background-color: #6c75ff !important;
+/* CardHeader centralizado nos cards de ranking (ex: cards de recomendação top-10) */
+.card-header.text-center {
+    background-color: #5561ff;
     color: #e0e0e0;
     border: none;
-    border-radius: 8px;
     font-weight: bold;
 }
 
 /* --- Recomendações (Positivo/Negativo) --- */
 .recomendacao-positiva {
-    color: green !important;
+    color: #00cc96 !important;
 }
 
 .recomendacao-negativa {
-    color: red !important;
+    color: #ff6b6b !important;
 }
 
 /* --- Tabela de Comparação Previsto x Real --- */
 .dash-table-container .dash-spreadsheet-container {
-    background-color: #1e1e2f;
+    background-color: #2c2c3e;
     color: #e0e0e0;
 }
 .dash-table-container .dash-spreadsheet-container .dash-cell {
     background-color: #2c2c3e !important;
     color: #e0e0e0 !important;
-    border: 1px solid #444;
+    border: 1px solid #3a3a50;
 }
 .dash-table-container .dash-header {
     background-color: #5561ff !important;
@@ -347,10 +381,11 @@ textarea {
   border-radius: 0.5rem;
 }
 
-/* Estiliza hover na linha da Dash DataTable */
-.dash-table-container .dash-cell:hover {
-    background-color: rgba(126, 135, 255, 0.005) !important;
-    color: #5561ff !important;
+/* Hover na Dash DataTable — fundo translúcido + número em roxo harmonioso */
+.dash-table-container .dash-cell:hover,
+.dash-table-container .dash-cell:hover div {
+    background-color: rgba(126, 135, 255, 0.04) !important;
+    color: #b0b8ff !important;
 }
 
 /* --- Gráficos Responsivos --- */
