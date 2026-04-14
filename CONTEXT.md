@@ -51,6 +51,46 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.1] Migração banco de dados local → Supabase
+**Data:** 2026-04-14
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+- **Supabase** criado em `insight-invest` (região Oregon, free tier)
+- DDL das 3 tabelas executado no SQL Editor do Supabase
+- **`src/core/db_connection.py`**: adicionado `python-dotenv` para carregar `.env`
+  automaticamente — sem isso, fora do Docker o código usava o banco local
+- **`docker-compose.yml`**: removido `DB_HOST: db` hardcoded nos containers
+  `dashboard` e `scheduler`; ambos passam a usar `env_file: .env`; serviço `db`
+  (postgres local) movido para profile `local` — só sobe com
+  `docker compose --profile local up`
+- **`.env.example`**: variáveis `POSTGRES_*` substituídas por `DB_*` com formato
+  Supabase (Session Pooler)
+- **`scripts/backup.py`**: adicionado `python-dotenv`, função `_find_pg_tool` para
+  localizar `pg_dump`/`pg_restore` sem PATH configurado (Windows), flags
+  `--no-owner --no-privileges` para compatibilidade com Supabase, emojis removidos
+- **`requirements.txt`**: adicionado `python-dotenv==1.0.1`
+- Backup local `backup_2025-11-10_18-37-02.dump` restaurado com sucesso no Supabase
+
+#### Decisões e motivos
+
+- **Session Pooler (porta 5432)** em vez de Direct Connection: Render usa IPv4,
+  a conexão direta do Supabase é IPv6. Transaction Pooler (6543) foi descartado
+  por incompatibilidade com prepared statements do psycopg2.
+- **`env_file: .env`** no docker-compose em vez de listar variáveis individualmente:
+  evita divergência entre `.env` e `docker-compose.yml` a cada nova variável.
+- **Profile `local`** para o container postgres: mantém opção de dev local sem
+  afetar o fluxo principal que agora usa Supabase.
+
+#### Pendências / próximos passos
+- Criar `src/api/main.py` com FastAPI (endpoints `/tarefas/coletar`,
+  `/tarefas/treinar`, `/tarefas/recomendar`, `/health`)
+- Deploy dos 2 services no Render (API + Dashboard)
+- Configurar GitHub Actions com crons diários
+- Configurar UptimeRobot para keep-alive
+
+---
 ### [v2.0] Migração fonte de dados: Investidor10 → Fundamentus + Yahoo + Orquestrador
 **Data:** 2026-04-14  
 **IA:** Claude Sonnet 4.5 via Claude Code
