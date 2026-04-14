@@ -3,6 +3,7 @@ import os
 import sys
 from datetime import date
 from pathlib import Path
+import requests
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -13,10 +14,44 @@ from src.models.classificador import executar_pipeline_classificador
 from src.models.regressor_preco import executar_pipeline_regressor
 from src.models.recomendador_acoes import recomendar_varias_acoes
 
+MODELO_NOME = "modelo_classificador_desempenho.pkl"
+
+
+def upload_modelo_para_railway():
+    api_url = os.getenv("API_URL", "").rstrip("/")
+    api_key = os.getenv("API_KEY", "")
+    modelo_path = _PROJECT_ROOT / "modelo" / MODELO_NOME
+
+    if not api_url:
+        raise RuntimeError("API_URL ausente no .env. Não foi possível enviar modelo para Railway.")
+    if not api_key:
+        raise RuntimeError("API_KEY ausente no .env. Não foi possível enviar modelo para Railway.")
+    if not modelo_path.exists():
+        raise FileNotFoundError(f"Modelo local não encontrado em: {modelo_path}")
+
+    endpoint = f"{api_url}/modelo/upload"
+    headers = {"X-API-Key": api_key}
+
+    with modelo_path.open("rb") as f:
+        files = {"arquivo": (MODELO_NOME, f, "application/octet-stream")}
+        resp = requests.post(endpoint, headers=headers, files=files, timeout=180)
+
+    if resp.status_code != 200:
+        raise RuntimeError(f"Upload falhou ({resp.status_code}): {resp.text}")
+
+    print(f"Modelo enviado para Railway com sucesso: {endpoint}")
+    print(f"Resposta: {resp.text}")
+
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Executa treino local e salva resultados no banco configurado no .env."
+        description="Executa job local e salva dados no PostgreSQL Railway via .env."
+    )
+    parser.add_argument(
+        "--job",
+        choices=["todos", "classificador", "regressor", "recomendacoes"],
+        default="todos",
+        help="Seleciona qual job executar. Padrão: todos.",
     )
     parser.add_argument("--n-dias", type=int, default=10, help="Horizonte em dias para regressão.")
     parser.add_argument(
@@ -24,44 +59,45 @@ def main():
         default=date.today().isoformat(),
         help="Data base no formato AAAA-MM-DD. Padrão: hoje.",
     )
-    parser.add_argument("--sem-classificador", action="store_true", help="Pula treino classificador.")
-    parser.add_argument("--sem-regressor", action="store_true", help="Pula treino regressor.")
-    parser.add_argument("--sem-recomendacoes", action="store_true", help="Pula geração de recomendações.")
+    parser.add_argument(
+        "--nao-enviar-modelo",
+        action="store_true",
+        help="Quando rodar classificador, não envia .pkl para Railway.",
+    )
     args = parser.parse_args()
 
     data_calculo = date.fromisoformat(args.data_calculo)
 
     print("=== Pipeline local iniciado ===")
-    print(f"Data cálculo: {data_calculo} | n_dias: {args.n_dias}")
+    print(f"Job: {args.job} | Data cálculo: {data_calculo} | n_dias: {args.n_dias}")
 
-    if not args.sem_classificador:
-        print("[1/3] Treinando classificador...")
+    if args.job in ("todos", "classificador"):
+        print("[1] Treinando classificador local...")
         executar_pipeline_classificador()
-        print("[1/3] Classificador concluído.")
-    else:
-        print("[1/3] Classificador pulado.")
+        print("[1] Classificador concluído.")
+        if not args.nao_enviar_modelo:
+            print("[1] Enviando modelo para Railway...")
+            upload_modelo_para_railway()
+        else:
+            print("[1] Upload de modelo pulado por flag.")
 
-    if not args.sem_regressor:
-        print("[2/3] Treinando regressor e salvando no banco...")
+    if args.job in ("todos", "regressor"):
+        print("[2] Treinando regressor e salvando no banco Railway...")
         executar_pipeline_regressor(
             n_dias=args.n_dias,
             data_calculo=data_calculo,
             save_to_db=True,
         )
-        print("[2/3] Regressor concluído.")
-    else:
-        print("[2/3] Regressor pulado.")
+        print("[2] Regressor concluído.")
 
-    if not args.sem_recomendacoes:
-        print("[3/3] Gerando recomendações e salvando no banco...")
+    if args.job in ("todos", "recomendacoes"):
+        print("[3] Gerando recomendações e salvando no banco Railway...")
         conn = get_connection()
         try:
             recomendar_varias_acoes(conn)
         finally:
             conn.close()
-        print("[3/3] Recomendações concluídas.")
-    else:
-        print("[3/3] Recomendações puladas.")
+        print("[3] Recomendações concluídas.")
 
     print("=== Pipeline local finalizado ===")
 

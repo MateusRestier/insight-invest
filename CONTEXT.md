@@ -51,6 +51,34 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.11] Ajuste script local + fix deploy multipart
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`scripts/treinar_local_e_salvar.py`**:
+  - novo seletor `--job` com opções `todos`, `classificador`, `regressor`, `recomendacoes`;
+  - classificador agora tenta upload automático do `.pkl` para Railway via `POST /modelo/upload`;
+  - usa `API_URL` e `API_KEY` do `.env`;
+  - adicionada flag `--nao-enviar-modelo`.
+- **`requirements.txt`**:
+  - adicionado `python-multipart>=0.0.20`.
+
+#### Decisões e motivos
+
+- Deploy falhou após criação de `UploadFile` endpoint com erro:
+  - `Form data requires "python-multipart" to be installed.`
+- FastAPI exige `python-multipart` para multipart/form-data.
+- Usuário pediu execução de jobs locais isolados apontando para persistência no Railway.
+
+#### Pendências / próximos passos
+
+- Fazer redeploy no Railway com dependência nova.
+- Testar upload do modelo via endpoint.
+- Confirmar recomendador em produção sem erro de modelo ausente.
+
+---
 ### [v2.10] Upload de modelo + robustez no recomendador
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
