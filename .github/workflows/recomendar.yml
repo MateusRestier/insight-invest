@@ -10,7 +10,7 @@ jobs:
   recomendar:
     runs-on: ubuntu-latest
     steps:
-      - name: Disparar recomendações (com retry)
+      - name: Disparar recomendações no Railway (com retry)
         run: |
           MAX_TENTATIVAS=5
           ESPERA=120

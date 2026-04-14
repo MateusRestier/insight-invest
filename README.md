@@ -238,11 +238,14 @@ Local: `src/dashboard/`
 
 Exemplo de `.env`:
 
-DB_HOST=localhost
-DB_NAME=stocks
-DB_USER=user
-DB_PASS=password
+API_KEY=gere_uma_chave_aleatoria
+DB_HOST=seu-host-postgres
 DB_PORT=5432
+DB_NAME=railway
+DB_USER=postgres
+DB_PASS=sua_senha
+# Opcional (serviço único Railway): API_URL
+# API_URL=https://seu-app.up.railway.app
 
 ---
 
@@ -259,14 +262,38 @@ export DB_HOST=localhost DB_NAME=stocks DB_USER=user DB_PASS=password DB_PORT=54
 # (Windows - PowerShell)
 # $env:DB_HOST="localhost"; $env:DB_NAME="stocks"; $env:DB_USER="user"; $env:DB_PASS="password"; $env:DB_PORT="5432"
 
-# 3) Executar componentes (a partir da raiz do projeto, com PYTHONPATH=.)
+# 3) Executar API + Dashboard no mesmo processo HTTP
+PYTHONPATH=. python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+
+# Endpoints úteis:
+# GET  http://localhost:8000/health
+# POST http://localhost:8000/tarefas/treinar  (header X-API-Key)
+# Dashboard no mesmo host:
+# http://localhost:8000
+
+# 4) (Opcional) Executar módulos isolados para diagnóstico
 PYTHONPATH=. python src/data/scraper_indicadores.py
 PYTHONPATH=. python src/models/classificador.py
 PYTHONPATH=. python src/models/regressor_preco.py
 PYTHONPATH=. python src/models/recomendador_acoes.py
 PYTHONPATH=. python scripts/executar_tarefas_diarias.py
-PYTHONPATH=. python src/dashboard/app.py
 
+
+---
+
+### 🚆 Deploy no Railway
+
+1. Criar projeto no Railway e conectar este repositório.
+2. Adicionar plugin PostgreSQL no mesmo projeto.
+3. Configurar variáveis do serviço da aplicação:
+   - `API_KEY`
+   - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`
+4. Railway usará `railway.json` com start command:
+   - `uvicorn src.api.main:app --host 0.0.0.0 --port $PORT`
+5. Após deploy, validar:
+   - `GET /health`
+   - Dashboard em `/`
+   - Endpoints `/tarefas/*`
 
 ---
 
@@ -312,7 +339,16 @@ Gerenciados por `scripts/backup.py`.
 
 Exemplos:
 
-# Criar backup ou restaurar (menu interativo)
+# Criar backup (não interativo)
+PYTHONPATH=. python scripts/backup.py --criar
+
+# Restaurar dump específico (ideal para Railway)
+PYTHONPATH=. python scripts/backup.py --restaurar --arquivo backups/backup_2025-11-10_18-37-02.dump
+
+# Validar contagem após restore
+PYTHONPATH=. python scripts/validar_restore.py
+
+# Ou modo menu interativo
 PYTHONPATH=. python scripts/backup.py
 
 ---

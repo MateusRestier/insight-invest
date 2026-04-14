@@ -10,7 +10,7 @@ jobs:
   treinar:
     runs-on: ubuntu-latest
     steps:
-      - name: Disparar treino (com retry)
+      - name: Disparar treino no Railway (com retry)
         run: |
           MAX_TENTATIVAS=5
           ESPERA=120

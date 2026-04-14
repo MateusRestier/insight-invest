@@ -13,7 +13,7 @@ jobs:
   coletar:
     runs-on: ubuntu-latest
     steps:
-      - name: Disparar coleta (com retry)
+      - name: Disparar coleta no Railway (com retry)
         run: |
           MAX_TENTATIVAS=5
           ESPERA=120  # 2 min entre tentativas (aguarda Render acordar)

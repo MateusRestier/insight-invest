@@ -82,6 +82,14 @@ def layout_recomendador():
 
 # A função register_callbacks_recomendador continua a mesma
 def register_callbacks_recomendador(app):
+    def _resolver_api_url():
+        # Em serviço único (Railway), API e dashboard compartilham o mesmo host/porta.
+        api_url = os.getenv("API_URL", "").rstrip("/")
+        if api_url:
+            return api_url
+        porta = os.getenv("PORT", "8000")
+        return f"http://127.0.0.1:{porta}"
+
     @app.callback(
         Output("cards-indicadores-rec", "children"),
         Input("btn-recommend", "n_clicks"),
@@ -162,11 +170,11 @@ def register_callbacks_recomendador(app):
         if not n_clicks:
             return no_update
 
-        api_url = os.getenv("API_URL", "").rstrip("/")
+        api_url = _resolver_api_url()
         api_key = os.getenv("API_KEY", "")
 
-        if not api_url or not api_key:
-            return "Configuração ausente: defina API_URL e API_KEY no serviço dashboard."
+        if not api_key:
+            return "Configuração ausente: defina API_KEY no serviço."
 
         if not ticker:
             return "Ticker inválido."

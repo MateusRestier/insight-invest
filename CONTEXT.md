@@ -51,6 +51,52 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.4] Migração para Railway (serviço único + dump local)
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **Unificação de runtime HTTP**:
+  - `src/api/main.py` passou a montar o dashboard Dash no FastAPI via `WSGIMiddleware`.
+  - Resultado: API + Dashboard no mesmo processo/serviço (modelo local compartilhado).
+- **Recomendador preparado para serviço único**:
+  - `src/dashboard/pages/recomendador.py` ganhou fallback de URL interna (`http://127.0.0.1:$PORT`) quando `API_URL` não estiver definida.
+  - `API_KEY` permanece obrigatório.
+- **Configuração Railway**:
+  - criado `railway.json` com start command único: `uvicorn src.api.main:app --host 0.0.0.0 --port $PORT`.
+- **Ambiente/documentação**:
+  - `.env.example` atualizado para PostgreSQL Railway e `API_URL` opcional.
+  - `README.md` atualizado com fluxo Railway, execução unificada, restore por dump e validação pós-restore.
+- **Backup/restore operacional**:
+  - `scripts/backup.py` recebeu flags de CLI:
+    - `--criar`
+    - `--restaurar`
+    - `--arquivo`
+  - novo script `scripts/validar_restore.py` para contagem das tabelas após restore.
+- **Render removido**:
+  - `render.yaml` removido.
+  - `.python-version` removido por decisão do usuário (contexto Render).
+- **Workflows**:
+  - `.github/workflows/{coletar,treinar,recomendar}.yml` mantidos e ajustados para contexto Railway (mesmo contrato de `API_URL` + `API_KEY` via secrets).
+
+#### Decisões e motivos
+
+- Serviço único elimina problema de filesystem isolado entre serviços (erro recorrente de `.pkl` ausente no dashboard).
+- Reuso do dump versionado (`backups/backup_2025-11-10_18-37-02.dump`) simplifica migração e evita depender do Supabase.
+
+#### Pendências / próximos passos
+
+- No Railway:
+  - criar serviço app + plugin PostgreSQL;
+  - configurar vars `DB_*` e `API_KEY`;
+  - deploy e validação de `GET /health`, dashboard `/`, e endpoints `/tarefas/*`.
+- Restaurar dump no banco Railway:
+  - `python scripts/backup.py --restaurar --arquivo backups/backup_2025-11-10_18-37-02.dump`
+  - `python scripts/validar_restore.py`
+- Atualizar GitHub Secrets `API_URL` para URL Railway da API unificada.
+
+---
 ### [v2.3] Recomendador via API (sem depender de arquivo local no dashboard)
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor

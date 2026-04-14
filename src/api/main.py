@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv(_PROJECT_ROOT / ".env")
 
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Security
+from starlette.middleware.wsgi import WSGIMiddleware
 from fastapi.security.api_key import APIKeyHeader
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -167,6 +168,10 @@ def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
             "recomendada": prob_sim,
         },
     }
+
+# Dashboard embutido no mesmo serviço HTTP (Railway)
+from src.dashboard.app import server as dash_server
+app.mount("/", WSGIMiddleware(dash_server))
 
 if __name__ == "__main__":
     import uvicorn

@@ -2,6 +2,7 @@ import subprocess
 import datetime
 import os
 import shutil
+import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -69,23 +70,33 @@ def criar_backup():
 
     print(f"Backup salvo com sucesso em: {dump_local}")
 
-def restaurar_backup():
-    print("\nArquivos disponíveis na pasta de backup:")
+def restaurar_backup(arquivo_dump: str | None = None):
     backups = list(BACKUP_DIR.glob("*.dump"))
     if not backups:
         print("Nenhum arquivo de backup encontrado.")
         return
 
-    for i, file in enumerate(backups):
-        print(f"[{i}] {file.name}")
+    if arquivo_dump:
+        arquivo = Path(arquivo_dump)
+        if not arquivo.is_file():
+            possivel = BACKUP_DIR / arquivo_dump
+            if possivel.is_file():
+                arquivo = possivel
+            else:
+                print(f"Arquivo de dump não encontrado: {arquivo_dump}")
+                return
+    else:
+        print("\nArquivos disponíveis na pasta de backup:")
+        for i, file in enumerate(backups):
+            print(f"[{i}] {file.name}")
 
-    escolha = input("Digite o número do arquivo que deseja restaurar: ")
-    try:
-        escolha = int(escolha)
-        arquivo = backups[escolha]
-    except (ValueError, IndexError):
-        print("Escolha inválida.")
-        return
+        escolha = input("Digite o número do arquivo que deseja restaurar: ")
+        try:
+            escolha = int(escolha)
+            arquivo = backups[escolha]
+        except (ValueError, IndexError):
+            print("Escolha inválida.")
+            return
 
     print("Restaurando o banco de dados...")
 
@@ -117,6 +128,19 @@ def restaurar_backup():
     print("Banco restaurado com sucesso!")
 
 def main():
+    parser = argparse.ArgumentParser(description="Backup e restauração PostgreSQL")
+    parser.add_argument("--criar", action="store_true", help="Criar backup")
+    parser.add_argument("--restaurar", action="store_true", help="Restaurar backup")
+    parser.add_argument("--arquivo", type=str, help="Arquivo dump para restaurar (nome ou caminho)")
+    args = parser.parse_args()
+
+    if args.criar:
+        criar_backup()
+        return
+    if args.restaurar:
+        restaurar_backup(args.arquivo)
+        return
+
     print("\n Escolha uma opção:")
     print("1. Fazer backup do banco")
     print("2. Restaurar um backup")
@@ -126,9 +150,9 @@ def main():
     if opcao == "1":
         criar_backup()
     elif opcao == "2":
-        restaurar_backup()
+        restaurar_backup(args.arquivo)
     else:
-        print("Opcao invalida.")
+        print("❌ Opção inválida.")
 
 if __name__ == "__main__":
     main()
