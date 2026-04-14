@@ -50,9 +50,9 @@ def _run_coletar():
 def _run_treinar():
     _set_tarefa("treinar")
     try:
-        from src.models.classificador import treinar_modelo
+        from src.models.classificador import executar_pipeline_classificador
         from src.models.regressor_preco import executar_pipeline_regressor
-        treinar_modelo()
+        executar_pipeline_classificador()
         executar_pipeline_regressor(n_dias=10, data_calculo=date.today())
     finally:
         _set_tarefa(None)
