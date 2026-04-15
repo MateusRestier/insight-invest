@@ -51,6 +51,40 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.17] Reformulação do gráfico de pizza (indicadores)
+**Data:** 2026-04-15
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/dashboard/pages/indicadores.py`**
+
+- Adicionado `import plotly.graph_objects as go` no topo do arquivo.
+- Gráfico de distribuição de erros (`pie-error-dist`) completamente refeito:
+  - Migrado de `px.pie` para `go.Pie` para controle total sobre o layout
+  - Pizza sólida (`hole=0`) com `pull=[0.06, 0.06, 0.06]` em todas as fatias — efeito "explodido" que remete ao 3D minimalista
+  - `textinfo="percent"` com `textposition="inside"` e `textfont` branco — porcentagens dentro de cada fatia, limpas e legíveis
+  - Sem texto externo nem título no gráfico — toda informação complementar via hover e legenda
+  - Hover customizado: `"<b>%{label}</b><br>%{value} previsões — %{percent}"`
+  - Legenda horizontal abaixo (`orientation="h"`, `y=-0.02`, `x=0.5`)
+  - `itemclick=False, itemdoubleclick=False` — legenda decorativa, não interativa
+  - Labels renomeados de "Igual a 0"/"Maior que 0"/"Menor que 0" para "Preciso"/"Errou pra mais"/"Errou pra menos" — consistência com a legenda da tabela
+  - Cores idênticas à legenda da tabela: `#00cc96`, `#60a5fa`, `#a78bfa`
+  - `plot_bgcolor="rgba(0,0,0,0)"` e `paper_bgcolor="#2c2c3e"`
+  - Margens compactas: `l=10, r=10, t=10, b=55`
+
+#### Decisões e motivos
+
+- **Pizza sólida + pull** em vez de donut: o furo central exigia annotations de texto para ter utilidade; sem texto no centro, o donut vira "espaço vazio desnecessário". A pizza sólida com separação entre fatias tem mais massa visual e o `pull` cria profundidade sem precisar de 3D real.
+- **Sem título no gráfico**: o contexto já é dado pelo `CardHeader` da seção. Título dentro do Plotly ocupava espaço sem agregar.
+- **Legenda não-interativa**: com apenas 3 categorias fixas, clicar para esconder uma fatia não tem utilidade prática e poderia confundir o usuário.
+- **Porcentagens dentro das fatias** (`textposition="inside"`): mais limpo que fora — não cria linhas de conexão e não sai do gráfico.
+
+#### Pendências / próximos passos
+
+- Validar no Railway se fatias muito pequenas (< ~5%) ficam legíveis com texto dentro; se não, considerar `textposition="auto"`.
+
+---
 ### [v2.16] Reformulação da página Recomendações
 **Data:** 2026-04-15
 **IA:** Claude Sonnet 4.6 via Claude Code
