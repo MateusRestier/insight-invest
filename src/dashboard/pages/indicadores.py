@@ -3,6 +3,7 @@ from dash import html, dcc, Input, Output
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import numpy as np
 from dash import dash_table
 from dash.dash_table.Format import Format, Scheme, Sign
@@ -499,32 +500,46 @@ def register_callbacks_indicadores(app):
             df = df[np.logical_or.reduce(masks)]
 
         counts = {
-            'Igual a 0':   (df['erro_pct'] == 0).sum(),
-            'Maior que 0': (df['erro_pct'] > 0).sum(),
-            'Menor que 0': (df['erro_pct'] < 0).sum(),
+            'Preciso':         int((df['erro_pct'] == 0).sum()),
+            'Errou pra mais':  int((df['erro_pct'] > 0).sum()),
+            'Errou pra menos': int((df['erro_pct'] < 0).sum()),
         }
+        colors = ['#00cc96', '#60a5fa', '#a78bfa']
+        labels = list(counts.keys())
+        values = list(counts.values())
 
-        pie_df = pd.DataFrame({'Status': list(counts.keys()), 'Count': list(counts.values())})
+        # Pizza sólida com fatias separadas (pull) — look 3D minimalista.
+        # Sem texto direto nas fatias: toda informação via hover + legenda.
+        fig = go.Figure(go.Pie(
+            labels=labels,
+            values=values,
+            hole=0,
+            pull=[0.06, 0.06, 0.06],
+            marker={
+                "colors": colors,
+                "line": {"color": "#1e1e2f", "width": 2},
+            },
+            textinfo="percent",
+            textfont=dict(size=12, color="#ffffff"),
+            textposition="inside",
+            hovertemplate="<b>%{label}</b><br>%{value} previsões — %{percent}<extra></extra>",
+            direction="clockwise",
+            sort=False,
+        ))
 
-        color_map = {
-            'Igual a 0':   'rgb(0, 204, 150)',
-            'Maior que 0': 'rgb(126, 135, 255)',
-            'Menor que 0': 'rgb(85, 61, 186)',
-        }
-
-        fig = px.pie(pie_df, names='Status', values='Count', color='Status', color_discrete_map=color_map)
-        fig.update_traces(
-            textinfo='label+percent',
-            hovertemplate='%{label}: %{value} (%{percent})<extra></extra>',
-            marker={'line': {'color': '#1e1e2f', 'width': 2}},
-        )
         fig.update_layout(
-            title='Distribuição Erro Percentual',
-            title_font=dict(size=18),
-            plot_bgcolor='#2c2c3e',
-            paper_bgcolor='#2c2c3e',
-            font=dict(color='#e0e0e0'),
-            margin=dict(l=20, r=20, t=50, b=20),
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="top", y=-0.02,
+                xanchor="center", x=0.5,
+                font=dict(color="#9b9bb5", size=11),
+                itemclick=False,
+                itemdoubleclick=False,
+            ),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="#2c2c3e",
+            margin=dict(l=10, r=10, t=10, b=55),
         )
         return fig
 
