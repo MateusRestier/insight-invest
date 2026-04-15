@@ -51,6 +51,65 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.16] Reformulação da página Recomendações
+**Data:** 2026-04-15
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/dashboard/pages/recomendador.py`**
+
+**Gráfico gauge:**
+- Cores das zonas (steps) clareadas para contraste visível contra o fundo `#1e1e2f`:
+  - Zona 0–50: `#2e1a1a` → `#3d2020` (vermelho-escuro saturado)
+  - Zona 50–100: `#1a2e1a` → `#1a3d2c` (verde-escuro saturado)
+- `bgcolor` do gauge: `#1e1e2f` → `#252535` (leve elevação para criar profundidade)
+- Linha do threshold: `#e0e0e0` → `#9b9bb5` (branco puro chamava atenção demais)
+
+**Blocos de resultado (indicadores-chave, pontos positivos/atenção):**
+- Removidos `positivos_block`, `negativos_block` e `accordion_items` — eram código morto (criados mas nunca usados no `return`; o accordion duplicava o conteúdo)
+- `indicadores_block`: substituído de `dbc.Table` genérico por linhas flexbox com:
+  - Nome à esquerda em `#9b9bb5`, valor à direita em monospace
+  - Cor semântica nos valores percentuais: verde `#00cc96` se positivo, vermelho `#ff6b6b` se negativo
+  - Fundo `#2c2c3e` com `border-radius: 6px`
+- Pontos Positivos: card com fundo `#162820` + `borderLeft: 3px solid #00cc96`
+- Pontos de Atenção: card com fundo `#231c0e` + `borderLeft: 3px solid #f59e0b`
+  - Cor alterada de `#ffcc00` (amarelo gritante) para `#f59e0b` (âmbar quente, coerente com a paleta)
+- Accordion (`dbc.Accordion`) removido — substituído por blocos sempre visíveis com design totalmente controlado via inline styles
+
+**Correção de bugs nos grupos de indicadores:**
+- Bug: `_INDICATOR_GROUPS` usava `dy`, `valor_firma_ebit`, `valor_firma_ebitda`, mas o scraper retorna `dividend_yield`, `ev_ebit`, `ev_ebitda`, `p_ebitda`, `p_ebit`, `p_ativo`, `p_cap_giro`, `p_ativo_circ_liq`. Nenhum era reconhecido pelos grupos, todos caíam no fallback → gerava duas seções "Outros"
+- Fix: grupos expandidos com ambos os nomes possíveis para cada campo (ex: `"ev_ebitda", "valor_firma_ebitda"`)
+- `_DISPLAY_NAMES` expandido com todos os nomes corretos: "EV/EBITDA", "EV/EBIT", "P/EBITDA", "P/EBIT", "P/Ativo", "P/Cap. Giro", "P/Ativo Circ. Líq."
+- `_PERCENT_KEYS` expandido com `dividend_yield` (estava apenas `dy`)
+- Grupo "Outros" renomeado para "Liquidez & Crescimento"
+- DY agora aparece em "Dividendos" com `%` corretamente
+
+**Cor semântica nos cards de indicadores:**
+- Adicionado `_SIGNED_KEYS`: conjunto de campos onde positivo = bom (margens, ROE, ROIC, ROA, DY, Variação 12M)
+- `_make_card` atualizado com `_valor_color()`: valor verde se positivo, vermelho se negativo, neutro para ratios
+- Label em `#9b9bb5` (tom secundário), valor em monospace `1rem`
+
+**Seção "Destaques" no topo dos indicadores:**
+- Adicionada `_HIGHLIGHT_KEYS` com os 6 indicadores que os investidores olham primeiro: Cotação, P/L, P/VP, Dividend Yield, ROE, Variação 12M
+- `_make_highlight_card()`: card maior (`1.3rem`, padding `14px`), fundo `#2c2c3e`, borda `rgba(85,97,255,0.3)`
+- Seção "DESTAQUES" com header em `#b0b8ff` + `borderBottom: 1px solid #5561ff` — visualmente mais proeminente que os grupos normais
+- Deduplicação de `dy`/`dividend_yield` — só aparece uma vez no destaque
+- Os mesmos campos aparecem também nos grupos detalhados abaixo (destaque = resumo rápido, grupos = contexto completo)
+
+#### Decisões e motivos
+
+- **Accordion removido**: componente Bootstrap com estilo divergente do tema escuro personalizado. Blocos custom com inline styles dão controle total sem dependência de CSS de terceiro.
+- **Fundo tintado nos pontos**: `#162820` (verde muito escuro) e `#231c0e` (âmbar muito escuro) criam identidade visual clara para cada seção sem brigar com o tema geral.
+- **Dois nomes por campo no grupo**: melhor que renomear campos no scraper (breaking change no banco) ou fazer mapeamento reverso. Incluir ambos os nomes no grupo garante compatibilidade com qualquer versão do scraper.
+- **Destaques repetem nos grupos**: padrão "KPI cards no topo + tabela completa abaixo" — o usuário tem visão rápida e contexto completo sem precisar rolar.
+
+#### Pendências / próximos passos
+
+- Validar deploy Railway.
+- Se o scraper vier a ser normalizado para nomes únicos por campo, limpar os aliases duplicados nos grupos.
+
+---
 ### [v2.15] Reformulação visual das tabelas DataTable
 **Data:** 2026-04-15
 **IA:** Claude Sonnet 4.6 via Claude Code
