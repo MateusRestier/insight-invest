@@ -51,6 +51,68 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.15] Reformulação visual das tabelas DataTable
+**Data:** 2026-04-15
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/dashboard/pages/indicadores.py`**
+
+- Importado `Format, Scheme, Sign` de `dash.dash_table.Format` para formatação numérica tipada.
+- Tabela `table-previsto-real` completamente reestilizada:
+  - `style_table`: `borderRadius: 8px`, `border: 1px solid #2a2a3e`
+  - `style_header`: fundo `#2a2a45`, texto `#e8e8ff` (quase branco), uppercase, `fontSize: 0.7rem`, `letterSpacing: 0.08em`, `borderBottom: 1px solid #5561ff` apenas
+  - `style_cell`: fundo `#1e1e2f`, apenas `borderBottom: 1px solid #2a2a3e` (sem grade tipo Excel)
+  - `style_cell_conditional`: coluna Ação à esquerda + `#b0b8ff`; colunas numéricas à direita + monospace; datas em `#7a7a9a`
+  - `style_data_conditional`: linhas zebradas `#232336`, seleção roxa, e cores da coluna Erro %
+  - `style_header_conditional`: oculta coluna auxiliar `_cor_erro`
+- Nomes das colunas revisados: `data_calculo` → "Gerada em", `data_previsao` → "Data Alvo", `preco_previsto` → "Previsto (R$)", `preco_real` → "Real (R$)"
+- Subtítulo explicativo adicionado no `CardHeader` da seção
+- Legenda de cores adicionada acima da tabela
+- Filtros renomeados para "Data Alvo" e "Gerada em" (consistência com colunas)
+- `tooltip_header` com descrição de cada coluna (aparece ao hover no header)
+
+**Correção de bug — cores da coluna Erro % não apareciam:**
+- Causa 1: `filter_query` com `&&` (ex: `{erro_pct} > 0 && {erro_pct} <= 5`) não faz match confiável no `style_data_conditional` — depende da versão do Dash.
+- Causa 2: `Format(sign=Sign.positive)` converte o valor numérico para string `"+0.14"` antes do `filter_query` avaliar — comparação numérica falha silenciosamente.
+- Causa 3 (CSS): `.dash-cell { color: #e0e0e0 !important }` no `style.css` bloqueava qualquer inline style injetado pelo Dash via `style_data_conditional`.
+- **Fix definitivo**: coluna auxiliar `_cor_erro` com categorias string (`"zero"`, `"pos"`, `"neg"`) computadas em Python antes de `to_dict('records')`. O `filter_query` usa comparação de string (`{_cor_erro} = "pos"`), que é infalível. A coluna fica oculta via `display: none` em `style_cell_conditional` e `style_header_conditional`.
+- Simplificado de 5 faixas (vermelho/laranja/azul/roxo) para **3 categorias de igual peso visual**:
+  - `#00cc96` verde → acerto preciso (= 0)
+  - `#60a5fa` azul céu → errou pra mais (> 0)
+  - `#a78bfa` violeta suave → errou pra menos (< 0)
+  - Azul e violeta têm luminosidade equivalente — nenhum parece "pior" que o outro
+
+**`src/dashboard/pages/previsoes.py`**
+
+- Importado `Format, Scheme` de `dash.dash_table.Format`.
+- Tabela `table-previsao` reestilizada com o mesmo visual da tabela de indicadores:
+  - Mesmos `style_table`, `style_header`, `style_cell` (sem grade, zebra, borderBottom apenas)
+  - `style_cell_conditional`: Ação à esquerda `#b0b8ff`, Previsto e Dias à Frente à direita monospace, Data Alvo em `#7a7a9a`
+- Colunas do callback `update_progress` atualizadas: `_col_map` com nomes amigáveis + `Format(precision=2)` no `preco_previsto`; nome `data_previsao` → "Data Alvo"
+
+**`src/dashboard/assets/style.css`**
+
+- Removido `color: #e0e0e0 !important` do seletor `.dash-cell` — esse `!important` era a causa raiz do bloqueio das cores condicionais. Mantido apenas `background-color: #2c2c3e !important` (necessário para sobrescrever o fundo branco padrão do Dash).
+- Adicionado hover de linha inteira: `.dash-spreadsheet-inner tr:hover td.dash-td-cell { background-color: rgba(85,97,255,0.09) !important }`
+- Estilizada a paginação da DataTable: botões com tema escuro (`#2c2c3e`), hover roxo (`#5561ff`), disabled com `opacity: 0.35`
+- Fix do input de número de página (texto preto no browser): adicionado `-webkit-text-fill-color: #e0e0e0 !important` — o `color` é ignorado pelo Chrome/Safari para inputs de formulário; o `-webkit-text-fill-color` sobrescreve o estilo nativo do browser
+- Adicionado estilo de tooltip da DataTable: `#1e1e2f`, borda `#444`, `border-radius: 4px`
+
+#### Decisões e motivos
+
+- **Coluna auxiliar oculta** em vez de `filter_query` numérico: Dash DataTable `filter_query` opera em valores *formatados* quando `Format` é aplicado, não nos valores brutos. Usar uma categoria string pré-computada em Python é a única abordagem 100% confiável para coloração condicional.
+- **3 cores de igual luminosidade** para Erro %: evita hierarquia de gravidade implícita. Vermelho/laranja vs. azul sugere que errar pra mais é pior que errar pra menos — o que não é verdade neste contexto.
+- **`borderBottom` apenas**: tabelas financeiras modernas (Bloomberg, XP, etc.) usam apenas separadores horizontais. Grade completa remete ao Excel e envelhece o visual.
+- **`-webkit-text-fill-color`**: propriedade CSS específica para WebKit que tem precedência sobre o estilo nativo de formulários. Necessária quando `color !important` não é suficiente para campos `<input>` no Chrome/Safari.
+
+#### Pendências / próximos passos
+
+- Validar deploy Railway com as 3 alterações.
+- Verificar se o hover de linha funciona corretamente no Safari (WebKit pode renderizar `.dash-td-cell` diferente).
+
+---
 ### [v2.14] Redesign completo de UX/UI do frontend (Dash + Bootstrap)
 **Data:** 2026-04-14  
 **IA:** Claude Sonnet 4.6 via Claude Code
