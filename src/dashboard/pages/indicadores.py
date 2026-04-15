@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 from dash import dash_table
+from dash.dash_table.Format import Format, Scheme, Sign
 
 from src.core.db_connection import get_connection
 
@@ -101,17 +102,24 @@ def layout_indicadores():
 
         # ── SEÇÃO 2: COMPARAÇÃO PREVISTO × REAL ─────────────────────────
         dbc.Card([
-            dbc.CardHeader("📈 Comparação Preço Previsto × Real"),
+            dbc.CardHeader([
+                html.Span("📈 Comparação Preço Previsto × Real", className="fw-semibold d-block"),
+                html.Span(
+                    "Cada linha é uma previsão do modelo: o preço estimado para uma data futura vs. a cotação real registrada naquele dia.",
+                    className="text-muted fw-normal d-block",
+                    style={"fontSize": "0.78rem", "marginTop": "2px"},
+                ),
+            ]),
             dbc.CardBody([
 
                 # Filtros — flex puro garante 4 colunas iguais sem overflow
                 html.Div([
                     html.Div([
-                        dbc.Label("Data Previsão", html_for="filter-data-previsao", className="text-muted small mb-1"),
+                        dbc.Label("Data Alvo", html_for="filter-data-previsao", className="text-muted small mb-1"),
                         dbc.Input(id="filter-data-previsao", type="date", className="input-dark"),
                     ], className="filter-col"),
                     html.Div([
-                        dbc.Label("Data Cálculo", html_for="filter-data-calculo", className="text-muted small mb-1"),
+                        dbc.Label("Gerada em", html_for="filter-data-calculo", className="text-muted small mb-1"),
                         dbc.Input(id="filter-data-calculo", type="date", className="input-dark"),
                     ], className="filter-col"),
                     html.Div([
@@ -144,6 +152,14 @@ def layout_indicadores():
                     style={"width": "100%", "margin": "0"}
                 ),
 
+                # Legenda de cores da coluna Erro %
+                html.Div([
+                    html.Span("Erro %:", className="text-muted small me-2", style={"fontSize": "0.75rem"}),
+                    html.Span("● Preciso", style={"color": "#00cc96", "fontSize": "0.75rem", "marginRight": "12px"}),
+                    html.Span("● Errou pra mais", style={"color": "#60a5fa", "fontSize": "0.75rem", "marginRight": "12px"}),
+                    html.Span("● Errou pra menos", style={"color": "#a78bfa", "fontSize": "0.75rem"}),
+                ], className="mb-2", style={"display": "flex", "flexWrap": "wrap", "alignItems": "center", "gap": "2px"}),
+
                 # Tooltips para métricas
                 dbc.Tooltip("MAE (Mean Absolute Error): média dos erros absolutos entre preços previstos e reais.", target="card-mae-container", placement="top"),
                 dbc.Tooltip("MSE (Mean Squared Error): média dos quadrados dos erros entre preços previstos e reais.", target="card-mse-container", placement="top"),
@@ -159,13 +175,138 @@ def layout_indicadores():
                         dbc.Col(
                             html.Div(
                                 dash_table.DataTable(
-                                    id="table-previsto-real", page_size=10,
-                                    style_table={"minWidth": "100%"},
-                                    style_header={"backgroundColor": "#5561ff", "color": "#ffffff", "fontWeight": "bold"},
-                                    style_cell={"backgroundColor": "#2c2c3e", "color": "#e0e0e0", "textAlign": "center",
-                                                "padding": "5px", "whiteSpace": "normal", "height": "auto"},
-                                    style_data_conditional=[{"if": {"state": "selected"}, "backgroundColor": "#5561ff", "color": "#ffffff"}],
-                                    sort_action='native'
+                                    id="table-previsto-real",
+                                    page_size=10,
+                                    sort_action="native",
+                                    # ── Estrutura geral ──
+                                    style_table={
+                                        "minWidth": "100%",
+                                        "borderRadius": "8px",
+                                        "overflow": "hidden",
+                                        "border": "1px solid #2a2a3e",
+                                    },
+                                    # ── Header ──
+                                    style_header={
+                                        "backgroundColor": "#2a2a45",
+                                        "color": "#e8e8ff",
+                                        "fontWeight": "700",
+                                        "textAlign": "center",
+                                        "textTransform": "uppercase",
+                                        "fontSize": "0.7rem",
+                                        "letterSpacing": "0.08em",
+                                        "borderBottom": "1px solid #5561ff",
+                                        "borderTop": "none",
+                                        "borderLeft": "none",
+                                        "borderRight": "none",
+                                        "padding": "12px 14px",
+                                    },
+                                    # ── Células base ──
+                                    style_cell={
+                                        "backgroundColor": "#1e1e2f",
+                                        "color": "#d0d0e8",
+                                        "textAlign": "center",
+                                        "padding": "11px 14px",
+                                        "whiteSpace": "normal",
+                                        "height": "auto",
+                                        "border": "none",
+                                        "borderBottom": "1px solid #2a2a3e",
+                                        "fontSize": "0.86rem",
+                                    },
+                                    # ── Células condicionais por coluna ──
+                                    style_cell_conditional=[
+                                        # Ação: à esquerda, cor de destaque
+                                        {
+                                            "if": {"column_id": "acao"},
+                                            "textAlign": "left",
+                                            "fontWeight": "700",
+                                            "color": "#b0b8ff",
+                                            "paddingLeft": "18px",
+                                            "minWidth": "72px",
+                                        },
+                                        # Valores monetários: direita, monospace
+                                        {
+                                            "if": {"column_id": ["preco_previsto", "preco_real"]},
+                                            "textAlign": "right",
+                                            "fontFamily": "'Courier New', Courier, monospace",
+                                            "paddingRight": "20px",
+                                            "color": "#c8c8e0",
+                                        },
+                                        # Erro %: direita, monospace, padding extra
+                                        {
+                                            "if": {"column_id": "erro_pct"},
+                                            "textAlign": "right",
+                                            "fontFamily": "'Courier New', Courier, monospace",
+                                            "paddingRight": "20px",
+                                            "fontWeight": "600",
+                                        },
+                                        # Datas: centralizadas, tom secundário
+                                        {
+                                            "if": {"column_id": ["data_calculo", "data_previsao"]},
+                                            "fontSize": "0.8rem",
+                                            "color": "#7a7a9a",
+                                        },
+                                        # Oculta coluna auxiliar de cor
+                                        {
+                                            "if": {"column_id": "_cor_erro"},
+                                            "display": "none",
+                                            "width": "0px",
+                                            "minWidth": "0px",
+                                            "maxWidth": "0px",
+                                            "padding": "0px",
+                                        },
+                                    ],
+                                    # ── Header condicional: oculta coluna auxiliar ──
+                                    style_header_conditional=[
+                                        {
+                                            "if": {"column_id": "_cor_erro"},
+                                            "display": "none",
+                                            "width": "0px",
+                                            "minWidth": "0px",
+                                            "maxWidth": "0px",
+                                            "padding": "0px",
+                                        },
+                                    ],
+                                    # ── Dados condicionais ──
+                                    style_data_conditional=[
+                                        # Linhas alternadas muito sutis
+                                        {
+                                            "if": {"row_index": "odd"},
+                                            "backgroundColor": "#232336",
+                                        },
+                                        # Seleção
+                                        {
+                                            "if": {"state": "selected"},
+                                            "backgroundColor": "rgba(85,97,255,0.25)",
+                                            "color": "#ffffff",
+                                            "border": "none",
+                                        },
+                                        # ── Cor do Erro % — 3 categorias de igual peso visual ──
+                                        # pos/neg usam tons frios de mesma luminosidade:
+                                        # nenhum "parece pior" que o outro, só direções opostas.
+                                        {
+                                            "if": {"filter_query": '{_cor_erro} = "pos"',  "column_id": "erro_pct"},
+                                            "color": "#60a5fa",   # azul céu
+                                        },
+                                        {
+                                            "if": {"filter_query": '{_cor_erro} = "neg"',  "column_id": "erro_pct"},
+                                            "color": "#a78bfa",   # violeta suave
+                                        },
+                                        {
+                                            "if": {"filter_query": '{_cor_erro} = "zero"', "column_id": "erro_pct"},
+                                            "color": "#00cc96",   # verde — acerto preciso
+                                            "fontWeight": "700",
+                                        },
+                                    ],
+                                    # ── Tooltips nos headers ──
+                                    tooltip_header={
+                                        "data_calculo":   "Data em que o modelo calculou esta previsão",
+                                        "data_previsao":  "Data futura para a qual o preço foi previsto",
+                                        "preco_previsto": "Preço estimado pelo modelo (R$)",
+                                        "preco_real":     "Cotação real registrada na data alvo (R$)",
+                                        "erro_pct":       "Desvio percentual: (Previsto − Real) ÷ Real × 100",
+                                    },
+                                    tooltip_delay=300,
+                                    tooltip_duration=None,
                                 ),
                                 className="table-responsive"
                             ),
@@ -305,14 +446,29 @@ def register_callbacks_indicadores(app):
 
         df = df.sort_values('data_previsao', ascending=True)
 
+        # Pré-computa categoria de cor para o erro_pct (3 categorias).
+        # Usar string no filter_query é 100% confiável — evita problemas
+        # de comparação numérica quando Format() converte o valor antes do match.
+        def _categoria_erro(v):
+            if v is None or (isinstance(v, float) and pd.isna(v)):
+                return "none"
+            if v == 0:  return "zero"
+            if v > 0:   return "pos"
+            return "neg"
+
+        df["_cor_erro"] = df["erro_pct"].apply(_categoria_erro)
+
         data = df.to_dict('records')
+        _fmt2 = Format(precision=2, scheme=Scheme.fixed)
         cols = [
-            {"name": "Ação",           "id": "acao"},
-            {"name": "Data Cálculo",   "id": "data_calculo"},
-            {"name": "Data Previsão",  "id": "data_previsao"},
-            {"name": "Preço Previsto", "id": "preco_previsto"},
-            {"name": "Preço Real",     "id": "preco_real"},
-            {"name": "Erro (%)",       "id": "erro_pct"},
+            {"name": "Ação",            "id": "acao"},
+            {"name": "Gerada em",       "id": "data_calculo"},
+            {"name": "Data Alvo",       "id": "data_previsao"},
+            {"name": "Previsto (R$)",   "id": "preco_previsto", "type": "numeric", "format": _fmt2},
+            {"name": "Real (R$)",       "id": "preco_real",     "type": "numeric", "format": _fmt2},
+            {"name": "Erro %",          "id": "erro_pct",       "type": "numeric",
+             "format": Format(precision=2, scheme=Scheme.fixed, sign=Sign.positive)},
+            {"name": "",                "id": "_cor_erro"},   # coluna auxiliar oculta
         ]
         return data, cols
 

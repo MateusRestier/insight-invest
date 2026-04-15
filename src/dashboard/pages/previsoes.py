@@ -1,5 +1,6 @@
 from dash import html, dcc, Input, Output, State, no_update, dash_table
 import dash_bootstrap_components as dbc, pandas as pd, threading, uuid, json, os
+from dash.dash_table.Format import Format, Scheme
 from pathlib import Path
 from datetime import date
 from src.models.regressor_preco import executar_pipeline_multidia
@@ -111,12 +112,75 @@ def layout_previsoes():
                     ]
                 ),
                 dash_table.DataTable(
-                    id="table-previsao", columns=[], data=[], page_size=20, sort_action="native",
-                    style_table={"overflowX": "auto"},
-                    style_header={"backgroundColor": "#5561ff", "color": "#ffffff", "fontWeight": "bold"},
-                    style_cell={"backgroundColor": "#1e1e2f", "color": "#e0e0e0", "textAlign": "center",
-                                "padding": "6px", "whiteSpace": "normal", "height": "auto"},
-                    style_data_conditional=[{"if": {"state": "selected"}, "backgroundColor": "#5561ff", "color": "#ffffff"}],
+                    id="table-previsao",
+                    columns=[], data=[],
+                    page_size=20,
+                    sort_action="native",
+                    style_table={
+                        "minWidth": "100%",
+                        "borderRadius": "8px",
+                        "overflow": "hidden",
+                        "border": "1px solid #2a2a3e",
+                    },
+                    style_header={
+                        "backgroundColor": "#2a2a45",
+                        "color": "#e8e8ff",
+                        "fontWeight": "700",
+                        "textAlign": "center",
+                        "textTransform": "uppercase",
+                        "fontSize": "0.7rem",
+                        "letterSpacing": "0.08em",
+                        "borderBottom": "1px solid #5561ff",
+                        "borderTop": "none",
+                        "borderLeft": "none",
+                        "borderRight": "none",
+                        "padding": "12px 14px",
+                    },
+                    style_cell={
+                        "backgroundColor": "#1e1e2f",
+                        "color": "#d0d0e8",
+                        "textAlign": "center",
+                        "padding": "11px 14px",
+                        "whiteSpace": "normal",
+                        "height": "auto",
+                        "border": "none",
+                        "borderBottom": "1px solid #2a2a3e",
+                        "fontSize": "0.86rem",
+                    },
+                    style_cell_conditional=[
+                        {
+                            "if": {"column_id": "acao"},
+                            "textAlign": "left",
+                            "fontWeight": "700",
+                            "color": "#b0b8ff",
+                            "paddingLeft": "18px",
+                            "minWidth": "72px",
+                        },
+                        {
+                            "if": {"column_id": ["preco_previsto", "dias_a_frente"]},
+                            "textAlign": "right",
+                            "fontFamily": "'Courier New', Courier, monospace",
+                            "paddingRight": "20px",
+                            "color": "#c8c8e0",
+                        },
+                        {
+                            "if": {"column_id": "data_previsao"},
+                            "fontSize": "0.8rem",
+                            "color": "#7a7a9a",
+                        },
+                    ],
+                    style_data_conditional=[
+                        {
+                            "if": {"row_index": "odd"},
+                            "backgroundColor": "#232336",
+                        },
+                        {
+                            "if": {"state": "selected"},
+                            "backgroundColor": "rgba(85,97,255,0.25)",
+                            "color": "#ffffff",
+                            "border": "none",
+                        },
+                    ],
                 )
             ])
         ])
@@ -182,15 +246,17 @@ def register_callbacks_previsoes(app):
             if 'data_previsao' in final_df.columns:
                 final_df['data_previsao'] = pd.to_datetime(final_df['data_previsao']).dt.strftime('%Y-%m-%d')
             
-            column_name_map = {
-                'acao': 'Ação',
-                'data_previsao': 'Data da Previsão',
-                'preco_previsto': 'Preço Previsto',
-                'dias_a_frente': 'Dias à Frente'
+            _fmt2 = Format(precision=2, scheme=Scheme.fixed)
+            _col_map = {
+                "acao":          {"name": "Ação",             "id": "acao"},
+                "data_previsao": {"name": "Data Alvo",        "id": "data_previsao"},
+                "preco_previsto":{"name": "Previsto (R$)",    "id": "preco_previsto",
+                                  "type": "numeric", "format": _fmt2},
+                "dias_a_frente": {"name": "Dias à Frente",    "id": "dias_a_frente",
+                                  "type": "numeric"},
             }
-
             columns = [
-                {"name": column_name_map.get(col, col), "id": col}
+                _col_map.get(col, {"name": col, "id": col})
                 for col in final_df.columns
             ]
             

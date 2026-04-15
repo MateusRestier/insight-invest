@@ -362,30 +362,91 @@ input[type="date"].form-control:focus {
 }
 
 /* --- Tabela de Comparação Previsto x Real --- */
+
+/* Fundo base — sem !important em color para não bloquear style_data_conditional */
 .dash-table-container .dash-spreadsheet-container {
-    background-color: #2c2c3e;
-    color: #e0e0e0;
+    background-color: #1e1e2f;
 }
 .dash-table-container .dash-spreadsheet-container .dash-cell {
-    background-color: #2c2c3e !important;
-    color: #e0e0e0 !important;
-    border: 1px solid #3a3a50;
+    background-color: #1e1e2f !important; /* apenas background precisa de !important */
 }
-.dash-table-container .dash-header {
+
+/* Hover de linha inteira */
+.dash-spreadsheet-inner tr:hover td.dash-td-cell {
+    background-color: rgba(85, 97, 255, 0.09) !important;
+    transition: background-color 0.12s ease;
+}
+
+/* Remove outline de foco azul padrão do browser nas células clicadas */
+.dash-spreadsheet td:focus,
+.dash-spreadsheet td:focus-within {
+    outline: none !important;
+    box-shadow: inset 0 0 0 1px rgba(85, 97, 255, 0.45) !important;
+}
+
+/* Paginação */
+.previous-next-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 8px 4px 4px;
+}
+.previous-next-container button {
+    background-color: #2c2c3e !important;
+    color: #9b9bb5 !important;
+    border: 1px solid #3a3a50 !important;
+    border-radius: 4px !important;
+    padding: 4px 10px !important;
+    font-size: 0.8rem !important;
+    transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+.previous-next-container button:hover {
     background-color: #5561ff !important;
     color: #ffffff !important;
-    font-weight: bold;
+    border-color: #5561ff !important;
 }
+.previous-next-container button:disabled {
+    opacity: 0.35 !important;
+    cursor: not-allowed !important;
+}
+/* Input do número de página — seletores amplos + webkit-text-fill-color
+   para sobrescrever o estilo nativo do browser em campos de formulário */
+.dash-table-container input,
+.dash-table-container input[type="number"],
+.dash-table-container .current-page input,
+.dash-table-container .dash-table-paging input,
+.previous-next-container input,
+input.current-page {
+    background-color: #2c2c3e !important;
+    color: #e0e0e0 !important;
+    -webkit-text-fill-color: #e0e0e0 !important;
+    border: 1px solid #3a3a50 !important;
+    border-radius: 4px !important;
+    text-align: center !important;
+    width: 48px !important;
+    font-size: 0.82rem !important;
+}
+.dash-table-container .last-page,
+.previous-next-container .last-page {
+    color: #7a7a9a !important;
+    font-size: 0.82rem !important;
+}
+
 .table-responsive {
   padding: 0.5rem;
   border-radius: 0.5rem;
 }
 
-/* Hover na Dash DataTable — fundo translúcido + número em roxo harmonioso */
-.dash-table-container .dash-cell:hover,
-.dash-table-container .dash-cell:hover div {
-    background-color: rgba(126, 135, 255, 0.04) !important;
-    color: #b0b8ff !important;
+/* Tooltip do DataTable (header) */
+.dash-table-tooltip {
+    background-color: #1e1e2f !important;
+    color: #e0e0e0 !important;
+    border: 1px solid #444 !important;
+    border-radius: 4px !important;
+    font-size: 0.78rem !important;
+    max-width: 300px !important;
+    padding: 6px 10px !important;
 }
 
 /* --- Gráficos Responsivos --- */
