@@ -85,8 +85,9 @@ def layout_previsoes():
         dcc.Store(id='job-id-store'),
         dcc.Interval(id='progress-interval', interval=1000, disabled=True),
         dbc.Card([
-            dbc.CardHeader("🔮 Previsão de Preço — Multi-Dia"),
             dbc.CardBody([
+                html.H5("🔮 Previsão de Preço — Multi-Dia", className="fw-bold mb-3",
+                        style={"color": "#e8e8ff", "fontSize": "1.85rem"}),
                 dbc.Row([
                     dbc.Col([
                         dbc.Label("Ticker", html_for="input-ticker-prev", className="text-muted small mb-1"),

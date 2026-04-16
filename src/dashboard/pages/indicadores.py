@@ -58,14 +58,17 @@ def layout_indicadores():
     ]
 
     return dbc.Container(fluid=True, children=[
-        html.H4("Indicadores Fundamentalistas", className="mb-4 fw-bold"),
+        html.H4("Indicadores Fundamentalistas", className="mb-4 fw-bold",
+                style={"color": "#e8e8ff", "fontSize": "2rem"}),
 
         # ── SEÇÃO 1: RANKING ────────────────────────────────────────────
         dbc.Card([
-            dbc.CardHeader(
+            dbc.CardBody([
+                # Título + filtro na mesma linha, sem CardHeader
                 dbc.Row([
                     dbc.Col(
-                        html.Span("📊 Ranking por Métrica", className="fw-semibold"),
+                        html.H5("📊 Ranking por Métrica", className="fw-bold mb-0",
+                                style={"color": "#e8e8ff", "fontSize": "1.85rem"}),
                         width="auto", className="d-flex align-items-center"
                     ),
                     dbc.Col(
@@ -83,11 +86,11 @@ def layout_indicadores():
                             className="dropdown-dark",
                             style={"color": "#e0e0e0", "backgroundColor": "#1e1e2f", "borderColor": "#444"}
                         ),
-                        xs=12, md=8
+                        className="ms-auto", xs=12, md=7, lg=6
                     ),
-                ], align="center", className="g-2"),
-            ),
-            dbc.CardBody(
+                ], align="center", className="g-2 mb-3"),
+
+                # Gráfico + cards de recomendação
                 dbc.Row([
                     dbc.Col(dcc.Graph(id="grafico-top-metric"), xs=12, md=8),
                     dbc.Col(
@@ -98,20 +101,19 @@ def layout_indicadores():
                         xs=12, md=4
                     ),
                 ]),
-            ),
+            ]),
         ], className="mb-4"),
 
         # ── SEÇÃO 2: COMPARAÇÃO PREVISTO × REAL ─────────────────────────
         dbc.Card([
-            dbc.CardHeader([
-                html.Span("📈 Comparação Preço Previsto × Real", className="fw-semibold d-block"),
-                html.Span(
-                    "Cada linha é uma previsão do modelo: o preço estimado para uma data futura vs. a cotação real registrada naquele dia.",
-                    className="text-muted fw-normal d-block",
-                    style={"fontSize": "0.78rem", "marginTop": "2px"},
-                ),
-            ]),
             dbc.CardBody([
+                html.H5("📈 Comparação Preço Previsto × Real", className="fw-bold mb-1",
+                        style={"color": "#e8e8ff", "fontSize": "1.85rem"}),
+                html.P(
+                    "Cada linha é uma previsão do modelo: o preço estimado para uma data futura vs. a cotação real registrada naquele dia.",
+                    className="text-muted mb-3",
+                    style={"fontSize": "0.9rem"},
+                ),
 
                 # Filtros — flex puro garante 4 colunas iguais sem overflow
                 html.Div([
@@ -531,7 +533,7 @@ def register_callbacks_indicadores(app):
             showlegend=True,
             legend=dict(
                 orientation="h",
-                yanchor="top", y=-0.02,
+                yanchor="bottom", y=1.02,
                 xanchor="center", x=0.5,
                 font=dict(color="#9b9bb5", size=11),
                 itemclick=False,
@@ -539,7 +541,7 @@ def register_callbacks_indicadores(app):
             ),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="#2c2c3e",
-            margin=dict(l=10, r=10, t=10, b=55),
+            margin=dict(l=10, r=10, t=40, b=10),
         )
         return fig
 

@@ -51,6 +51,36 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.19] Remoção de CardHeaders e ajustes visuais
+**Data:** 2026-04-16
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/dashboard/pages/indicadores.py`**
+- Seção 1 ("Ranking por Métrica"): `dbc.CardHeader` removido; título migrado para `html.H5` dentro do `CardBody` com `fontSize: 2.15rem` e cor `#e8e8ff`; dropdown alinhado à direita via `ms-auto` na mesma row do título
+- Seção 2 ("Comparação Preço Previsto × Real"): `dbc.CardHeader` removido; título migrado para `html.H5` com `fontSize: 2.15rem`; subtítulo explicativo virou `html.P` com `className="text-muted mb-3"`
+- Gráfico de pizza: legenda movida de abaixo para acima do gráfico — `y=-0.02 / yanchor="top"` → `y=1.02 / yanchor="bottom"`; margens ajustadas de `t=10, b=55` para `t=40, b=10`
+
+**`src/dashboard/pages/previsoes.py`**
+- `dbc.CardHeader("🔮 Previsão de Preço — Multi-Dia")` removido; título migrado para `html.H5` com `fontSize: 1.85rem` dentro do `CardBody`
+
+**`src/dashboard/pages/recomendador.py`**
+- `dbc.CardHeader("📝 Recomendador de Ações")` removido
+- Layout refatorado de dois elementos separados (Card esquerdo + coluna solta direita) para **um único `dbc.Card`** contendo ambas as colunas
+- Título "📝 Recomendador de Ações" movido para dentro da coluna esquerda da Row interna
+- Título "🪄 Indicadores da Ação Selecionada" na coluna direita, alinhado horizontalmente com o título esquerdo (ambos na mesma Row)
+- Separador vertical `borderLeft: 1px solid #2a2a3e` entre as colunas, visível apenas em `md+`
+
+#### Decisões e motivos
+- **Remoção dos CardHeaders**: a faixa beige/cinza do Bootstrap (`#2a2a45`) criava uma separação visual que competia com o conteúdo. Títulos dentro do `CardBody` integram melhor com o tema escuro e permitem controle total de tipografia.
+- **Um único Card no recomendador**: o layout anterior tinha o painel de indicadores como coluna solta sem card, quebrando a consistência visual. Unificar em um card deixa a página com a mesma linguagem dos outros cards do app.
+- **Legenda do pie acima**: com o gráfico já tendo `textinfo="percent"` nas fatias, a legenda abaixo criava espaço morto embaixo e empurrava o gráfico para cima desnecessariamente.
+
+#### Pendências / próximos passos
+- Validar no Railway após redeploy.
+
+---
 ### [v2.18] Otimização de RAM no deploy Railway
 **Data:** 2026-04-16
 **IA:** Claude Sonnet 4.6 via Claude Code

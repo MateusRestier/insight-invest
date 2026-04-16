@@ -89,12 +89,13 @@ _INDICADORES_CHAVE_NAMES = {
 # Layout
 # -----------------------------------------------------------------------------
 def layout_recomendador():
-    return dbc.Row([
-        # Coluna da Esquerda: Card de Recomendação
-        dbc.Col([
-            dbc.Card([
-                dbc.CardHeader("📝 Recomendador de Ações"),
-                dbc.CardBody([
+    return dbc.Card([
+        dbc.CardBody([
+            dbc.Row([
+                # Coluna da Esquerda: input + resultado
+                dbc.Col([
+                    html.H5("📝 Recomendador de Ações", className="fw-bold mb-3",
+                            style={"color": "#e8e8ff", "fontSize": "1.85rem"}),
                     html.Div([
                         dbc.Input(
                             id="input-ticker-rec",
@@ -111,41 +112,50 @@ def layout_recomendador():
                         )
                     ], className="mb-3 d-flex align-items-center"),
 
-                    html.Div(
-                        dcc.Loading(
-                            id="loading-recommendation",
-                            type="circle",
-                            children=html.Div(
-                                id="recomendation-output",
-                                children=html.P(
-                                    "Informe um ticker e clique em Recomendar para ver o relatório.",
-                                    className="text-muted small mt-2"
-                                ),
-                            )
-                        ),
-                        className="flex-grow-1"
-                    )
-                ], className="d-flex flex-column"),
-            ], className="shadow-sm mb-4 h-100"),
-        ], md=5),
-
-        # Coluna da Direita: Indicadores da Ação
-        dbc.Col([
-            html.H5("🪄 Indicadores da Ação Selecionada:", className="mb-2"),
-            dcc.Loading(
-                id="loading-cards-rec",
-                type="circle",
-                children=html.Div(
-                    id="cards-indicadores-rec",
-                    style={"marginTop": "0.5rem"},
-                    children=html.P(
-                        "Os indicadores fundamentalistas da ação aparecerão aqui.",
-                        className="text-muted small"
+                    dcc.Loading(
+                        id="loading-recommendation",
+                        type="circle",
+                        children=html.Div(
+                            id="recomendation-output",
+                            children=html.P(
+                                "Informe um ticker e clique em Recomendar para ver o relatório.",
+                                className="text-muted small mt-2"
+                            ),
+                        )
                     ),
-                )
-            ),
-        ], md=7),
-    ], className="align-items-stretch")
+                ], md=5),
+
+                # Separador vertical
+                dbc.Col(
+                    html.Div(style={
+                        "borderLeft": "1px solid #2a2a3e",
+                        "height": "100%",
+                        "minHeight": "200px",
+                    }),
+                    width="auto", className="px-0 d-none d-md-block"
+                ),
+
+                # Coluna da Direita: indicadores fundamentalistas
+                dbc.Col([
+                    html.H5("🪄 Indicadores da Ação Selecionada",
+                            className="fw-bold mb-3",
+                            style={"color": "#e8e8ff", "fontSize": "1.25rem"}),
+                    dcc.Loading(
+                        id="loading-cards-rec",
+                        type="circle",
+                        children=html.Div(
+                            id="cards-indicadores-rec",
+                            style={"marginTop": "0.5rem"},
+                            children=html.P(
+                                "Insira um ticker e clique em Recomendar.",
+                                className="text-muted small"
+                            ),
+                        )
+                    ),
+                ], md=True),
+            ], className="g-3 align-items-start"),
+        ]),
+    ], className="mb-4")
 
 
 # -----------------------------------------------------------------------------
