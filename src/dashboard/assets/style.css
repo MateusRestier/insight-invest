@@ -2,6 +2,16 @@
 /* ===================== GLOBAL ============================ */
 /* ========================================================= */
 
+/* --- Cursor pointer nas fatias do pie (indica clicabilidade) --- */
+#pie-error-dist .slice path {
+    cursor: pointer !important;
+}
+
+/* --- Scroll suave global --- */
+html {
+    scroll-behavior: smooth;
+}
+
 /* --- Estrutura e Cores Gerais --- */
 body {
     background-color: #13131f;
@@ -9,6 +19,13 @@ body {
 }
 hr {
     border-top: 1px solid #444;
+}
+
+/* --- Offset das seções (compensa navbar sticky ~56px) --- */
+#section-indicadores,
+#section-previsoes,
+#section-recomendador {
+    scroll-margin-top: 70px;
 }
 
 /* --- Scrollbar --- */
@@ -49,6 +66,10 @@ textarea {
     margin-bottom: 0.5rem;
     width: 100%;
     padding: 0 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid #000;
 }
 .navbar .navbar-brand {
     font-size: 1.1rem;

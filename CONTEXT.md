@@ -51,6 +51,52 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.20] Conversão para single-page + interatividade do pie chart
+**Data:** 2026-04-16
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**Conversão para single-page com scroll anchors (`app.py`, `callbacks.py`, `style.css`)**
+
+- Removido o sistema de roteamento por pathname (`render_page` callback eliminado)
+- `app.py` agora importa os 3 layouts diretamente e os renderiza em sequência dentro de `html.Div` com IDs de seção: `section-indicadores`, `section-previsoes`, `section-recomendador`
+- NavLinks migrados de `href="/"` para `href="#section-*"` com `external_link=True` e `id` individuais
+- `dcc.Location(id="url")` mantido apenas para rastrear o hash da URL (active state)
+- `callbacks.py`: adicionado `clientside_callback` que lê `url.hash` e seta `active` nos 3 NavLinks no cliente (zero round-trip ao servidor)
+- `style.css`: `html { scroll-behavior: smooth }`, `scroll-margin-top: 70px` nas seções, navbar com `position: sticky; top: 0; z-index: 1000` e `border-bottom: 1px solid #000`
+- Espaçamento entre seções: `mb-4` em todos os wrappers de seção
+- Recomendador envolvido em `dbc.Container(fluid=True)` para alinhar largura com os demais cards
+
+**Interatividade do gráfico de pizza (`indicadores.py`)**
+
+- Adicionado `dcc.Store(id='pie-click-store')` para guardar a fatia selecionada (toggle)
+- Adicionado `dcc.Store(id='comparison-data-store')` + `dcc.Interval(id='data-load-interval', max_intervals=1)` para cache de dados — a query ao banco ocorre **uma única vez** no load; todos os callbacks subsequentes leem do store (zero DB em interações)
+- **Callback 1** (`store_pie_click`): `clickData` → store com toggle (clique na mesma fatia desfaz seleção)
+- **Callback 2** (`plot_error_distribution`): reconstrói o pie com pull destacado (0.16) na fatia ativa e opacidade 35% nas demais; legenda agora clicável (`itemclick="toggle"`, `itemdoubleclick="toggleothers"`)
+- **Callback 3**: `update_table` recebe `pie-click-store` como Input e aplica filtro adicional por categoria de erro
+- **Callback 4** (`highlight_pie_from_table`): `active_cell` da tabela → destaca fatia correspondente; usa dados da própria tabela (sem banco)
+- `_build_pie_figure()` e `_apply_filters()` extraídas como helpers internos para reutilização entre callbacks
+- `_loading_figure(bgcolor)`: figura dark-themed ("Carregando dados...") usada como placeholder inicial dos dois gráficos — elimina o flash branco no carregamento
+- `dcc.Loading` com `delay_show=800` — spinner só aparece se o load demorar mais que 800ms
+- Cursor `pointer` via CSS + hovertemplate com hint "Clique para filtrar a tabela" (itálico, herda cor do tooltip)
+- Legenda do pie agora acima do gráfico (`y=1.02`, `yanchor="bottom"`)
+
+#### Decisões e motivos
+
+- **Single-page + anchors em vez de multi-page**: elimina o reload visual ao trocar de "página"; tudo já está renderizado, navegação é puro scroll
+- **`clientside_callback` para active state**: zero latência — roda no browser sem passar pelo servidor Python
+- **`external_link=True` nos NavLinks**: hash links (`#section-*`) não recarregam a página mesmo com `external_link=True`; o browser trata `#` como fragment navigation
+- **`dcc.Store` como cache de dados**: a causa dos 3–4s de loading em toda interação era `_get_comparison_df()` sendo chamada em cada callback (query ao banco). Com store, a query ocorre uma vez e os callbacks filtram em memória (< 50ms)
+- **`highlight_pie_from_table` usa `State('table-previsto-real', 'data')`** diretamente em vez do store: a tabela já tem os dados filtrados, não precisa reprocessar
+- **`_loading_figure`** com `paper_bgcolor` igual ao card: transição suave de "carregando" para figura real, sem flash branco
+- **`no_update` → `_loading_figure`** no pie: `no_update` mantinha a figura padrão branca do Plotly; retornar a figura dark correta desde o início resolve o flash
+
+#### Pendências / próximos passos
+- Validar no Railway após redeploy.
+- Se o volume de dados crescer muito, considerar paginação server-side na tabela (atualmente carrega tudo no store).
+
+---
 ### [v2.19] Remoção de CardHeaders e ajustes visuais
 **Data:** 2026-04-16
 **IA:** Claude Sonnet 4.6 via Claude Code

@@ -1,5 +1,5 @@
 
-from dash import html, dcc, Input, Output
+from dash import html, dcc, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
@@ -58,6 +58,9 @@ def layout_indicadores():
     ]
 
     return dbc.Container(fluid=True, children=[
+        dcc.Store(id='pie-click-store', data=None),       # categoria selecionada no pie
+        dcc.Store(id='comparison-data-store', data=None), # cache do dataset completo (evita queries repetidas)
+        dcc.Interval(id='data-load-interval', interval=300, max_intervals=1),  # disparo único de load
         html.H4("Indicadores Fundamentalistas", className="mb-4 fw-bold",
                 style={"color": "#e8e8ff", "fontSize": "2rem"}),
 
@@ -92,7 +95,7 @@ def layout_indicadores():
 
                 # Gráfico + cards de recomendação
                 dbc.Row([
-                    dbc.Col(dcc.Graph(id="grafico-top-metric"), xs=12, md=8),
+                    dbc.Col(dcc.Graph(id="grafico-top-metric", figure=_loading_figure("#1e1e2f")), xs=12, md=8),
                     dbc.Col(
                         html.Div(
                             id="cards-top10-recs",
@@ -174,6 +177,7 @@ def layout_indicadores():
                 dcc.Loading(
                     type="dot",
                     color="#5561ff",
+                    delay_show=800,
                     children=dbc.Row([
                         dbc.Col(
                             html.Div(
@@ -315,12 +319,14 @@ def layout_indicadores():
                             ),
                             xs=12, lg=8
                         ),
-                        dbc.Col(
+                        dbc.Col([
                             dcc.Graph(
                                 id='pie-error-dist',
+                                figure=_loading_figure("#2c2c3e"),
                                 config={'displayModeBar': False},
-                                style={'marginTop': '10px'},
+                                style={'marginTop': '10px', 'cursor': 'pointer'},
                             ),
+                        ],
                             xs=12, lg=4
                         ),
                     ], className="align-items-start"),
@@ -410,25 +416,51 @@ def register_callbacks_indicadores(app):
         except Exception as e:
             return px.bar(title=f"Erro ao gerar gráfico: {e}")
 
+    # ── Load único: popula o store com todos os dados de comparação ────────
+    @app.callback(
+        Output('comparison-data-store', 'data'),
+        Input('data-load-interval', 'n_intervals'),
+    )
+    def load_comparison_data(_):
+        return _get_comparison_df().to_dict('records')
+
     @app.callback(
         Output('filter-acao-ind', 'options'),
-        Input('metric-picker', 'value')
+        Input('comparison-data-store', 'data'),
     )
-    def populate_acao_options(_):
-        df = _get_comparison_df()
-        vals = df['acao'].unique()
-        return [{'label': a, 'value': a} for a in sorted(vals)]
+    def populate_acao_options(store_data):
+        if not store_data:
+            return []
+        df = pd.DataFrame(store_data)
+        return [{'label': a, 'value': a} for a in sorted(df['acao'].dropna().unique())]
+
+    # ── Callback 1: clique no pie → store (toggle) ─────────────────────────
+    @app.callback(
+        Output('pie-click-store', 'data'),
+        Input('pie-error-dist', 'clickData'),
+        State('pie-click-store', 'data'),
+        prevent_initial_call=True,
+    )
+    def store_pie_click(clickData, current):
+        if not clickData:
+            return None
+        label = clickData['points'][0]['label']
+        return None if current == label else label  # toggle
 
     @app.callback(
         Output('table-previsto-real', 'data'),
         Output('table-previsto-real', 'columns'),
+        Input('comparison-data-store', 'data'),
         Input('filter-data-previsao', 'value'),
         Input('filter-data-calculo', 'value'),
         Input('filter-acao-ind', 'value'),
-        Input('filter-erro-pct', 'value')
+        Input('filter-erro-pct', 'value'),
+        Input('pie-click-store', 'data'),
     )
-    def update_table(data_prev, data_calc, acao_sel, erro_sel):
-        df = _get_comparison_df()
+    def update_table(store_data, data_prev, data_calc, acao_sel, erro_sel, pie_cat):
+        if not store_data:
+            return [], []
+        df = pd.DataFrame(store_data)
 
         if data_prev:
             df = df[df['data_previsao'] == data_prev]
@@ -446,6 +478,14 @@ def register_callbacks_indicadores(app):
             if 'eq0' in erro_sel:
                 masks.append(df['erro_pct'] == 0)
             df = df[np.logical_or.reduce(masks)]
+
+        # Filtro adicional pelo clique na pizza (Callback 3)
+        if pie_cat == 'Preciso':
+            df = df[df['erro_pct'] == 0]
+        elif pie_cat == 'Errou pra mais':
+            df = df[df['erro_pct'] > 0]
+        elif pie_cat == 'Errou pra menos':
+            df = df[df['erro_pct'] < 0]
 
         df = df.sort_values('data_previsao', ascending=True)
 
@@ -475,16 +515,65 @@ def register_callbacks_indicadores(app):
         ]
         return data, cols
 
-    @app.callback(
-        Output('pie-error-dist', 'figure'),
-        Input('filter-data-previsao', 'value'),
-        Input('filter-data-calculo', 'value'),
-        Input('filter-acao-ind', 'value'),
-        Input('filter-erro-pct', 'value'),
-    )
-    def plot_error_distribution(data_prev, data_calc, acao_sel, erro_sel):
-        df = _get_comparison_df()
+    def _build_pie_figure(df, selected_label=None, hover_label=None):
+        """Constrói a figura do pie com destaque visual na fatia selecionada/hovered."""
+        counts = {
+            'Preciso':         int((df['erro_pct'] == 0).sum()),
+            'Errou pra mais':  int((df['erro_pct'] > 0).sum()),
+            'Errou pra menos': int((df['erro_pct'] < 0).sum()),
+        }
+        base_colors = ['#00cc96', '#60a5fa', '#a78bfa']
+        labels = list(counts.keys())
+        values = list(counts.values())
 
+        # Fatia destacada: pull maior + cores vivas; demais ficam com opacidade reduzida
+        active = selected_label or hover_label
+        if active and active in labels:
+            idx = labels.index(active)
+            pull   = [0.16 if i == idx else 0.04 for i in range(3)]
+            colors = [
+                c if i == idx else f"rgba({int(c[1:3],16)},{int(c[3:5],16)},{int(c[5:7],16)},0.35)"
+                for i, c in enumerate(base_colors)
+            ]
+        else:
+            pull   = [0.06, 0.06, 0.06]
+            colors = base_colors
+
+        fig = go.Figure(go.Pie(
+            labels=labels,
+            values=values,
+            hole=0,
+            pull=pull,
+            marker={
+                "colors": colors,
+                "line": {"color": "#1e1e2f", "width": 2},
+            },
+            textinfo="percent",
+            textfont=dict(size=12, color="#ffffff"),
+            textposition="inside",
+            hovertemplate="<b>%{label}</b><br>%{value} previsões — %{percent}<br><i>Clique para filtrar a tabela</i><extra></extra>",
+            direction="clockwise",
+            sort=False,
+        ))
+        fig.update_layout(
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", y=1.02,
+                xanchor="center", x=0.5,
+                font=dict(color="#9b9bb5", size=11),
+                # Callback 2: legenda clicável para ocultar/mostrar fatias
+                itemclick="toggle",
+                itemdoubleclick="toggleothers",
+            ),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="#2c2c3e",
+            margin=dict(l=10, r=10, t=40, b=10),
+            clickmode="event",
+        )
+        return fig
+
+    def _apply_filters(df, data_prev, data_calc, acao_sel, erro_sel):
         if data_prev:
             df = df[df['data_previsao'] == data_prev]
         if data_calc:
@@ -493,57 +582,49 @@ def register_callbacks_indicadores(app):
             df = df[df['acao'] == acao_sel]
         if erro_sel:
             masks = []
-            if 'gt0' in erro_sel:
-                masks.append(df['erro_pct'] > 0)
-            if 'lt0' in erro_sel:
-                masks.append(df['erro_pct'] < 0)
-            if 'eq0' in erro_sel:
-                masks.append(df['erro_pct'] == 0)
+            if 'gt0' in erro_sel: masks.append(df['erro_pct'] > 0)
+            if 'lt0' in erro_sel: masks.append(df['erro_pct'] < 0)
+            if 'eq0' in erro_sel: masks.append(df['erro_pct'] == 0)
             df = df[np.logical_or.reduce(masks)]
+        return df
 
-        counts = {
-            'Preciso':         int((df['erro_pct'] == 0).sum()),
-            'Errou pra mais':  int((df['erro_pct'] > 0).sum()),
-            'Errou pra menos': int((df['erro_pct'] < 0).sum()),
-        }
-        colors = ['#00cc96', '#60a5fa', '#a78bfa']
-        labels = list(counts.keys())
-        values = list(counts.values())
+    # ── Callback 2: filtros + clique no pie → reconstrói pie com destaque ──
+    @app.callback(
+        Output('pie-error-dist', 'figure'),
+        Input('comparison-data-store', 'data'),
+        Input('filter-data-previsao', 'value'),
+        Input('filter-data-calculo', 'value'),
+        Input('filter-acao-ind', 'value'),
+        Input('filter-erro-pct', 'value'),
+        Input('pie-click-store', 'data'),
+    )
+    def plot_error_distribution(store_data, data_prev, data_calc, acao_sel, erro_sel, selected_label):
+        if not store_data:
+            return _loading_figure("#2c2c3e")
+        df = _apply_filters(pd.DataFrame(store_data), data_prev, data_calc, acao_sel, erro_sel)
+        return _build_pie_figure(df, selected_label=selected_label)
 
-        # Pizza sólida com fatias separadas (pull) — look 3D minimalista.
-        # Sem texto direto nas fatias: toda informação via hover + legenda.
-        fig = go.Figure(go.Pie(
-            labels=labels,
-            values=values,
-            hole=0,
-            pull=[0.06, 0.06, 0.06],
-            marker={
-                "colors": colors,
-                "line": {"color": "#1e1e2f", "width": 2},
-            },
-            textinfo="percent",
-            textfont=dict(size=12, color="#ffffff"),
-            textposition="inside",
-            hovertemplate="<b>%{label}</b><br>%{value} previsões — %{percent}<extra></extra>",
-            direction="clockwise",
-            sort=False,
-        ))
-
-        fig.update_layout(
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom", y=1.02,
-                xanchor="center", x=0.5,
-                font=dict(color="#9b9bb5", size=11),
-                itemclick=False,
-                itemdoubleclick=False,
-            ),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="#2c2c3e",
-            margin=dict(l=10, r=10, t=40, b=10),
-        )
-        return fig
+    # ── Callback 4: active_cell na tabela → destaca fatia correspondente ───
+    @app.callback(
+        Output('pie-error-dist', 'figure', allow_duplicate=True),
+        Input('table-previsto-real', 'active_cell'),
+        State('table-previsto-real', 'data'),
+        State('pie-click-store', 'data'),
+        prevent_initial_call=True,
+    )
+    def highlight_pie_from_table(active_cell, data, selected_label):
+        if not active_cell or not data:
+            return no_update
+        row = data[active_cell['row']]
+        cor = row.get('_cor_erro', 'none')
+        cor_to_label = {'zero': 'Preciso', 'pos': 'Errou pra mais', 'neg': 'Errou pra menos'}
+        hover_label = cor_to_label.get(cor)
+        if not hover_label:
+            return no_update
+        # Usa os dados já presentes na tabela — zero consulta ao banco
+        df = pd.DataFrame(data)
+        return _build_pie_figure(df, selected_label=selected_label,
+                                 hover_label=hover_label if not selected_label else None)
 
     @app.callback(
         Output("cards-top10-recs", "children"),
@@ -704,6 +785,26 @@ def register_callbacks_indicadores(app):
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
+def _loading_figure(bgcolor="#1e1e2f"):
+    """Figura dark-themed usada como placeholder enquanto os dados carregam."""
+    fig = go.Figure()
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor=bgcolor,
+        margin=dict(l=0, r=0, t=0, b=0),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        annotations=[dict(
+            text="Carregando dados...",
+            x=0.5, y=0.5,
+            xref="paper", yref="paper",
+            showarrow=False,
+            font=dict(size=13, color="#9b9bb5"),
+        )],
+    )
+    return fig
+
+
 def _get_comparison_df():
     conn = get_connection()
     df = pd.read_sql(
