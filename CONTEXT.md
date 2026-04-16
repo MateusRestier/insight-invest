@@ -51,6 +51,40 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.18] Otimização de RAM no deploy Railway
+**Data:** 2026-04-16
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`requirements.txt`**
+- Removidos 3 pacotes sem uso no serviço web:
+  - `matplotlib==3.9.3` — nenhum `import matplotlib` encontrado em nenhum arquivo `.py` do projeto; sobrou da época de gráficos estáticos, antes da migração para Plotly
+  - `seaborn==0.13.2` — mesmo caso que matplotlib
+  - `schedule==1.2.2` — só é usado em `scripts/executar_tarefas_diarias.py`, que não roda no Railway (é o agendador de execução local)
+
+**`src/dashboard/pages/recomendador.py`**
+- Removido import de nível de módulo: `from src.data.scraper_orquestrador import coletar_com_fallback as coletar_indicadores`
+- Import movido para **dentro** do callback `update_indicators`, imediatamente antes do primeiro uso
+- Efeito: `yfinance`, `fundamentus`, `beautifulsoup4`, `html5lib` e todas as suas dependências transitivas **não são mais carregadas no boot do servidor** — só na primeira vez que o usuário clica em "Recomendar"
+- Na segunda chamada em diante, Python reutiliza os módulos já em `sys.modules` sem overhead adicional
+
+#### Decisões e motivos
+
+- **Diagnóstico da cadeia de imports**: `main.py` importa `app.py` no nível do módulo (linha 309) → `app.py` importa `callbacks.py` → `callbacks.py` importa todos os três módulos de página imediatamente → `recomendador.py` importava `scraper_orquestrador` no topo → `scraper_orquestrador` importa `scraper_fundamentus` e `scraper_yahoo` no topo → ambos importam `yfinance` e `fundamentus`. Resultado: ~100–150 MB de libs de scraping carregadas no boot, mesmo sem nenhum request ao Recomendador.
+- **Lazy import em vez de refatorar callbacks**: a solução mais cirúrgica — uma linha de mudança, sem alterar contratos, sem risco de regressão. Python cacheia módulos em `sys.modules`, então o custo de execução do `import` só ocorre uma vez por processo.
+- **Remoção de dependências vs. manter por segurança**: matplotlib/seaborn confirmados ausentes via `grep` em todo o repositório (zero matches). Remover dependências não utilizadas é sempre preferível — reduz tempo de build, tamanho da imagem e superfície de ataque.
+
+#### Economia estimada
+- `matplotlib` + `seaborn`: ~100 MB (instalação + carregamento)
+- `yfinance` + `fundamentus` + `bs4` + `html5lib` (lazy): ~100–150 MB fora do baseline do processo
+- **Total esperado: ~200–250 MB de redução no uso de RAM em idle**
+
+#### Pendências / próximos passos
+- Acompanhar gráfico de RAM no Railway após redeploy para confirmar a redução.
+- Se RAM ainda estiver alta após o deploy, investigar se `scikit-learn`/`joblib` estão sendo importados em algum ponto do boot (via `recomendador_acoes.py`).
+
+---
 ### [v2.17] Reformulação do gráfico de pizza (indicadores)
 **Data:** 2026-04-15
 **IA:** Claude Sonnet 4.6 via Claude Code

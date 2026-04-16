@@ -3,7 +3,8 @@ import requests
 import plotly.graph_objects as go
 from dash import html, dcc, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
-from src.data.scraper_orquestrador import coletar_com_fallback as coletar_indicadores
+# scraper_orquestrador é importado lazily dentro do callback (não no topo do módulo)
+# para evitar que yfinance, fundamentus e bs4 sejam carregados no boot do servidor.
 
 # -----------------------------------------------------------------------------
 # Agrupamento semântico dos indicadores
@@ -167,6 +168,7 @@ def register_callbacks_recomendador(app):
         if not n_clicks or not ticker:
             return html.P("Insira um ticker e clique em Recomendar.", className="text-muted small")
 
+        from src.data.scraper_orquestrador import coletar_com_fallback as coletar_indicadores
         resultado = coletar_indicadores(ticker)
         if isinstance(resultado, str):
             return dbc.Alert(resultado, color="danger", dismissable=True)
