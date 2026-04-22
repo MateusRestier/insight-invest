@@ -1,6 +1,7 @@
 import os
 import sys
 import threading
+import re
 from pathlib import Path
 from datetime import date
 import shutil
@@ -244,7 +245,9 @@ Dados objetivos de hoje:
 
 Escreva um resumo em português do Brasil, entre 3 e 5 frases, tom profissional e claro para tomada de decisão.
 Inclua leitura crítica breve de risco/atenção e oportunidade.
-Não use markdown, títulos ou listas.
+Não use markdown, títulos, listas, cabeçalhos, nem linha inicial do tipo "Resumo Diário".
+Não inclua placeholders como [Data], {Data} ou <Data>.
+Comece diretamente pela análise, em texto corrido.
 """
     resumo = _gerar_texto_gemini_com_fallback(prompt)
     if not resumo:
@@ -253,6 +256,19 @@ Não use markdown, títulos ou listas.
             f"Os principais destaques combinando dividend yield e ROE incluem {', '.join(df_destaques['acao'].tolist()) if not df_destaques.empty else 'sem destaques suficientes'}. "
             f"O erro médio recente das previsões (10 dias) está em {erro_str}, o que ajuda a calibrar confiança na leitura diária."
         )
+    else:
+        # Remove títulos/headers redundantes gerados pelo LLM e placeholders de data.
+        linhas = [ln.strip() for ln in resumo.splitlines() if ln.strip()]
+        linhas_filtradas = []
+        for ln in linhas:
+            lower = ln.lower()
+            if "resumo diário" in lower or "resumo do dia" in lower:
+                continue
+            ln = re.sub(r"\[data\]|\{data\}|<data>", "", ln, flags=re.IGNORECASE).strip(" -–—:")
+            if ln:
+                linhas_filtradas.append(ln)
+        if linhas_filtradas:
+            resumo = " ".join(linhas_filtradas).strip()
 
     with conn.cursor() as cur:
         cur.execute(
