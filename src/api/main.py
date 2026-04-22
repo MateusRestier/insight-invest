@@ -59,6 +59,14 @@ def _run_treinar():
     finally:
         _set_tarefa(None)
 
+def _run_regressor():
+    _set_tarefa("regressor")
+    try:
+        from src.models.regressor_preco import executar_pipeline_regressor
+        executar_pipeline_regressor(n_dias=10, data_calculo=date.today())
+    finally:
+        _set_tarefa(None)
+
 def _run_recomendar():
     _set_tarefa("recomendar")
     try:
@@ -97,6 +105,13 @@ def treinar(background_tasks: BackgroundTasks, _key: str = Security(verificar_ch
         raise HTTPException(status_code=409, detail=f"Tarefa '{_get_tarefa()}' já em andamento")
     background_tasks.add_task(_run_treinar)
     return {"aceito": True, "tarefa": "treinar"}
+
+@app.post("/tarefas/treinar-regressor", status_code=202)
+def treinar_regressor(background_tasks: BackgroundTasks, _key: str = Security(verificar_chave)):
+    if _get_tarefa():
+        raise HTTPException(status_code=409, detail=f"Tarefa '{_get_tarefa()}' já em andamento")
+    background_tasks.add_task(_run_regressor)
+    return {"aceito": True, "tarefa": "regressor"}
 
 @app.post("/tarefas/recomendar", status_code=202)
 def recomendar(background_tasks: BackgroundTasks, _key: str = Security(verificar_chave)):
