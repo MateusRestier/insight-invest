@@ -34,7 +34,23 @@ app.layout = dbc.Container(
         dcc.Location(id="url", refresh=False),
 
         dbc.NavbarSimple(
-            brand="Insight Invest",
+            brand=html.Span(
+                [
+                    html.Img(
+                        src="/assets/logo-insight-invest.svg",
+                        alt="Insight Invest",
+                        style={
+                            "height": "36px",
+                            "width": "36px",
+                            "marginRight": "0.6rem",
+                            "display": "block",
+                            "objectFit": "contain",
+                        },
+                    ),
+                    html.Span("Insight Invest"),
+                ],
+                className="brand-with-logo",
+            ),
             brand_href="#section-indicadores",
             color="dark",
             dark=True,

@@ -89,6 +89,18 @@ textarea {
     font-size: 1.1rem;
     font-weight: 600;
     letter-spacing: 0.02em;
+    padding-top: 0;
+    padding-bottom: 0;
+    min-height: 0;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.navbar .navbar-brand .brand-with-logo {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
 }
 @media (max-width: 576px) {
     .navbar .navbar-brand {
