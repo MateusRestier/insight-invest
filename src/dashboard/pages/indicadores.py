@@ -60,7 +60,7 @@ def layout_indicadores():
     return dbc.Container(fluid=True, children=[
         dcc.Store(id='pie-click-store', data=None),       # categoria selecionada no pie
         dcc.Store(id='comparison-data-store', data=None), # cache do dataset completo (evita queries repetidas)
-        dcc.Interval(id='data-load-interval', interval=300, max_intervals=1),  # disparo único de load
+        dcc.Interval(id='data-load-interval', interval=60 * 60 * 1000),  # verifica a cada 1h; recarrega às 1h da manhã
         html.H4("Indicadores Fundamentalistas", className="mb-4 fw-bold",
                 style={"color": "#e8e8ff", "fontSize": "2rem"}),
 
@@ -416,12 +416,18 @@ def register_callbacks_indicadores(app):
         except Exception as e:
             return px.bar(title=f"Erro ao gerar gráfico: {e}")
 
-    # ── Load único: popula o store com todos os dados de comparação ────────
+    # ── Load periódico: popula o store na carga inicial e às 1h da manhã ──
     @app.callback(
         Output('comparison-data-store', 'data'),
         Input('data-load-interval', 'n_intervals'),
+        State('comparison-data-store', 'data'),
     )
-    def load_comparison_data(_):
+    def load_comparison_data(_, existing_data):
+        from datetime import datetime
+        hora_atual = datetime.now().hour
+        # Recarrega apenas se o store estiver vazio (primeira carga) ou se for 1h da manhã
+        if existing_data is not None and hora_atual != 1:
+            return no_update
         return _get_comparison_df().to_dict('records')
 
     @app.callback(

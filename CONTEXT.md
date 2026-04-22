@@ -51,6 +51,35 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.21] Atualização de dados em produção sem redeploy
+**Data:** 2026-04-22
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/core/db_connection.py`**
+- Adicionado `conn.autocommit = True` logo após `psycopg2.connect()`
+- Antes: psycopg2 abria uma transação implícita (`BEGIN`) a cada `get_connection()`, e o PostgreSQL servia dados do snapshot do início da transação — ignorando commits feitos pelo scraper depois do deploy
+- Com `autocommit=True`: cada query vê o estado mais recente do banco (sem snapshot de transação isolado)
+
+**`src/dashboard/pages/indicadores.py`**
+- `dcc.Interval(id='data-load-interval')` ajustado para **1 hora** (`interval=60 * 60 * 1000`)
+- Callback `load_comparison_data` reescrito com lógica de horário:
+  - **Recarrega** do banco quando o store está vazio (primeira carga da sessão) OU quando `datetime.now().hour == 1` (1h da manhã)
+  - **`no_update`** em todos os outros casos (store já populado e não é 1h)
+  - `State('comparison-data-store', 'data')` adicionado ao callback para verificar se store já tem dados
+- Efeito: banco é consultado uma vez por sessão ao abrir o app, e volta a ser consultado às 1h da manhã de cada dia (janela alinhada com a execução do scraper) — sem consumo desnecessário na Railway
+
+#### Decisões e motivos
+
+- **`autocommit=True` em vez de `COMMIT` explícito**: a causa raiz era o isolamento de transação do PostgreSQL (modo `READ COMMITTED`). Com `autocommit`, não há transação implícita — cada `SELECT` vê o estado atual. Alternativa de fechar/reabrir conexão também funcionaria, mas o `autocommit` é mais simples e sem overhead.
+- **Intervalo de 1h com check de horário em vez de 20h fixo**: intervalo de 20h garante no máximo 1 recarga por dia, mas não é determinístico — se o app reinicia às 22h, a próxima atualização seria às 18h do dia seguinte (depois que o scraper já rodou). Com 1h + `hour == 1`, a janela é fixa: sempre às 1h da manhã, 1–2h após a coleta do scraper. Consome apenas 24 "disparos" de interval por dia, cada um apenas verificando a hora (sem I/O se não for 1h).
+- **`State` em vez de segundo `Input`**: o store só deve disparar recarga quando o interval dispara, não quando os dados chegam — por isso `State` é correto aqui.
+
+#### Pendências / próximos passos
+- Validar no Railway após redeploy que os dados do scraper aparecem no dia seguinte sem redeploy manual.
+
+---
 ### [v2.20] Conversão para single-page + interatividade do pie chart
 **Data:** 2026-04-16
 **IA:** Claude Sonnet 4.6 via Claude Code
