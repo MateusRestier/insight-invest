@@ -2,8 +2,8 @@ name: Treinar Regressor (Diário)
 
 on:
   schedule:
-    # 00:30 UTC (21:30 BRT) — dias úteis, 30 min após o 2º scraper (23:00 UTC)
-    - cron: "30 0 * * 2-6"
+    # 00:30 UTC (21:30 BRT de segunda-feira) — toda terça UTC = segunda BRT
+    - cron: "30 0 * * 2"
   workflow_dispatch:
 
 jobs:
