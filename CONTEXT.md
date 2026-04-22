@@ -51,6 +51,30 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.22] Cron semanal para regressor + endpoint dedicado
+**Data:** 2026-04-22
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/api/main.py`**
+- Adicionado `_run_regressor()`: executa apenas `executar_pipeline_regressor(n_dias=10, data_calculo=date.today())` sem tocar no classificador
+- Adicionado endpoint `POST /tarefas/treinar-regressor`: mesmo padrão dos outros endpoints (mutex `_get_tarefa()`, 409 se outra tarefa em andamento, 202 Accepted)
+
+**`.github/workflows/treinar-regressor.yml`** (novo)
+- Cron: `30 0 * * 2` — toda terça UTC = segunda-feira às 21:30 BRT
+- Dispara 30 min após o segundo scraper (23:00 UTC), garantindo que os dados da semana já estão no banco
+- Mesmo padrão de retry (5 tentativas, 120s de espera) e tratamento de 409
+
+#### Decisões e motivos
+- **Regressor separado do classificador**: o classificador usa `GridSearchCV` com 6 valores de `n_estimators` + cross-validation (5–15 min); o regressor é um único `RandomForestRegressor(n_estimators=100).fit()` (~1–3 min). Não faz sentido rodar o pesado diariamente só para atualizar previsões.
+- **Semanal (segunda) em vez de diário**: `resultados_precos` é usado para análise de acurácia do modelo — dados semanais são suficientes para essa granularidade. `recomendacoes_acoes` não é atualizado junto pois depende do classificador.
+- **Terça UTC = segunda BRT**: BRT = UTC−3, então segunda 21:30 BRT = terça 00:30 UTC. Cron `* * 2` é terça no padrão cron (0=dom, 1=seg, 2=ter).
+
+#### Pendências / próximos passos
+- Após o primeiro disparo automático (próxima segunda), verificar no Railway se `resultados_precos` recebeu novas linhas com `data_calculo = date.today()`.
+
+---
 ### [v2.21] Atualização de dados em produção sem redeploy
 **Data:** 2026-04-22
 **IA:** Claude Sonnet 4.6 via Claude Code
