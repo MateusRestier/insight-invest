@@ -51,6 +51,61 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.28] Backup semanal via email + workflow resiliente à versão do Railway
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+- **`scripts/backup.py`**:
+  - mantido fluxo de backup remoto usando apenas credenciais `DB_*` (Railway/local), sem dependência de Docker;
+  - ao detectar `pg_dump` incompatível com o servidor, retorna erro orientativo claro para instalação do client PostgreSQL compatível (sem traceback confuso);
+  - envio por email via Resend mantido após geração do dump (`--no-email` continua disponível).
+- **`.github/workflows/backup-banco.yml`** (novo workflow de backup):
+  - alterado para execução **semanal aos sábados 00:01 BRT** (`cron: "1 3 * * 6"`);
+  - agora detecta automaticamente a major version do PostgreSQL remoto com `SHOW server_version`;
+  - instala `postgresql-client-${major}` dinamicamente antes de rodar `scripts/backup.py --criar`;
+  - usa secrets `DB_*` + `RESEND_*` para conectar no banco e enviar o email.
+- **`.env.example`**:
+  - removida referência de fallback Docker para evitar confusão operacional.
+- **`requirements.txt`**:
+  - adicionado `resend>=2.0.0`.
+
+#### Decisões e motivos
+- Banco do usuário está remoto no Railway; portanto o backup deve ser tratado como conexão remota por `pg_dump` e não como operação local em container.
+- Dependência fixa em `postgresql-client-18` no Actions poderia quebrar em upgrade do Railway; instalação dinâmica por major reduz manutenção.
+- Mensagens de erro foram simplificadas para facilitar suporte operacional (ação recomendada explícita quando houver mismatch).
+
+#### Pendências / próximos passos
+- Cadastrar/validar no GitHub Secrets: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`, `RESEND_API_KEY`, `RESEND_FROM`, `BACKUP_EMAIL_TO`.
+- Executar `Run workflow` manual no GitHub Actions para validar ponta a ponta (dump + email).
+
+---
+### [v2.27] Backup do banco via email (Resend) + fix pg_dump version mismatch
+**Data:** 2026-04-14
+**IA:** Claude Sonnet 4.6 via Cursor
+
+#### O que foi feito
+- `scripts/backup.py` reescrito com:
+  - `_get_server_major_version()`: consulta a versão major do servidor PostgreSQL via psycopg2 antes de chamar pg_dump (evita o erro de version mismatch por surpresa).
+  - `_find_pg_tool(tool, preferred_major)`: busca pg_dump/pg_restore que corresponda à versão do servidor; rastreia versões 14–20 no Windows e Linux.
+  - `_criar_backup_via_docker(server_major, dump_local)`: quando não há pg_dump compatível local, executa `docker run --rm postgres:<major> pg_dump -f -` e redireciona stdout para o arquivo local. Resolve o erro `server version mismatch` sem exigir instalação manual do PostgreSQL 18.
+  - `criar_backup()` agora retorna `Path` do dump gerado.
+  - `enviar_backup_email(dump_path)`: comprime o dump com gzip (io.BytesIO + gzip.GzipFile), envia o `.dump.gz` em anexo via SDK `resend`. Se o arquivo comprimido passar de 40 MB, envia o email sem anexo mas com notificação.
+  - `main()` chama `enviar_backup_email` automaticamente após `criar_backup`, salvo com `--no-email`.
+- `requirements.txt`: adicionado `resend>=2.0.0`.
+- `.env.example`: adicionados `RESEND_API_KEY`, `RESEND_FROM`, `BACKUP_EMAIL_TO`, `POSTGRES_CONTAINER`.
+- `.env` (local): `RESEND_API_KEY`, `RESEND_FROM`, `BACKUP_EMAIL_TO` já estavam presentes.
+
+#### Decisões e motivos
+- **Docker como fallback de versão**: mais portátil que exigir instalação manual do pg_dump 18. O `docker run postgres:18 pg_dump -f -` conecta-se diretamente ao host/porta do .env (Railway ou local), sem precisar do container do banco rodando na mesma máquina.
+- **gzip antes do envio**: dumps PostgreSQL comprimem muito bem; reduz custo de transferência e garante ficar abaixo do limite de 40 MB do Resend.
+- **Nenhuma mudança na restauração**: a função `restaurar_backup` não foi alterada; ela já funcionava corretamente.
+
+#### Pendências / próximos passos
+- Instalar o `resend` localmente: `pip install resend` (ou `pip install -r requirements.txt`).
+- Para o backup automático via GitHub Actions (cron diário), criar `.github/workflows/backup.yml` com `python scripts/backup.py --criar`.
+
+---
 ### [v2.26] Resumo diário via job agendado no GitHub Actions
 **Data:** 2026-04-22
 **IA:** Codex 5.3 via Cursor
