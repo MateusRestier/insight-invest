@@ -51,6 +51,28 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.30] Fix pg_dump no Railway para backup via API
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+- **`Dockerfile`**:
+  - substituída instalação genérica `postgresql-client` por instalação explícita do **`postgresql-client-18`**;
+  - adicionada configuração do repositório oficial PGDG para garantir disponibilidade da major 18 no build da imagem Railway.
+- **`scripts/backup.py`**:
+  - ajustada função `_find_pg_tool()` para priorizar binários versionados (`/usr/lib/postgresql/<major>/bin`) antes de usar o `pg_dump` do PATH;
+  - com isso, em ambiente Linux/Railway, o script passa a selecionar o cliente compatível com a versão detectada do servidor.
+
+#### Decisões e motivos
+- O erro em produção mostrava mismatch: servidor PostgreSQL v18 vs cliente `/usr/bin/pg_dump` incompatível.
+- Fixar `postgresql-client-18` no container da API elimina a ambiguidade de versão no Railway.
+- Priorizar binário versionado no código evita regressão mesmo se houver outro `pg_dump` no PATH.
+
+#### Pendências / próximos passos
+- Fazer redeploy da aplicação no Railway para reconstruir imagem com o novo Dockerfile.
+- Reexecutar manualmente o workflow `backup-banco` para validar geração do dump e envio por email.
+
+---
 ### [v2.29] Backup via API (mesmo padrão dos demais jobs)
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor

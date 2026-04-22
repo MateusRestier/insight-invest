@@ -55,10 +55,6 @@ def _find_pg_tool(tool: str, preferred_major: int | None = None) -> str | None:
     Retorna o caminho do binário pg_dump / pg_restore.
     Tenta encontrar a versão que corresponde ao servidor primeiro.
     """
-    found = shutil.which(tool)
-    if found:
-        return found
-
     candidates: dict[int, str] = {}
     if os.name == "nt":
         for v in range(20, 13, -1):
@@ -76,6 +72,11 @@ def _find_pg_tool(tool: str, preferred_major: int | None = None) -> str | None:
 
     if preferred_major and preferred_major in candidates:
         return candidates[preferred_major]
+
+    # Só cai para o PATH depois de tentar binários versionados.
+    found = shutil.which(tool)
+    if found:
+        return found
 
     return candidates[max(candidates)]
 
