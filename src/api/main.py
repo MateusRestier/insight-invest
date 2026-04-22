@@ -246,7 +246,7 @@ Dados objetivos de hoje:
 Escreva um resumo em português do Brasil, entre 3 e 5 frases, tom profissional e claro para tomada de decisão.
 Inclua leitura crítica breve de risco/atenção e oportunidade.
 Não use markdown, títulos, listas, cabeçalhos, nem linha inicial do tipo "Resumo Diário".
-Não inclua placeholders como [Data], {Data} ou <Data>.
+Não inclua placeholders como [Data], {{Data}} ou <Data>.
 Comece diretamente pela análise, em texto corrido.
 """
     resumo = _gerar_texto_gemini_com_fallback(prompt)
