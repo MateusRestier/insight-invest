@@ -51,6 +51,54 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.25] Resumo diário com IA + persistência no banco
+**Data:** 2026-04-22
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`src/api/main.py`**:
+  - novo endpoint público `GET /resumo-diario` com dados consolidados do banco:
+    - quantidade de ações recomendadas na semana;
+    - top 3 destaques por combinação `dividend_yield + roe`;
+    - erro médio dos últimos 10 dias (com fallback de cálculo via join quando necessário).
+  - extraída a lógica de geração Gemini para helper reutilizável:
+    - `_gerar_texto_gemini_com_fallback(prompt)`.
+  - endpoint `POST /recomendacao/{ticker}` passou a reutilizar esse helper (sem duplicação de fallback).
+  - geração diária protegida com `pg_advisory_lock` para evitar corrida entre instâncias.
+- **`src/dashboard/pages/indicadores.py`**:
+  - adicionado `dcc.Store(id='resumo-ia-store')`.
+  - callback acionado pelo `data-load-interval` para buscar `GET /resumo-diario`.
+  - novo card no topo da seção de indicadores (`resumo-ia-container`) com estilo dark:
+    - título `✨ Resumo do dia` em `#9b9bb5`;
+    - texto em `#c8c8e0`, `0.875rem`, `line-height: 1.7`;
+    - fundo `#1a1a2e` e borda esquerda `3px solid #5561ff`.
+  - card fica oculto enquanto não há payload válido da API.
+- **`scripts/garantir_tabelas.py`** (novo):
+  - script de bootstrap de schema com `CREATE TABLE IF NOT EXISTS` para:
+    - `indicadores_fundamentalistas`;
+    - `recomendacoes_acoes`;
+    - `resultados_precos`;
+    - `resumos_diarios_ia` (nova tabela de resumos).
+- **`src/api/main.py` (startup)**:
+  - adicionado `@app.on_event("startup")` para chamar `garantir_tabelas()` e garantir schema completo ao iniciar o serviço.
+
+#### Decisões e motivos
+
+- Cache em memória não garante unicidade diária em cenários com restart ou múltiplas instâncias.
+- Persistir resumo diário em tabela com chave por data (`data_ref`) garante consistência entre processos e reboots.
+- `pg_advisory_lock` foi adotado para serializar geração do resumo e evitar condição de corrida no primeiro acesso do dia.
+- Centralizar fallback Gemini em helper reduz manutenção e mantém comportamento uniforme entre endpoints de IA.
+
+#### Pendências / próximos passos
+
+- Rodar/validar `python scripts/garantir_tabelas.py` em ambientes legados antes do primeiro acesso ao endpoint.
+- Validar no Railway o fluxo completo:
+  - criação automática do schema no startup;
+  - card de resumo aparecendo no topo de Indicadores;
+  - endpoint `GET /resumo-diario` respondendo com o mesmo texto ao longo do dia.
+
+---
 ### [v2.24] Segregação dos jobs de treino em workflows individuais
 **Data:** 2026-04-22
 **IA:** Claude Sonnet 4.6 via Claude Code

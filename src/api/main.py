@@ -4,6 +4,8 @@ import threading
 from pathlib import Path
 from datetime import date
 import shutil
+import pandas as pd
+from scripts.garantir_tabelas import garantir_tabelas
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -38,6 +40,51 @@ def _set_tarefa(nome: str | None):
 def _get_tarefa() -> str | None:
     with _lock:
         return _tarefa_em_andamento["nome"]
+
+
+def _gerar_texto_gemini_com_fallback(prompt: str) -> str | None:
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    if not gemini_key:
+        return None
+
+    try:
+        import time
+        from google import genai as google_genai
+        from google.genai.errors import ClientError as _GeminiClientError
+
+        _modelo_principal = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        client = google_genai.Client(api_key=gemini_key)
+
+        _todos = [
+            m.name.replace("models/", "")
+            for m in client.models.list()
+            if "generateContent" in (m.supported_actions or [])
+        ]
+        _modelos = [_modelo_principal] + [m for m in _todos if m != _modelo_principal]
+
+        for _modelo in _modelos:
+            for _tentativa in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model=_modelo,
+                        contents=prompt,
+                    )
+                    texto = (response.text or "").strip()
+                    if texto:
+                        print(f"[GEMINI] Respondido por: {_modelo}")
+                        return texto
+                except _GeminiClientError as _ce:
+                    print(f"[GEMINI] {_modelo} descartado (4xx): {_ce}")
+                    break
+                except Exception as _retry_err:
+                    print(f"[GEMINI] {_modelo} tentativa {_tentativa+1} falhou: {_retry_err}")
+                    if _tentativa < 1:
+                        time.sleep(3)
+    except Exception as _err:
+        print(f"[GEMINI] Erro no fallback dinâmico: {_err}")
+
+    return None
+
 
 # ── Workers ───────────────────────────────────────────────────────────────────
 
@@ -88,6 +135,11 @@ def _run_recomendar():
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="Insight Invest API", version="1.0.0")
+
+
+@app.on_event("startup")
+def _startup_garantir_tabelas():
+    garantir_tabelas()
 
 @app.get("/health")
 def health():
@@ -293,24 +345,21 @@ def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
 
     # ── Explicação XAI via Gemini ─────────────────────────────────────────────
     explicacao_ia = None
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    if gemini_key:
-        try:
-            # Top-5 features mais importantes do modelo
-            feature_names = FEATURES_ESPERADAS_PELO_MODELO
-            importances = modelo.feature_importances_
-            top_idx = importances.argsort()[::-1][:5]
-            top_features = [
-                f"{feature_names[i]} ({importances[i]*100:.1f}%): {_v(feature_names[i]):.2f}"
-                for i in top_idx
-                if not pd.isna(_v(feature_names[i]))
-            ]
+    try:
+        feature_names = FEATURES_ESPERADAS_PELO_MODELO
+        importances = modelo.feature_importances_
+        top_idx = importances.argsort()[::-1][:5]
+        top_features = [
+            f"{feature_names[i]} ({importances[i]*100:.1f}%): {_v(feature_names[i]):.2f}"
+            for i in top_idx
+            if not pd.isna(_v(feature_names[i]))
+        ]
 
-            positivos_str = "\n".join(f"- {j}" for j in justificativas_positivas) or "Nenhum"
-            negativos_str = "\n".join(f"- {j}" for j in justificativas_negativas) or "Nenhum"
-            top_str = "\n".join(f"- {f}" for f in top_features) or "Não disponível"
+        positivos_str = "\n".join(f"- {j}" for j in justificativas_positivas) or "Nenhum"
+        negativos_str = "\n".join(f"- {j}" for j in justificativas_negativas) or "Nenhum"
+        top_str = "\n".join(f"- {f}" for f in top_features) or "Não disponível"
 
-            prompt = f"""Você é um analista de investimentos em ações brasileiras. Analise a recomendação do modelo de machine learning para a ação {ticker} e escreva uma explicação clara e objetiva em português.
+        prompt = f"""Você é um analista de investimentos em ações brasileiras. Analise a recomendação do modelo de machine learning para a ação {ticker} e escreva uma explicação clara e objetiva em português.
 
 DADOS DO MODELO:
 - Resultado: {resultado}
@@ -327,48 +376,10 @@ PONTOS DE ATENÇÃO IDENTIFICADOS:
 
 Escreva entre 3 e 5 frases explicando por que o modelo chegou a essa conclusão, conectando os indicadores mais relevantes com o resultado. Use linguagem acessível, sem jargões excessivos. Não repita os números já listados acima — apenas interprete-os. Não use markdown, listas ou títulos — apenas texto corrido.
 """
-            import time
-            from google import genai as google_genai
-            from google.genai.errors import ClientError as _GeminiClientError
-            _modelo_principal = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-            client = google_genai.Client(api_key=gemini_key)
-
-            # Busca todos os modelos disponíveis para esta chave que suportam generateContent
-            _todos = [
-                m.name.replace("models/", "")
-                for m in client.models.list()
-                if "generateContent" in (m.supported_actions or [])
-            ]
-            # Principal primeiro; demais em ordem retornada pela API (sem hardcode)
-            _modelos = [_modelo_principal] + [m for m in _todos if m != _modelo_principal]
-
-            for _modelo in _modelos:
-                _tentou = False
-                for _tentativa in range(2):
-                    _tentou = True
-                    try:
-                        response = client.models.generate_content(
-                            model=_modelo,
-                            contents=prompt,
-                        )
-                        explicacao_ia = response.text.strip()
-                        print(f"[XAI] Respondido por: {_modelo}")
-                        break
-                    except _GeminiClientError as _ce:
-                        # 4xx (429 quota, 400 modality) — pula imediatamente, retry não resolve
-                        print(f"[XAI] {_modelo} descartado (4xx): {_ce}")
-                        _tentou = False
-                        break
-                    except Exception as _retry_err:
-                        # 503 e similares — vale tentar novamente
-                        print(f"[XAI] {_modelo} tentativa {_tentativa+1} falhou: {_retry_err}")
-                        if _tentativa < 1:
-                            time.sleep(3)
-                if explicacao_ia:
-                    break
-        except Exception as _xai_err:
-            print(f"[XAI] Erro ao chamar Gemini: {_xai_err}")
-            explicacao_ia = None  # falha silenciosa — não quebra o endpoint
+        explicacao_ia = _gerar_texto_gemini_com_fallback(prompt)
+    except Exception as _xai_err:
+        print(f"[XAI] Erro ao chamar Gemini: {_xai_err}")
+        explicacao_ia = None
 
     return {
         "ticker": ticker,
@@ -382,6 +393,163 @@ Escreva entre 3 e 5 frases explicando por que o modelo chegou a essa conclusão,
         "justificativas_negativas": justificativas_negativas,
         "explicacao_ia": explicacao_ia,
     }
+
+
+@app.get("/resumo-diario")
+def resumo_diario():
+    from src.core.db_connection import get_connection
+
+    hoje = date.today().isoformat()
+    conn = None
+    lock_key = 88442217
+    try:
+        conn = get_connection()
+
+        # Garante exclusão mútua entre instâncias para geração diária
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_lock(%s)", (lock_key,))
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT resumo, TO_CHAR(data_ref, 'YYYY-MM-DD') AS data_ref
+                FROM resumos_diarios_ia
+                WHERE data_ref = CURRENT_DATE
+                LIMIT 1
+                """
+            )
+            row = cur.fetchone()
+        if row:
+            return {"resumo": row[0], "gerado_em": row[1]}
+
+        df_semana = pd.read_sql(
+            """
+            SELECT COUNT(*) AS total
+            FROM recomendacoes_acoes
+            WHERE resultado = 'Recomendada'
+              AND data_insercao >= date_trunc('week', CURRENT_DATE)
+            """,
+            conn,
+        )
+        total_recomendadas_semana = int(df_semana.iloc[0]["total"] or 0)
+
+        df_destaques = pd.read_sql(
+            """
+            WITH base AS (
+                SELECT
+                    r.acao,
+                    r.resultado,
+                    r.data_insercao::date AS dia_ref,
+                    i.dividend_yield,
+                    i.roe,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY r.acao
+                        ORDER BY r.data_insercao DESC
+                    ) AS rn
+                FROM recomendacoes_acoes r
+                LEFT JOIN indicadores_fundamentalistas i
+                    ON i.acao = r.acao
+                   AND i.data_coleta = (
+                       SELECT MAX(i2.data_coleta)
+                       FROM indicadores_fundamentalistas i2
+                       WHERE i2.acao = r.acao
+                   )
+                WHERE r.resultado = 'Recomendada'
+                  AND r.data_insercao >= date_trunc('week', CURRENT_DATE)
+            )
+            SELECT acao, dividend_yield, roe
+            FROM base
+            WHERE rn = 1
+            ORDER BY COALESCE(dividend_yield, 0) + COALESCE(roe, 0) DESC
+            LIMIT 3
+            """,
+            conn,
+        )
+
+        try:
+            df_erro = pd.read_sql(
+                """
+                SELECT ROUND(AVG(erro_pct)::numeric, 4) AS erro_medio_10d
+                FROM resultados_precos
+                WHERE data_calculo >= CURRENT_DATE - INTERVAL '10 days'
+                  AND erro_pct IS NOT NULL
+                """,
+                conn,
+            )
+            erro_medio_10d = df_erro.iloc[0]["erro_medio_10d"]
+        except Exception:
+            df_erro = pd.read_sql(
+                """
+                SELECT ROUND(AVG(
+                    CASE WHEN i.cotacao IS NOT NULL AND i.cotacao <> 0
+                         THEN ((r.preco_previsto - i.cotacao) / i.cotacao) * 100
+                         ELSE NULL END
+                )::numeric, 4) AS erro_medio_10d
+                FROM resultados_precos r
+                LEFT JOIN indicadores_fundamentalistas i
+                  ON r.acao = i.acao
+                 AND r.data_previsao = i.data_coleta
+                WHERE r.data_calculo >= CURRENT_DATE - INTERVAL '10 days'
+                """,
+                conn,
+            )
+            erro_medio_10d = df_erro.iloc[0]["erro_medio_10d"]
+
+        destaque_linhas = []
+        for _, row in df_destaques.iterrows():
+            dy = row["dividend_yield"]
+            roe = row["roe"]
+            dy_str = "n/d" if pd.isna(dy) else f"{float(dy):.2f}%"
+            roe_str = "n/d" if pd.isna(roe) else f"{float(roe):.2f}%"
+            destaque_linhas.append(f"- {row['acao']} (DY: {dy_str}, ROE: {roe_str})")
+        destaques_texto = "\n".join(destaque_linhas) if destaque_linhas else "- Sem destaques suficientes nesta semana"
+
+        erro_str = "n/d" if pd.isna(erro_medio_10d) else f"{float(erro_medio_10d):.2f}%"
+
+        prompt = f"""Você é um analista de investimentos e deve gerar um resumo diário curto para um dashboard financeiro.
+
+Dados objetivos de hoje:
+- Ações recomendadas nesta semana: {total_recomendadas_semana}
+- Top 3 destaques positivos (melhor combinação DY + ROE):
+{destaques_texto}
+- Erro médio do modelo de previsão (últimos 10 dias): {erro_str}
+
+Escreva um resumo em português do Brasil, entre 3 e 5 frases, tom profissional e claro para tomada de decisão.
+Inclua leitura crítica breve de risco/atenção e oportunidade.
+Não use markdown, títulos ou listas.
+"""
+        resumo = _gerar_texto_gemini_com_fallback(prompt)
+        if not resumo:
+            resumo = (
+                f"Na semana atual, o modelo marcou {total_recomendadas_semana} ações como recomendadas. "
+                f"Os principais destaques combinando dividend yield e ROE incluem {', '.join(df_destaques['acao'].tolist()) if not df_destaques.empty else 'sem destaques suficientes'}. "
+                f"O erro médio recente das previsões (10 dias) está em {erro_str}, o que ajuda a calibrar confiança na leitura diária."
+            )
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO resumos_diarios_ia (data_ref, resumo)
+                VALUES (CURRENT_DATE, %s)
+                ON CONFLICT (data_ref)
+                DO UPDATE SET resumo = EXCLUDED.resumo, gerado_em = NOW()
+                RETURNING resumo, TO_CHAR(data_ref, 'YYYY-MM-DD') AS data_ref
+                """,
+                (resumo,),
+            )
+            saved = cur.fetchone()
+        return {"resumo": saved[0], "gerado_em": saved[1]}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar resumo diário: {exc}") from exc
+    finally:
+        if conn is not None:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT pg_advisory_unlock(%s)", (lock_key,))
+            except Exception:
+                pass
+        if conn is not None:
+            conn.close()
 
 @app.post("/modelo/upload")
 def upload_modelo(

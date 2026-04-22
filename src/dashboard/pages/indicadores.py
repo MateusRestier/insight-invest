@@ -1,4 +1,6 @@
 
+import os
+import requests
 from dash import html, dcc, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -60,9 +62,12 @@ def layout_indicadores():
     return dbc.Container(fluid=True, children=[
         dcc.Store(id='pie-click-store', data=None),       # categoria selecionada no pie
         dcc.Store(id='comparison-data-store', data=None), # cache do dataset completo (evita queries repetidas)
+        dcc.Store(id='resumo-ia-store', data=None),
         dcc.Interval(id='data-load-interval', interval=60 * 60 * 1000),  # verifica a cada 1h; recarrega às 1h da manhã
         html.H4("Indicadores Fundamentalistas", className="mb-4 fw-bold",
                 style={"color": "#e8e8ff", "fontSize": "2rem"}),
+
+        html.Div(id="resumo-ia-container", style={"display": "none"}, className="mb-3"),
 
         # ── SEÇÃO 1: RANKING ────────────────────────────────────────────
         dbc.Card([
@@ -341,6 +346,13 @@ def layout_indicadores():
 # Callbacks da página "Indicadores"
 # ----------------------------------------------------------------------
 def register_callbacks_indicadores(app):
+    def _resolver_api_url():
+        api_url = os.getenv("API_URL", "").rstrip("/")
+        if api_url:
+            return api_url
+        porta = os.getenv("PORT", "8000")
+        return f"http://127.0.0.1:{porta}"
+
     @app.callback(
         Output("grafico-top-metric", "figure"),
         Input("metric-picker", "value")
@@ -429,6 +441,57 @@ def register_callbacks_indicadores(app):
         if existing_data is not None and hora_atual != 1:
             return no_update
         return _get_comparison_df().to_dict('records')
+
+    @app.callback(
+        Output("resumo-ia-store", "data"),
+        Input("data-load-interval", "n_intervals"),
+        State("resumo-ia-store", "data"),
+    )
+    def load_resumo_diario(_, resumo_atual):
+        if resumo_atual and resumo_atual.get("resumo"):
+            return no_update
+        try:
+            resp = requests.get(f"{_resolver_api_url()}/resumo-diario", timeout=30)
+            if resp.status_code == 200:
+                payload = resp.json()
+                if payload.get("resumo"):
+                    return payload
+        except Exception:
+            pass
+        return no_update
+
+    @app.callback(
+        Output("resumo-ia-container", "children"),
+        Output("resumo-ia-container", "style"),
+        Input("resumo-ia-store", "data"),
+    )
+    def render_resumo_diario(resumo_data):
+        if not resumo_data or not resumo_data.get("resumo"):
+            return no_update, {"display": "none"}
+
+        gerado_em = resumo_data.get("gerado_em")
+        header_txt = "✨ Resumo do dia" + (f" · {gerado_em}" if gerado_em else "")
+        card = html.Div(
+            [
+                html.Div(header_txt, style={"color": "#9b9bb5", "fontSize": "0.78rem", "marginBottom": "0.45rem"}),
+                html.Div(
+                    resumo_data["resumo"],
+                    style={
+                        "color": "#c8c8e0",
+                        "fontSize": "0.875rem",
+                        "lineHeight": "1.7",
+                        "whiteSpace": "pre-wrap",
+                    },
+                ),
+            ],
+            style={
+                "backgroundColor": "#1a1a2e",
+                "borderLeft": "3px solid #5561ff",
+                "borderRadius": "6px",
+                "padding": "0.85rem 0.9rem",
+            },
+        )
+        return card, {"display": "block"}
 
     @app.callback(
         Output('filter-acao-ind', 'options'),
