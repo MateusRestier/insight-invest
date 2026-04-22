@@ -51,6 +51,43 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.24] Segregação dos jobs de treino em workflows individuais
+**Data:** 2026-04-22
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/api/main.py`**
+- Adicionado `_run_classificador()`: executa apenas `executar_pipeline_classificador()` sem o regressor
+- Adicionado endpoint `POST /tarefas/treinar-classificador`: mesmo padrão dos demais (mutex, 409, 202)
+- O endpoint `POST /tarefas/treinar` (que rodava ambos juntos) foi mantido no código mas seu workflow foi removido
+
+**`.github/workflows/treinar-classificador.yml`** (novo)
+- Cron: `0 4 1 * *` — dia 1 de cada mês às 04:00 UTC (01:00 BRT), mesmo horário do antigo `treinar.yml`
+- Dispara `POST /tarefas/treinar-classificador`
+
+**`.github/workflows/treinar.yml`** (removido)
+- Substituído pelos dois workflows individuais; não faz mais sentido existir
+
+#### Estado final dos workflows
+
+| Arquivo | Endpoint | Frequência |
+|---|---|---|
+| `coletar.yml` | `/tarefas/coletar` | Diário (dias úteis, 21h e 23h UTC) |
+| `treinar-classificador.yml` | `/tarefas/treinar-classificador` | Mensal (dia 1, 04h UTC) |
+| `treinar-regressor.yml` | `/tarefas/treinar-regressor` | Semanal (segunda, 00:30 UTC) |
+| `recomendar.yml` | `/tarefas/recomendar` | Diário (08h UTC) |
+
+Todos têm `workflow_dispatch` para execução manual.
+
+#### Decisões e motivos
+- **Segregação total**: cada job faz exatamente uma coisa. Classificador é pesado (GridSearchCV, ~15 min) e roda mensalmente. Regressor é leve (~3 min) e roda semanalmente. Antes estavam acoplados no mesmo `treinar.yml`, impedindo controle granular.
+- **`resultados_precos` é alimentada pelo regressor**: `executar_pipeline_regressor` grava previsões dos próximos 10 dias por ação — é o que alimenta a tabela "Comparação Preço Previsto × Real" no dashboard.
+
+#### Pendências / próximos passos
+- Validar no Railway após deploy que os novos endpoints respondem corretamente.
+
+---
 ### [v2.23] XAI via Gemini no recomendador + UX de loading
 **Data:** 2026-04-22
 **IA:** Claude Sonnet 4.6 via Claude Code

@@ -59,6 +59,14 @@ def _run_treinar():
     finally:
         _set_tarefa(None)
 
+def _run_classificador():
+    _set_tarefa("classificador")
+    try:
+        from src.models.classificador import executar_pipeline_classificador
+        executar_pipeline_classificador()
+    finally:
+        _set_tarefa(None)
+
 def _run_regressor():
     _set_tarefa("regressor")
     try:
@@ -105,6 +113,13 @@ def treinar(background_tasks: BackgroundTasks, _key: str = Security(verificar_ch
         raise HTTPException(status_code=409, detail=f"Tarefa '{_get_tarefa()}' já em andamento")
     background_tasks.add_task(_run_treinar)
     return {"aceito": True, "tarefa": "treinar"}
+
+@app.post("/tarefas/treinar-classificador", status_code=202)
+def treinar_classificador(background_tasks: BackgroundTasks, _key: str = Security(verificar_chave)):
+    if _get_tarefa():
+        raise HTTPException(status_code=409, detail=f"Tarefa '{_get_tarefa()}' já em andamento")
+    background_tasks.add_task(_run_classificador)
+    return {"aceito": True, "tarefa": "classificador"}
 
 @app.post("/tarefas/treinar-regressor", status_code=202)
 def treinar_regressor(background_tasks: BackgroundTasks, _key: str = Security(verificar_chave)):

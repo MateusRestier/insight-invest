@@ -1,4 +1,4 @@
-name: Treinar Modelos
+name: Treinar Classificador
 
 on:
   schedule:
@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  treinar:
+  treinar-classificador:
     runs-on: ubuntu-latest
     steps:
-      - name: Disparar treino no Railway (com retry)
+      - name: Disparar classificador no Railway (com retry)
         run: |
           MAX_TENTATIVAS=5
           ESPERA=120
@@ -21,13 +21,13 @@ jobs:
             echo "Tentativa $i/$MAX_TENTATIVAS..."
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 30 \
-              -X POST "$BASE_URL/tarefas/treinar" \
+              -X POST "$BASE_URL/tarefas/treinar-classificador" \
               -H "X-API-Key: ${{ secrets.API_KEY }}")
 
             echo "HTTP $STATUS"
 
             if [ "$STATUS" = "202" ]; then
-              echo "Treino iniciado com sucesso."
+              echo "Classificador iniciado com sucesso."
               exit 0
             elif [ "$STATUS" = "409" ]; then
               echo "Tarefa já em andamento. Abortando."
