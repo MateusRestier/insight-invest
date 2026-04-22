@@ -292,6 +292,17 @@ def _run_resumo_diario():
             conn.close()
         _set_tarefa(None)
 
+
+def _run_backup_banco():
+    _set_tarefa("backup-banco")
+    try:
+        from scripts.backup import criar_backup, enviar_backup_email
+
+        dump = criar_backup()
+        enviar_backup_email(dump)
+    finally:
+        _set_tarefa(None)
+
 # ── App ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="Insight Invest API", version="1.0.0")
@@ -354,6 +365,14 @@ def gerar_resumo_diario(background_tasks: BackgroundTasks, _key: str = Security(
         raise HTTPException(status_code=409, detail=f"Tarefa '{_get_tarefa()}' já em andamento")
     background_tasks.add_task(_run_resumo_diario)
     return {"aceito": True, "tarefa": "resumo-diario"}
+
+
+@app.post("/tarefas/backup-banco", status_code=202)
+def backup_banco(background_tasks: BackgroundTasks, _key: str = Security(verificar_chave)):
+    if _get_tarefa():
+        raise HTTPException(status_code=409, detail=f"Tarefa '{_get_tarefa()}' já em andamento")
+    background_tasks.add_task(_run_backup_banco)
+    return {"aceito": True, "tarefa": "backup-banco"}
 
 @app.post("/recomendacao/{ticker}")
 def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):

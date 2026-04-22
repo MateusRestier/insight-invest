@@ -9,68 +9,38 @@ on:
 jobs:
   backup-banco:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      DB_HOST: ${{ secrets.DB_HOST }}
-      DB_PORT: ${{ secrets.DB_PORT }}
-      DB_NAME: ${{ secrets.DB_NAME }}
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASS: ${{ secrets.DB_PASS }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      RESEND_FROM: ${{ secrets.RESEND_FROM }}
-      BACKUP_EMAIL_TO: ${{ secrets.BACKUP_EMAIL_TO }}
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Instalar psycopg para detectar versão
+      - name: Disparar backup do banco no Railway (com retry)
         run: |
-          python -m pip install --upgrade pip
-          pip install psycopg2-binary
+          MAX_TENTATIVAS=5
+          ESPERA=120
+          BASE_URL="${{ secrets.API_URL }}"
+          BASE_URL="${BASE_URL%/}"
 
-      - name: Detectar major version do PostgreSQL remoto
-        id: pgver
-        run: |
-          PG_MAJOR=$(python - <<'PY'
-          import os
-          import psycopg2
-          
-          conn = psycopg2.connect(
-              host=os.environ["DB_HOST"],
-              port=int(os.environ["DB_PORT"]),
-              dbname=os.environ["DB_NAME"],
-              user=os.environ["DB_USER"],
-              password=os.environ["DB_PASS"],
-              connect_timeout=20,
-          )
-          cur = conn.cursor()
-          cur.execute("SHOW server_version;")
-          version = cur.fetchone()[0]
-          conn.close()
-          print(version.split(".")[0])
-          PY
-          )
-          echo "Versão major detectada: $PG_MAJOR"
-          echo "pg_major=$PG_MAJOR" >> "$GITHUB_OUTPUT"
+          for i in $(seq 1 $MAX_TENTATIVAS); do
+            echo "Tentativa $i/$MAX_TENTATIVAS..."
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 60 \
+              -X POST "$BASE_URL/tarefas/backup-banco" \
+              -H "X-API-Key: ${{ secrets.API_KEY }}")
 
-      - name: Instalar pg_dump compatível
-        run: |
-          sudo install -d -m 0755 /etc/apt/keyrings
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /etc/apt/keyrings/pgdg.gpg > /dev/null
-          echo "deb [signed-by=/etc/apt/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-${{ steps.pgver.outputs.pg_major }}
-          pg_dump --version
+            echo "HTTP $STATUS"
 
-      - name: Instalar dependencias Python minimas
-        run: |
-          pip install python-dotenv resend
+            if [ "$STATUS" = "202" ]; then
+              echo "Backup aceito para execução."
+              exit 0
+            elif [ "$STATUS" = "409" ]; then
+              echo "Tarefa já em andamento. Abortando."
+              exit 0
+            fi
 
-      - name: Gerar backup e enviar por email
-        run: python scripts/backup.py --criar
+            if [ $i -lt $MAX_TENTATIVAS ]; then
+              echo "Aguardando ${ESPERA}s antes de retentar..."
+              sleep $ESPERA
+            fi
+          done
+
+          echo "Falha após $MAX_TENTATIVAS tentativas."
+          exit 1

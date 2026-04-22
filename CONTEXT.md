@@ -51,6 +51,33 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.29] Backup via API (mesmo padrão dos demais jobs)
+**Data:** 2026-04-14
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+- **`src/api/main.py`**:
+  - adicionado worker `_run_backup_banco()` que executa `criar_backup()` e `enviar_backup_email()` no próprio ambiente da API (Railway);
+  - adicionado endpoint protegido `POST /tarefas/backup-banco` com autenticação `X-API-Key`;
+  - endpoint segue o padrão operacional existente: retorna `202` ao aceitar e `409` quando já há tarefa em andamento.
+- **`.github/workflows/backup-banco.yml`**:
+  - simplificado para o mesmo modelo dos outros jobs: apenas dispara `POST $API_URL/tarefas/backup-banco` com `API_KEY`;
+  - mantido retry com 5 tentativas e espera de 120s;
+  - removida necessidade de instalar `pg_dump` e de expor segredos de banco/Resend no GitHub.
+
+#### Decisões e motivos
+- Centralizar o backup no Railway evita duplicar credenciais sensíveis no GitHub Actions.
+- Mantém consistência operacional com os workflows já existentes (`coletar`, `recomendar`, etc.).
+- Reduz superfície de falha no runner do GitHub (sem setup de cliente PostgreSQL).
+
+#### Pendências / próximos passos
+- Garantir no Railway as variáveis de ambiente para backup/email:
+  - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`
+  - `RESEND_API_KEY`, `RESEND_FROM`, `BACKUP_EMAIL_TO`
+- No GitHub, manter apenas `API_URL` e `API_KEY` para este workflow.
+- Executar `Run workflow` manual de `backup-banco.yml` para validar disparo (`202`) e recebimento do email.
+
+---
 ### [v2.28] Backup semanal via email + workflow resiliente à versão do Railway
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor
