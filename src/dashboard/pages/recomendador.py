@@ -112,6 +112,9 @@ def layout_recomendador():
                         )
                     ], className="mb-3 d-flex align-items-center"),
 
+                    # Mensagem de status — aparece imediatamente ao clicar, some quando o resultado chega
+                    html.Div(id="rec-status-msg", style={"minHeight": "20px"}),
+
                     dcc.Loading(
                         id="loading-recommendation",
                         type="circle",
@@ -168,6 +171,19 @@ def register_callbacks_recomendador(app):
             return api_url
         porta = os.getenv("PORT", "8000")
         return f"http://127.0.0.1:{porta}"
+
+    # Mostra mensagem imediatamente ao clicar — sem round-trip ao servidor
+    app.clientside_callback(
+        """
+        function(n_clicks) {
+            if (!n_clicks) return '';
+            return '🤖 Analisando indicadores e gerando explicação com IA...';
+        }
+        """,
+        Output("rec-status-msg", "children"),
+        Input("btn-recommend", "n_clicks"),
+        prevent_initial_call=True,
+    )
 
     @app.callback(
         Output("cards-indicadores-rec", "children"),
@@ -307,37 +323,39 @@ def register_callbacks_recomendador(app):
 
     @app.callback(
         Output("recomendation-output", "children"),
+        Output("rec-status-msg", "children", allow_duplicate=True),
         Input("btn-recommend", "n_clicks"),
         State("input-ticker-rec", "value"),
+        prevent_initial_call=True,
     )
     def update_recommend(n_clicks, ticker):
         if not n_clicks:
-            return no_update
+            return no_update, no_update
 
         api_url = _resolver_api_url()
         api_key = os.getenv("API_KEY", "")
 
         if not api_key:
-            return dbc.Alert("Configuração ausente: defina API_KEY no serviço.", color="warning")
+            return dbc.Alert("Configuração ausente: defina API_KEY no serviço.", color="warning"), ""
 
         if not ticker:
-            return dbc.Alert("Informe um ticker válido.", color="warning")
+            return dbc.Alert("Informe um ticker válido.", color="warning"), ""
 
         try:
             resp = requests.post(
                 f"{api_url}/recomendacao/{ticker.strip().upper()}",
                 headers={"X-API-Key": api_key},
-                timeout=45,
+                timeout=90,
             )
         except requests.RequestException as exc:
-            return dbc.Alert(f"Falha ao chamar API de recomendação: {exc}", color="danger")
+            return dbc.Alert(f"Falha ao chamar API de recomendação: {exc}", color="danger"), ""
 
         if resp.status_code != 200:
             try:
                 detalhe = resp.json().get("detail", resp.text)
             except Exception:
                 detalhe = resp.text
-            return dbc.Alert(f"Erro da API ({resp.status_code}): {detalhe}", color="danger")
+            return dbc.Alert(f"Erro da API ({resp.status_code}): {detalhe}", color="danger"), ""
 
         payload = resp.json()
         prob     = payload.get("probabilidades", {})
@@ -345,9 +363,10 @@ def register_callbacks_recomendador(app):
         prob_sim = float(prob.get("recomendada", 0.0))
         resultado    = payload.get("resultado", "Sem resultado")
         ticker_resp  = payload.get("ticker", ticker).upper()
-        indicadores_chave      = payload.get("indicadores_chave", {})
+        indicadores_chave        = payload.get("indicadores_chave", {})
         justificativas_positivas = payload.get("justificativas_positivas", [])
         justificativas_negativas = payload.get("justificativas_negativas", [])
+        explicacao_ia            = payload.get("explicacao_ia")
 
         is_rec       = "NÃO" not in resultado
         alert_color  = "success" if is_rec else "danger"
@@ -496,6 +515,30 @@ def register_callbacks_recomendador(app):
             margin=dict(l=20, r=20, t=35, b=5),
         )
 
+        # --- Explicação IA ---
+        ia_block = []
+        if explicacao_ia:
+            ia_block = [
+                html.Div([
+                    html.P("🤖 Análise IA", style={
+                        "color": "#b0b8ff", "fontWeight": "700",
+                        "fontSize": "0.78rem", "textTransform": "uppercase",
+                        "letterSpacing": "0.06em", "marginBottom": "8px",
+                    }),
+                    html.P(explicacao_ia, style={
+                        "color": "#c8c8e0", "fontSize": "0.85rem",
+                        "lineHeight": "1.7", "marginBottom": "0",
+                    }),
+                ], style={
+                    "backgroundColor": "#1a1a30",
+                    "border": "1px solid rgba(85, 97, 255, 0.25)",
+                    "borderLeft": "3px solid #5561ff",
+                    "borderRadius": "6px",
+                    "padding": "12px 14px",
+                    "marginTop": "8px",
+                })
+            ]
+
         return html.Div([
             # Veredicto
             dbc.Alert([
@@ -506,8 +549,9 @@ def register_callbacks_recomendador(app):
             # Gauge
             dcc.Graph(figure=gauge_fig, config={"displayModeBar": False}),
 
-            # Indicadores-chave, pontos positivos e pontos de atenção
+            # Indicadores-chave, pontos positivos, pontos de atenção e análise IA
             *indicadores_block,
             *positivos_card,
             *negativos_card,
-        ])
+            *ia_block,
+        ]), ""

@@ -2,6 +2,20 @@
 /* ===================== GLOBAL ============================ */
 /* ========================================================= */
 
+/* --- Mensagem de status do recomendador (geração IA) --- */
+#rec-status-msg:not(:empty) {
+    color: #9b9bb5;
+    font-size: 0.82rem;
+    font-style: italic;
+    padding: 4px 0 8px 0;
+    animation: pulse-text 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.45; }
+}
+
 /* --- Cursor pointer nas fatias do pie (indica clicabilidade) --- */
 #pie-error-dist .slice path {
     cursor: pointer !important;

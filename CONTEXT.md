@@ -51,6 +51,48 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.23] XAI via Gemini no recomendador + UX de loading
+**Data:** 2026-04-22
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/api/main.py`**
+- Novo `_run_regressor()` e `POST /tarefas/treinar-regressor`: roda apenas `executar_pipeline_regressor` sem o classificador pesado
+- Endpoint `POST /recomendacao/{ticker}`: após calcular a recomendação, extrai top-5 `feature_importances_` do RandomForest, monta prompt estruturado e chama Gemini para gerar explicação em linguagem natural
+- Campo `explicacao_ia` adicionado ao JSON de resposta (é `null` se Gemini falhar — falha silenciosa, não quebra o endpoint)
+- **Lógica de fallback dinâmica**: lista todos os modelos disponíveis para a chave via `client.models.list()`, tenta o modelo principal primeiro (2 tentativas para 503), pula 4xx (`ClientError`) imediatamente sem retry, avança para o próximo modelo automaticamente
+- Modelo configurável via `GEMINI_MODEL` no `.env` (padrão: `gemini-2.5-flash`)
+- Timeout do `requests.post` no dashboard aumentado de 45s para 90s para acomodar fallback
+
+**`src/dashboard/pages/recomendador.py`**
+- Bloco "🤖 Análise IA" renderizado abaixo dos Pontos de Atenção: fundo `#1a1a30`, borda esquerda roxa `#5561ff`, só aparece quando `explicacao_ia` está presente
+- `rec-status-msg`: novo `html.Div` exibido imediatamente ao clicar via `clientside_callback` — mostra "🤖 Analisando indicadores e gerando explicação com IA..." sem round-trip ao servidor
+- `update_recommend` agora retorna tupla `(conteudo, "")` — o `""` limpa o status quando o resultado chega; `allow_duplicate=True` + `prevent_initial_call=True` para coexistir com o clientside callback
+
+**`requirements.txt`**
+- `google-generativeai==0.8.5` → `google-genai>=1.0.0` (SDK antigo descontinuado; novo usa `google.genai.Client`)
+
+**`.env` / `.env.example`**
+- Adicionados `GEMINI_API_KEY` e `GEMINI_MODEL`
+- `API_URL` comentada no `.env` local para testes via uvicorn em localhost
+
+**`src/dashboard/assets/style.css`**
+- `#rec-status-msg:not(:empty)`: animação `pulse-text` (opacity 1→0.45→1, 1.5s) enquanto o texto está visível
+
+#### Decisões e motivos
+- **SDK novo (`google-genai`)**: `google-generativeai` foi descontinuado pela Google; o novo usa `Client` + `client.models.generate_content()` em vez de `GenerativeModel`
+- **Fallback dinâmico via `ListModels`**: sem hardcode de nomes — a própria API informa quais modelos estão disponíveis para a chave. O modelo principal no `.env` é o único valor configurado pelo usuário
+- **`ClientError` = skip imediato**: 429 (quota esgotada) e 400 (modality inválida, ex: TTS) não melhoram com retry. Só 503 (sobrecarga temporária) merece nova tentativa
+- **`clientside_callback` para status**: mostra feedback instantâneo sem esperar o servidor Python processar — o usuário vê a mensagem em < 50ms após o clique
+- **`gemma-3-1b-it` como último fallback**: modelo bem pequeno que pode ser ativado se todos os Gemini estiverem sobrecarregados; qualidade menor, mas evita silêncio total
+
+#### Pendências / próximos passos
+- Restaurar `API_URL` no `.env` antes do deploy no Railway
+- Configurar `GEMINI_API_KEY` e `GEMINI_MODEL` como variáveis de ambiente no Railway
+- Monitorar qualidade das explicações geradas pelo fallback `gemma-3-1b-it` (modelo pequeno pode gerar texto genérico)
+
+---
 ### [v2.22] Cron semanal para regressor + endpoint dedicado
 **Data:** 2026-04-22
 **IA:** Claude Sonnet 4.6 via Claude Code

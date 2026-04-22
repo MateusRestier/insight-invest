@@ -276,6 +276,85 @@ def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
         val = _v(feat)
         indicadores_chave[feat] = None if pd.isna(val) else float(val)
 
+    # ── Explicação XAI via Gemini ─────────────────────────────────────────────
+    explicacao_ia = None
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    if gemini_key:
+        try:
+            # Top-5 features mais importantes do modelo
+            feature_names = FEATURES_ESPERADAS_PELO_MODELO
+            importances = modelo.feature_importances_
+            top_idx = importances.argsort()[::-1][:5]
+            top_features = [
+                f"{feature_names[i]} ({importances[i]*100:.1f}%): {_v(feature_names[i]):.2f}"
+                for i in top_idx
+                if not pd.isna(_v(feature_names[i]))
+            ]
+
+            positivos_str = "\n".join(f"- {j}" for j in justificativas_positivas) or "Nenhum"
+            negativos_str = "\n".join(f"- {j}" for j in justificativas_negativas) or "Nenhum"
+            top_str = "\n".join(f"- {f}" for f in top_features) or "Não disponível"
+
+            prompt = f"""Você é um analista de investimentos em ações brasileiras. Analise a recomendação do modelo de machine learning para a ação {ticker} e escreva uma explicação clara e objetiva em português.
+
+DADOS DO MODELO:
+- Resultado: {resultado}
+- Probabilidade de ser recomendada: {prob_sim*100:.1f}%
+
+FEATURES MAIS IMPORTANTES PARA ESTA DECISÃO (nome: peso do modelo | valor atual):
+{top_str}
+
+PONTOS POSITIVOS IDENTIFICADOS:
+{positivos_str}
+
+PONTOS DE ATENÇÃO IDENTIFICADOS:
+{negativos_str}
+
+Escreva entre 3 e 5 frases explicando por que o modelo chegou a essa conclusão, conectando os indicadores mais relevantes com o resultado. Use linguagem acessível, sem jargões excessivos. Não repita os números já listados acima — apenas interprete-os. Não use markdown, listas ou títulos — apenas texto corrido.
+"""
+            import time
+            from google import genai as google_genai
+            from google.genai.errors import ClientError as _GeminiClientError
+            _modelo_principal = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+            client = google_genai.Client(api_key=gemini_key)
+
+            # Busca todos os modelos disponíveis para esta chave que suportam generateContent
+            _todos = [
+                m.name.replace("models/", "")
+                for m in client.models.list()
+                if "generateContent" in (m.supported_actions or [])
+            ]
+            # Principal primeiro; demais em ordem retornada pela API (sem hardcode)
+            _modelos = [_modelo_principal] + [m for m in _todos if m != _modelo_principal]
+
+            for _modelo in _modelos:
+                _tentou = False
+                for _tentativa in range(2):
+                    _tentou = True
+                    try:
+                        response = client.models.generate_content(
+                            model=_modelo,
+                            contents=prompt,
+                        )
+                        explicacao_ia = response.text.strip()
+                        print(f"[XAI] Respondido por: {_modelo}")
+                        break
+                    except _GeminiClientError as _ce:
+                        # 4xx (429 quota, 400 modality) — pula imediatamente, retry não resolve
+                        print(f"[XAI] {_modelo} descartado (4xx): {_ce}")
+                        _tentou = False
+                        break
+                    except Exception as _retry_err:
+                        # 503 e similares — vale tentar novamente
+                        print(f"[XAI] {_modelo} tentativa {_tentativa+1} falhou: {_retry_err}")
+                        if _tentativa < 1:
+                            time.sleep(3)
+                if explicacao_ia:
+                    break
+        except Exception as _xai_err:
+            print(f"[XAI] Erro ao chamar Gemini: {_xai_err}")
+            explicacao_ia = None  # falha silenciosa — não quebra o endpoint
+
     return {
         "ticker": ticker,
         "resultado": resultado,
@@ -286,6 +365,7 @@ def recomendacao_ticker(ticker: str, _key: str = Security(verificar_chave)):
         "indicadores_chave": indicadores_chave,
         "justificativas_positivas": justificativas_positivas,
         "justificativas_negativas": justificativas_negativas,
+        "explicacao_ia": explicacao_ia,
     }
 
 @app.post("/modelo/upload")
