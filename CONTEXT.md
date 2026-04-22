@@ -51,6 +51,44 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.26] Resumo diário via job agendado no GitHub Actions
+**Data:** 2026-04-22
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+
+- **`src/api/main.py`**:
+  - adicionado endpoint protegido `POST /tarefas/gerar-resumo-diario` (auth via `X-API-Key`) para disparo assíncrono da geração.
+  - adicionadas funções auxiliares:
+    - `_consultar_resumo_diario_hoje(conn)` para leitura do resumo já persistido no dia;
+    - `_gerar_e_salvar_resumo_diario(conn)` para montar dados, chamar Gemini e persistir;
+    - `_run_resumo_diario()` como worker de background.
+  - `GET /resumo-diario` alterado para **somente leitura**:
+    - retorna `404` quando o resumo do dia ainda não foi gerado;
+    - não dispara geração no acesso da página.
+- **`.github/workflows/resumo-diario.yml`** (novo):
+  - workflow diário para disparar `POST /tarefas/gerar-resumo-diario`;
+  - agendamento em `03:01 UTC` (00:01 BRT);
+  - retry com 5 tentativas, 120s de espera, tratamento de `202` e `409`.
+- **`src/dashboard/pages/indicadores.py`**:
+  - `dcc.Interval(id='data-load-interval')` ajustado para `max_intervals=1` (carga única por sessão).
+  - callback `load_comparison_data` simplificado para não fazer polling horário.
+  - card de resumo continua consumindo `GET /resumo-diario`, agora apenas para exibição do conteúdo já pré-gerado.
+
+#### Decisões e motivos
+
+- Geração por agendamento facilita rastreabilidade operacional (log único no Actions) e reduz acoplamento com navegação do usuário.
+- `GET /resumo-diario` como leitura evita custo extra no Railway por acessos de dashboard.
+- Job dedicado às 00:01 BRT garante previsibilidade diária para conteúdo do card.
+
+#### Pendências / próximos passos
+
+- Confirmar no GitHub Actions o primeiro disparo automático do workflow `resumo-diario.yml`.
+- Validar no Railway:
+  - endpoint `POST /tarefas/gerar-resumo-diario` retornando `202`;
+  - `GET /resumo-diario` retornando `200` após o job e `404` antes da geração.
+
+---
 ### [v2.25] Resumo diário com IA + persistência no banco
 **Data:** 2026-04-22
 **IA:** Codex 5.3 via Cursor
