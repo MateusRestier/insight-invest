@@ -51,6 +51,33 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.31] Correção dos insumos do resumo diário (recomendação + erro médio)
+**Data:** 2026-05-06
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+- **Investigação em produção (Railway DB)** para entender por que o resumo diário vinha com ausência de dados:
+  - havia recomendações na semana, mas o filtro do resumo buscava `resultado = 'Recomendada'`, valor que não existe na tabela;
+  - `resultados_precos` não possui coluna `erro_pct`, então o cálculo principal de erro médio sempre falhava;
+  - no join de fallback, faltavam pares válidos quando previsões ainda não estavam vencidas.
+- **`src/api/main.py`**:
+  - ajustado filtro de recomendação da semana e de destaques para refletir os valores reais salvos:
+    - `resultado ILIKE '%RECOMENDADA%'`
+    - `AND resultado NOT ILIKE '%NÃO%'`
+  - cálculo de erro médio dos últimos 10 dias passou a usar join explícito entre `resultados_precos` e `indicadores_fundamentalistas` (sem depender de `erro_pct`);
+  - adicionado filtro `r.data_previsao <= CURRENT_DATE` no cálculo de erro para considerar apenas previsões já vencidas.
+- Mantidas melhorias recentes de prompt/sanitização para evitar texto repetitivo no card.
+
+#### Decisões e motivos
+- O problema principal não era ausência de pipeline, e sim desalinhamento entre regra SQL e dados reais persistidos.
+- Filtrar recomendações por padrão textual compatível com os rótulos salvos corrige o “zero falso”.
+- Erro médio deve ser calculado apenas quando há base comparável (previsão com cotação real disponível), evitando ruído de qualidade.
+
+#### Pendências / próximos passos
+- Rodar novamente o job `resumo-diario` para regenerar o texto com os novos critérios.
+- Opcional: materializar `erro_pct` em tabela própria de backtest para reduzir custo de cálculo no resumo.
+
+---
 ### [v2.30] Fix pg_dump no Railway para backup via API
 **Data:** 2026-04-14
 **IA:** Codex 5.3 via Cursor

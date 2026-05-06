@@ -155,7 +155,8 @@ def _gerar_e_salvar_resumo_diario(conn):
         """
         SELECT COUNT(*) AS total
         FROM recomendacoes_acoes
-        WHERE resultado = 'Recomendada'
+        WHERE resultado ILIKE '%RECOMENDADA%'
+          AND resultado NOT ILIKE '%NÃO%'
           AND data_insercao >= date_trunc('week', CURRENT_DATE)
         """,
         conn,
@@ -183,7 +184,8 @@ def _gerar_e_salvar_resumo_diario(conn):
                    FROM indicadores_fundamentalistas i2
                    WHERE i2.acao = r.acao
                )
-            WHERE r.resultado = 'Recomendada'
+            WHERE r.resultado ILIKE '%RECOMENDADA%'
+              AND r.resultado NOT ILIKE '%NÃO%'
               AND r.data_insercao >= date_trunc('week', CURRENT_DATE)
         )
         SELECT acao, dividend_yield, roe
@@ -198,10 +200,17 @@ def _gerar_e_salvar_resumo_diario(conn):
     try:
         df_erro = pd.read_sql(
             """
-            SELECT ROUND(AVG(erro_pct)::numeric, 4) AS erro_medio_10d
-            FROM resultados_precos
-            WHERE data_calculo >= CURRENT_DATE - INTERVAL '10 days'
-              AND erro_pct IS NOT NULL
+            SELECT ROUND(AVG(
+                ((r.preco_previsto - i.cotacao) / i.cotacao) * 100
+            )::numeric, 4) AS erro_medio_10d
+            FROM resultados_precos r
+            LEFT JOIN indicadores_fundamentalistas i
+              ON r.acao = i.acao
+             AND r.data_previsao = i.data_coleta
+            WHERE r.data_calculo >= CURRENT_DATE - INTERVAL '10 days'
+              AND r.data_previsao <= CURRENT_DATE
+              AND i.cotacao IS NOT NULL
+              AND i.cotacao <> 0
             """,
             conn,
         )
@@ -219,6 +228,7 @@ def _gerar_e_salvar_resumo_diario(conn):
               ON r.acao = i.acao
              AND r.data_previsao = i.data_coleta
             WHERE r.data_calculo >= CURRENT_DATE - INTERVAL '10 days'
+              AND r.data_previsao <= CURRENT_DATE
             """,
             conn,
         )
@@ -231,9 +241,16 @@ def _gerar_e_salvar_resumo_diario(conn):
         dy_str = "n/d" if pd.isna(dy) else f"{float(dy):.2f}%"
         roe_str = "n/d" if pd.isna(roe) else f"{float(roe):.2f}%"
         destaque_linhas.append(f"- {row['acao']} (DY: {dy_str}, ROE: {roe_str})")
-    destaques_texto = "\n".join(destaque_linhas) if destaque_linhas else "- Sem destaques suficientes nesta semana"
+    tem_destaques = len(destaque_linhas) > 0
+    destaques_texto = "\n".join(destaque_linhas) if tem_destaques else "- Sem destaques suficientes nesta semana"
 
-    erro_str = "n/d" if pd.isna(erro_medio_10d) else f"{float(erro_medio_10d):.2f}%"
+    tem_erro = not pd.isna(erro_medio_10d)
+    erro_str = "n/d" if not tem_erro else f"{float(erro_medio_10d):.2f}%"
+    contexto_qualitativo = (
+        f"- Há recomendações esta semana? {'sim' if total_recomendadas_semana > 0 else 'não'}\n"
+        f"- Há top destaques positivos válidos? {'sim' if tem_destaques else 'não'}\n"
+        f"- Há erro médio de 10 dias disponível? {'sim' if tem_erro else 'não'}"
+    )
 
     prompt = f"""Você é um analista de investimentos e deve gerar um resumo diário curto para um dashboard financeiro.
 
@@ -242,20 +259,39 @@ Dados objetivos de hoje:
 - Top 3 destaques positivos (melhor combinação DY + ROE):
 {destaques_texto}
 - Erro médio do modelo de previsão (últimos 10 dias): {erro_str}
+Contexto de disponibilidade dos dados:
+{contexto_qualitativo}
 
 Escreva um resumo em português do Brasil, entre 3 e 5 frases, tom profissional e claro para tomada de decisão.
 Inclua leitura crítica breve de risco/atenção e oportunidade.
+Se algum dado estiver indisponível, mencione isso no máximo uma vez, sem repetir a mesma ideia em frases diferentes.
+Evite enfatizar ausência de dados; priorize orientação prática de acompanhamento (o que monitorar no próximo ciclo).
 Não use markdown, títulos, listas, cabeçalhos, nem linha inicial do tipo "Resumo Diário".
 Não inclua placeholders como [Data], {{Data}} ou <Data>.
 Comece diretamente pela análise, em texto corrido.
 """
     resumo = _gerar_texto_gemini_com_fallback(prompt)
     if not resumo:
-        resumo = (
-            f"Na semana atual, o modelo marcou {total_recomendadas_semana} ações como recomendadas. "
-            f"Os principais destaques combinando dividend yield e ROE incluem {', '.join(df_destaques['acao'].tolist()) if not df_destaques.empty else 'sem destaques suficientes'}. "
-            f"O erro médio recente das previsões (10 dias) está em {erro_str}, o que ajuda a calibrar confiança na leitura diária."
-        )
+        if total_recomendadas_semana == 0 and not tem_destaques and not tem_erro:
+            resumo = (
+                "O mercado entrou na semana sem sinais objetivos fortes para novas entradas pelo modelo. "
+                "O cenário favorece postura seletiva, com foco em preservar qualidade da carteira e acompanhar gatilhos de tendência e resultado operacional. "
+                "A prioridade no curto prazo é monitorar a próxima atualização dos indicadores e das recomendações para identificar mudanças de direção."
+            )
+        elif total_recomendadas_semana == 0:
+            resumo = (
+                f"Na semana atual, o modelo ainda não confirmou novas recomendações de compra. "
+                f"{'Os destaques observados no recorte recente incluem ' + ', '.join(df_destaques['acao'].tolist()) + '. ' if tem_destaques else ''}"
+                f"{f'O erro médio recente está em {erro_str}, referência útil para calibrar confiança nas projeções. ' if tem_erro else ''}"
+                "A leitura do momento é de prudência tática, com acompanhamento próximo dos próximos sinais de retomada."
+            )
+        else:
+            resumo = (
+                f"Na semana atual, o modelo marcou {total_recomendadas_semana} ações como recomendadas. "
+                f"{'Entre os principais destaques por DY e ROE estão ' + ', '.join(df_destaques['acao'].tolist()) + '. ' if tem_destaques else ''}"
+                f"{f'O erro médio recente das previsões está em {erro_str}, métrica importante para ajustar nível de convicção. ' if tem_erro else ''}"
+                "A estratégia é manter acompanhamento disciplinado da evolução dos indicadores para priorizar entradas com melhor relação risco-retorno."
+            )
     else:
         # Remove títulos/headers redundantes gerados pelo LLM e placeholders de data.
         linhas = [ln.strip() for ln in resumo.splitlines() if ln.strip()]
