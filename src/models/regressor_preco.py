@@ -169,7 +169,8 @@ def executar_pipeline_regressor(
     n_dias: int = 10,
     data_calculo: date | None = None,
     save_to_db: bool = True,
-    tickers: list[str] | None = None
+    tickers: list[str] | None = None,
+    sem_vazamento_temporal: bool = False,
 ) -> tuple[RandomForestRegressor, pd.DataFrame]:
     """
     Executa o pipeline de regressão para previsão de preços.
@@ -178,6 +179,8 @@ def executar_pipeline_regressor(
         data_calculo: data base para cálculo (se None, usa hoje).
         save_to_db: se True, persiste em resultados_precos.
         tickers: lista de ações para filtrar o resultado (ou None para todas).
+        sem_vazamento_temporal: quando True, treina apenas com linhas cujo alvo
+            (preço em n_dias à frente) já seria conhecido na data_calculo.
     Returns:
         model: RandomForestRegressor treinado.
         comp: DataFrame com colunas ['acao','data_previsao','real','preco_previsto','erro_pct'].
@@ -196,14 +199,22 @@ def executar_pipeline_regressor(
 
     # 3) Define máscaras de treino/teste com base em data_calculo
     ultima_real_date = df['data_coleta'].max().date()
+    cutoff = pd.to_datetime(data_calculo)
     if data_calculo > ultima_real_date:
         print(f"⚠️ data_calculo ({data_calculo}) > última data no banco ({ultima_real_date}); ajustando treino.")
         ultima_ts = pd.to_datetime(ultima_real_date)
-        mask_train = dates <= ultima_ts
+        if sem_vazamento_temporal:
+            limite_treino = ultima_ts - pd.Timedelta(days=n_dias)
+            mask_train = dates <= limite_treino
+        else:
+            mask_train = dates <= ultima_ts
         mask_test  = pd.Series(False, index=dates.index)
     else:
-        cutoff     = pd.to_datetime(data_calculo)
-        mask_train = dates < cutoff
+        if sem_vazamento_temporal:
+            limite_treino = cutoff - pd.Timedelta(days=n_dias)
+            mask_train = dates <= limite_treino
+        else:
+            mask_train = dates < cutoff
         mask_test  = dates == cutoff
 
     X_train, y_train = X[mask_train], y[mask_train]

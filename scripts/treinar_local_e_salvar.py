@@ -15,6 +15,9 @@ Exemplos:
 - Rodar só regressor e salvar previsões no banco:
     python scripts/treinar_local_e_salvar.py --job regressor --n-dias 10
 
+- Backfill do regressor por período (sem vazamento temporal):
+    python scripts/treinar_local_e_salvar.py --job regressor --n-dias 10 --data-inicio 2026-04-20 --data-fim 2026-04-30 --sem-vazamento-temporal
+
 - Rodar só recomendações e salvar no banco:
     python scripts/treinar_local_e_salvar.py --job recomendacoes
 """
@@ -22,7 +25,7 @@ Exemplos:
 import argparse
 import os
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import requests
 
@@ -85,6 +88,24 @@ def main():
         action="store_true",
         help="Quando rodar classificador, não envia .pkl para Railway.",
     )
+    parser.add_argument(
+        "--data-inicio",
+        default=None,
+        help="Início de período (AAAA-MM-DD) para backfill do regressor.",
+    )
+    parser.add_argument(
+        "--data-fim",
+        default=None,
+        help="Fim de período (AAAA-MM-DD) para backfill do regressor.",
+    )
+    parser.add_argument(
+        "--sem-vazamento-temporal",
+        action="store_true",
+        help=(
+            "No regressor, treina apenas com exemplos cujo alvo já seria conhecido "
+            "na data_calculo (evita uso indireto de futuro no treino)."
+        ),
+    )
     args = parser.parse_args()
 
     data_calculo = date.fromisoformat(args.data_calculo)
@@ -103,13 +124,38 @@ def main():
             print("[1] Upload de modelo pulado por flag.")
 
     if args.job in ("todos", "regressor"):
-        print("[2] Treinando regressor e salvando no banco Railway...")
-        executar_pipeline_regressor(
-            n_dias=args.n_dias,
-            data_calculo=data_calculo,
-            save_to_db=True,
-        )
-        print("[2] Regressor concluído.")
+        if args.data_inicio or args.data_fim:
+            if not (args.data_inicio and args.data_fim):
+                raise ValueError("Para backfill, informe ambos --data-inicio e --data-fim.")
+            data_inicio = date.fromisoformat(args.data_inicio)
+            data_fim = date.fromisoformat(args.data_fim)
+            if data_inicio > data_fim:
+                raise ValueError("--data-inicio não pode ser maior que --data-fim.")
+
+            print("[2] Regressor em backfill por período...")
+            atual = data_inicio
+            total = (data_fim - data_inicio).days + 1
+            i = 1
+            while atual <= data_fim:
+                print(f"[2] [{i}/{total}] Rodando regressor para data_calculo={atual} ...")
+                executar_pipeline_regressor(
+                    n_dias=args.n_dias,
+                    data_calculo=atual,
+                    save_to_db=True,
+                    sem_vazamento_temporal=args.sem_vazamento_temporal,
+                )
+                atual += timedelta(days=1)
+                i += 1
+            print("[2] Backfill do regressor concluído.")
+        else:
+            print("[2] Treinando regressor e salvando no banco Railway...")
+            executar_pipeline_regressor(
+                n_dias=args.n_dias,
+                data_calculo=data_calculo,
+                save_to_db=True,
+                sem_vazamento_temporal=args.sem_vazamento_temporal,
+            )
+            print("[2] Regressor concluído.")
 
     if args.job in ("todos", "recomendacoes"):
         print("[3] Gerando recomendações e salvando no banco Railway...")

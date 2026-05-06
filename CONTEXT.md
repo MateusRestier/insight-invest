@@ -51,6 +51,31 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v2.32] Backfill do regressor por período sem vazamento temporal
+**Data:** 2026-05-06
+**IA:** Codex 5.3 via Cursor
+
+#### O que foi feito
+- **`scripts/treinar_local_e_salvar.py`**:
+  - adicionadas flags para backfill do regressor por intervalo de datas:
+    - `--data-inicio AAAA-MM-DD`
+    - `--data-fim AAAA-MM-DD`
+  - adicionada flag `--sem-vazamento-temporal` para executar treino histórico sem usar exemplos cujo alvo ainda não seria conhecido na data de cálculo;
+  - implementado loop diário de execução do regressor para preencher lacunas de períodos passados no banco.
+- **`src/models/regressor_preco.py`**:
+  - `executar_pipeline_regressor(...)` recebeu parâmetro `sem_vazamento_temporal: bool = False`;
+  - quando ativado, o treino passa a usar apenas linhas com `data_coleta <= data_calculo - n_dias`, reduzindo vazamento de futuro em simulações históricas.
+
+#### Decisões e motivos
+- O usuário precisava recomputar previsões de datas faltantes no passado sem “conhecimento do presente”.
+- A separação via flag mantém compatibilidade com o fluxo atual (comportamento antigo permanece padrão quando a flag não é usada).
+- Backfill por período facilita reconstrução retroativa para alimentar cálculo de erro e resumo diário.
+
+#### Pendências / próximos passos
+- Executar backfill no período com lacunas (ex.: `--job regressor --n-dias 10 --data-inicio ... --data-fim ... --sem-vazamento-temporal`).
+- Após backfill, rodar novamente job `resumo-diario` para capturar melhora de cobertura no erro médio.
+
+---
 ### [v2.31] Correção dos insumos do resumo diário (recomendação + erro médio)
 **Data:** 2026-05-06
 **IA:** Codex 5.3 via Cursor
