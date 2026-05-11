@@ -207,8 +207,8 @@ def _gerar_e_salvar_resumo_diario(conn):
             LEFT JOIN indicadores_fundamentalistas i
               ON r.acao = i.acao
              AND r.data_previsao = i.data_coleta
-            WHERE r.data_calculo >= CURRENT_DATE - INTERVAL '10 days'
-              AND r.data_previsao <= CURRENT_DATE
+            WHERE r.data_previsao <= CURRENT_DATE
+              AND r.data_previsao >= CURRENT_DATE - INTERVAL '30 days'
               AND i.cotacao IS NOT NULL
               AND i.cotacao <> 0
             """,
@@ -227,8 +227,8 @@ def _gerar_e_salvar_resumo_diario(conn):
             LEFT JOIN indicadores_fundamentalistas i
               ON r.acao = i.acao
              AND r.data_previsao = i.data_coleta
-            WHERE r.data_calculo >= CURRENT_DATE - INTERVAL '10 days'
-              AND r.data_previsao <= CURRENT_DATE
+            WHERE r.data_previsao <= CURRENT_DATE
+              AND r.data_previsao >= CURRENT_DATE - INTERVAL '30 days'
             """,
             conn,
         )
