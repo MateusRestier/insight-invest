@@ -38,7 +38,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from src.core.db_connection import get_connection
 from src.models.classificador import executar_pipeline_classificador
-from src.models.regressor_preco import executar_pipeline_regressor
+from src.models.regressor_preco import executar_pipeline_regressor, preparar_dados_cache
 from src.models.recomendador_acoes import recomendar_varias_acoes
 
 MODELO_NOME = "modelo_classificador_desempenho.pkl"
@@ -168,6 +168,9 @@ def main():
 
         if data_inicio and data_fim:
             print("[2] Regressor em backfill por período...")
+            print("[2] Pré-carregando e processando dados (uma única vez)...")
+            dados_cache = preparar_dados_cache(n_dias=args.n_dias)
+            print("[2] Dados prontos. Iniciando iterações...")
             atual = data_inicio
             total = (data_fim - data_inicio).days + 1
             i = 1
@@ -178,6 +181,7 @@ def main():
                     data_calculo=atual,
                     save_to_db=True,
                     sem_vazamento_temporal=args.sem_vazamento_temporal,
+                    _dados_cache=dados_cache,
                 )
                 atual += timedelta(days=1)
                 i += 1

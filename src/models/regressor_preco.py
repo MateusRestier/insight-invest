@@ -176,13 +176,33 @@ def salvar_resultados_no_banco(comp, data_calculo):
             conn.close()
 
 
-# 5) Pipeline completo
+# 5a) Pré-carregamento para backfill (evita recarregar dados a cada iteração)
+def preparar_dados_cache(n_dias: int = 10) -> tuple:
+    """
+    Carrega e processa os dados uma única vez para uso em backfills.
+    Retorna (X, y, dates, acoes, ultima_real_date) pronto para passar a
+    executar_pipeline_regressor via _dados_cache.
+    """
+    conn = get_connection()
+    df = pd.read_sql_query(
+        "SELECT * FROM indicadores_fundamentalistas WHERE cotacao >= 1.0 ORDER BY acao, data_coleta;",
+        conn
+    )
+    conn.close()
+    df['data_coleta'] = pd.to_datetime(df['data_coleta'])
+    ultima_real_date = df['data_coleta'].max().date()
+    X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
+    return X, y, dates, acoes, ultima_real_date
+
+
+# 5b) Pipeline completo
 def executar_pipeline_regressor(
     n_dias: int = 10,
     data_calculo: date | None = None,
     save_to_db: bool = True,
     tickers: list[str] | None = None,
     sem_vazamento_temporal: bool = False,
+    _dados_cache: tuple | None = None,
 ) -> tuple[RandomForestRegressor, pd.DataFrame]:
     """
     Executa o pipeline de regressão para previsão de preços.
@@ -193,6 +213,8 @@ def executar_pipeline_regressor(
         tickers: lista de ações para filtrar o resultado (ou None para todas).
         sem_vazamento_temporal: quando True, treina apenas com linhas cujo alvo
             (preço em n_dias à frente) já seria conhecido na data_calculo.
+        _dados_cache: tupla (X, y, dates, acoes, ultima_real_date) pré-computada
+            para evitar recarregar e reprocessar dados em chamadas repetidas (backfill).
     Returns:
         model: RandomForestRegressor treinado.
         comp: DataFrame com colunas ['acao','data_previsao','real','preco_previsto','erro_pct'].
@@ -200,17 +222,19 @@ def executar_pipeline_regressor(
     if data_calculo is None:
         data_calculo = date.today()
 
-    # 1) Carrega histórico de indicadores
-    conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM indicadores_fundamentalistas", conn)
-    conn.close()
-    df['data_coleta'] = pd.to_datetime(df['data_coleta'])
-
-    # 2) Prepara X, y, datas e tickers
-    X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
+    if _dados_cache is not None:
+        X, y, dates, acoes, ultima_real_date = _dados_cache
+    else:
+        # 1) Carrega histórico de indicadores
+        conn = get_connection()
+        df = pd.read_sql_query("SELECT * FROM indicadores_fundamentalistas WHERE cotacao >= 1.0", conn)
+        conn.close()
+        df['data_coleta'] = pd.to_datetime(df['data_coleta'])
+        ultima_real_date = df['data_coleta'].max().date()
+        # 2) Prepara X, y, datas e tickers
+        X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
 
     # 3) Define máscaras de treino/teste com base em data_calculo
-    ultima_real_date = df['data_coleta'].max().date()
     cutoff = pd.to_datetime(data_calculo)
     if data_calculo > ultima_real_date:
         print(f"⚠️ data_calculo ({data_calculo}) > última data no banco ({ultima_real_date}); ajustando treino.")
