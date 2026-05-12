@@ -12,6 +12,10 @@ from dash.dash_table.Format import Format, Scheme, Sign
 
 from src.core.db_connection import get_connection
 
+# Margem de erro (em %) abaixo da qual a previsão é considerada "Precisa".
+# Alterar este valor atualiza automaticamente o gráfico de pizza, a tabela e os filtros.
+_LIMIAR_PRECISO = 5.0  # ±5 %
+
 # ----------------------------------------------------------------------
 # Layout da página "Indicadores"
 # ----------------------------------------------------------------------
@@ -166,7 +170,7 @@ def layout_indicadores():
                 # Legenda de cores da coluna Erro %
                 html.Div([
                     html.Span("Erro %:", className="text-muted small me-2", style={"fontSize": "0.75rem"}),
-                    html.Span("● Preciso", style={"color": "#00cc96", "fontSize": "0.75rem", "marginRight": "12px"}),
+                    html.Span(f"● Preciso (±{_LIMIAR_PRECISO:.0f}%)", style={"color": "#00cc96", "fontSize": "0.75rem", "marginRight": "12px"}),
                     html.Span("● Errou pra mais", style={"color": "#60a5fa", "fontSize": "0.75rem", "marginRight": "12px"}),
                     html.Span("● Errou pra menos", style={"color": "#a78bfa", "fontSize": "0.75rem"}),
                 ], className="mb-2", style={"display": "flex", "flexWrap": "wrap", "alignItems": "center", "gap": "2px"}),
@@ -535,20 +539,20 @@ def register_callbacks_indicadores(app):
         if erro_sel:
             masks = []
             if 'gt0' in erro_sel:
-                masks.append(df['erro_pct'] > 0)
+                masks.append(df['erro_pct'] > _LIMIAR_PRECISO)
             if 'lt0' in erro_sel:
-                masks.append(df['erro_pct'] < 0)
+                masks.append(df['erro_pct'] < -_LIMIAR_PRECISO)
             if 'eq0' in erro_sel:
-                masks.append(df['erro_pct'] == 0)
+                masks.append(df['erro_pct'].abs() <= _LIMIAR_PRECISO)
             df = df[np.logical_or.reduce(masks)]
 
         # Filtro adicional pelo clique na pizza (Callback 3)
         if pie_cat == 'Preciso':
-            df = df[df['erro_pct'] == 0]
+            df = df[df['erro_pct'].abs() <= _LIMIAR_PRECISO]
         elif pie_cat == 'Errou pra mais':
-            df = df[df['erro_pct'] > 0]
+            df = df[df['erro_pct'] > _LIMIAR_PRECISO]
         elif pie_cat == 'Errou pra menos':
-            df = df[df['erro_pct'] < 0]
+            df = df[df['erro_pct'] < -_LIMIAR_PRECISO]
 
         df = df.sort_values('data_previsao', ascending=True)
 
@@ -558,9 +562,9 @@ def register_callbacks_indicadores(app):
         def _categoria_erro(v):
             if v is None or (isinstance(v, float) and pd.isna(v)):
                 return "none"
-            if v == 0:  return "zero"
-            if v > 0:   return "pos"
-            return "neg"
+            if abs(v) <= _LIMIAR_PRECISO: return "zero"   # dentro da margem → verde
+            if v > _LIMIAR_PRECISO:       return "pos"    # superestimou → azul
+            return "neg"                                   # subestimou → violeta
 
         df["_cor_erro"] = df["erro_pct"].apply(_categoria_erro)
 
@@ -581,9 +585,9 @@ def register_callbacks_indicadores(app):
     def _build_pie_figure(df, selected_label=None, hover_label=None):
         """Constrói a figura do pie com destaque visual na fatia selecionada/hovered."""
         counts = {
-            'Preciso':         int((df['erro_pct'] == 0).sum()),
-            'Errou pra mais':  int((df['erro_pct'] > 0).sum()),
-            'Errou pra menos': int((df['erro_pct'] < 0).sum()),
+            'Preciso':         int((df['erro_pct'].abs() <= _LIMIAR_PRECISO).sum()),
+            'Errou pra mais':  int((df['erro_pct']       >  _LIMIAR_PRECISO).sum()),
+            'Errou pra menos': int((df['erro_pct']       < -_LIMIAR_PRECISO).sum()),
         }
         base_colors = ['#00cc96', '#60a5fa', '#a78bfa']
         labels = list(counts.keys())
@@ -645,9 +649,9 @@ def register_callbacks_indicadores(app):
             df = df[df['acao'] == acao_sel]
         if erro_sel:
             masks = []
-            if 'gt0' in erro_sel: masks.append(df['erro_pct'] > 0)
-            if 'lt0' in erro_sel: masks.append(df['erro_pct'] < 0)
-            if 'eq0' in erro_sel: masks.append(df['erro_pct'] == 0)
+            if 'gt0' in erro_sel: masks.append(df['erro_pct'] > _LIMIAR_PRECISO)
+            if 'lt0' in erro_sel: masks.append(df['erro_pct'] < -_LIMIAR_PRECISO)
+            if 'eq0' in erro_sel: masks.append(df['erro_pct'].abs() <= _LIMIAR_PRECISO)
             df = df[np.logical_or.reduce(masks)]
         return df
 
@@ -816,9 +820,9 @@ def register_callbacks_indicadores(app):
             df = df[df["acao"] == acao_sel]
         if erro_sel:
             masks = []
-            if "gt0" in erro_sel: masks.append(df["erro_pct"] > 0)
-            if "lt0" in erro_sel: masks.append(df["erro_pct"] < 0)
-            if "eq0" in erro_sel: masks.append(df["erro_pct"] == 0)
+            if "gt0" in erro_sel: masks.append(df["erro_pct"] > _LIMIAR_PRECISO)
+            if "lt0" in erro_sel: masks.append(df["erro_pct"] < -_LIMIAR_PRECISO)
+            if "eq0" in erro_sel: masks.append(df["erro_pct"].abs() <= _LIMIAR_PRECISO)
             df = df[np.logical_or.reduce(masks)]
 
         if df.empty:
