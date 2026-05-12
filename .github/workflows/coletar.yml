@@ -2,11 +2,11 @@ name: Coletar Indicadores
 
 on:
   schedule:
-    # 18:00 BRT (21:00 UTC) — disparo principal, logo após fechamento
-    # 20:00 BRT (23:00 UTC) — fallback
+    # 17:00 BRT (20:00 UTC) — disparo principal, logo após fechamento
+    # 19:00 BRT (22:00 UTC) — fallback
     # Apenas dias úteis (seg-sex)
-    - cron: "0 21 * * 1-5"
-    - cron: "0 23 * * 1-5"
+    - cron: "0 20 * * 1-5"
+    - cron: "0 22 * * 1-5"
   workflow_dispatch:
 
 jobs:
