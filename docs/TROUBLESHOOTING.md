@@ -239,7 +239,8 @@ CREATE TABLE IF NOT EXISTS public.recomendacoes_acoes (
   recomendada NUMERIC NOT NULL,
   nao_recomendada NUMERIC NOT NULL,
   resultado TEXT NOT NULL,
-  data_insercao TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  data_recomendacao DATE NOT NULL DEFAULT CURRENT_DATE,
+  CONSTRAINT uq_acao_data_recomendacao UNIQUE (acao, data_recomendacao)
 );
 ```
 
@@ -630,4 +631,4 @@ docker compose up -d
 
 ---
 
-**Última atualização:** 2026-02-27
+**Última atualização:** 2026-05-12

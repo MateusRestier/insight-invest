@@ -24,8 +24,9 @@ Classificar ações em duas categorias:
 #### Processo de Rotulagem
 
 ```python
-# 1. Calcular data futura alvo (N dias à frente)
-df['data_futura_alvo'] = df['data_coleta'] + pd.Timedelta(days=10)
+# 1. Calcular data futura alvo (N dias ÚTEIS à frente — BDay garante consistência)
+from pandas.tseries.offsets import BDay
+df['data_futura_alvo'] = df['data_coleta'] + BDay(10)
 
 # 2. Buscar cotação futura real (merge_asof)
 df_futuro = pd.merge_asof(
@@ -70,56 +71,58 @@ for data in datas_unicas:
 
 ### Features Engineering
 
-#### Features Utilizadas (23 + 1 indicador)
+Todo o feature engineering está centralizado em **`src/models/feature_engineering.py`**.
+
+#### Features Utilizadas (33 no total — classificador / 32 no regressor)
 
 ```python
-features = [
-    # Múltiplos de Preço
-    'pl',                    # Preço/Lucro
-    'pvp',                   # Preço/Valor Patrimonial
+# ── Fundamentalistas base (22) ──────────────────────────────────────────
+'pl',                    # Preço/Lucro
+'pvp',                   # Preço/Valor Patrimonial
+'dividend_yield',        # % de dividendos
+'payout',                # % de distribuição
+'margem_liquida',        # % margem líquida
+'margem_bruta',          # % margem bruta
+'margem_ebit',           # % margem EBIT
+'margem_ebitda',         # % margem EBITDA
+'ev_ebit',               # Enterprise Value / EBIT
+'p_ebit',                # Preço / EBIT
+'p_ativo',               # Preço / Ativos
+'p_cap_giro',            # Preço / Capital de Giro
+'p_ativo_circ_liq',      # Preço / Ativo Circulante Líquido
+'vpa',                   # Valor Patrimonial por Ação
+'lpa',                   # Lucro por Ação
+'giro_ativos',           # Giro dos Ativos
+'roe',                   # Retorno sobre Patrimônio
+'roic',                  # Retorno sobre Capital Investido
+'roa',                   # Retorno sobre Ativos
+'patrimonio_ativos',     # Patrimônio / Ativos
+'passivos_ativos',       # Passivos / Ativos
+'variacao_12m',          # Variação dos últimos 12 meses
 
-    # Rendimento
-    'dividend_yield',        # % de dividendos
-    'payout',               # % de distribuição
+# ── Feature calculada — Value Investing (1) ──────────────────────────────
+'preco_sobre_graham',    # Cotação / VI_Graham
 
-    # Margens de Lucro
-    'margem_liquida',       # % margem líquida
-    'margem_bruta',         # % margem bruta
-    'margem_ebit',          # % margem EBIT
-    'margem_ebitda',        # % margem EBITDA
+# ── Delta features — momentum 7 dias (5) ────────────────────────────────
+# Variação percentual de cada indicador em relação a 7 registros atrás.
+# Dá ao modelo informação de TENDÊNCIA, não só valor absoluto.
+'delta_cotacao_7d',
+'delta_pl_7d',
+'delta_pvp_7d',
+'delta_dividend_yield_7d',
+'delta_roe_7d',
 
-    # Múltiplos de Valor
-    'ev_ebit',              # Enterprise Value / EBIT
-    'p_ebit',               # Preço / EBIT
-    'p_ativo',              # Preço / Ativos
-    'p_cap_giro',           # Preço / Capital de Giro
-    'p_ativo_circ_liq',     # Preço / Ativo Circulante Líquido
+# ── Features relativas ao mercado (5) ───────────────────────────────────
+# Razão entre o valor da ação e a mediana diária de TODAS as ações.
+# > 1 = acima da mediana do mercado naquele dia; < 1 = abaixo.
+'pl_vs_mercado',
+'pvp_vs_mercado',
+'roe_vs_mercado',
+'margem_liquida_vs_mercado',
+'dividend_yield_vs_mercado',
 
-    # Métricas por Ação
-    'vpa',                  # Valor Patrimonial por Ação
-    'lpa',                  # Lucro por Ação
-
-    # Eficiência
-    'giro_ativos',          # Giro dos Ativos
-
-    # Rentabilidade
-    'roe',                  # Retorno sobre Patrimônio
-    'roic',                 # Retorno sobre Capital Investido
-    'roa',                  # Retorno sobre Ativos
-
-    # Estrutura Financeira
-    'patrimonio_ativos',    # Patrimônio / Ativos
-    'passivos_ativos',      # Passivos / Ativos
-
-    # Performance de Mercado
-    'variacao_12m',         # Variação dos últimos 12 meses
-
-    # Feature Calculada (Value Investing)
-    'preco_sobre_graham',   # Cotação / VI_Graham
-
-    # Indicador de Qualidade
-    'fund_bad'              # 1 se PL ≤ 0 ou ROE ≤ 0
-]
+# ── Indicador de qualidade — apenas no classificador (1) ─────────────────
+'fund_bad'               # 1 se PL ≤ 0 ou ROE ≤ 0
 ```
 
 #### Feature: Preço sobre Graham
@@ -131,6 +134,28 @@ VI_Graham = sqrt(22.5 × LPA × VPA)
 # Aplicado apenas se LPA > 0 e VPA > 0
 preco_sobre_graham = cotacao / VI_Graham
 ```
+
+#### Features Delta (momentum)
+
+```python
+# src/models/feature_engineering.py — adicionar_delta_features()
+df = df.sort_values(['acao', 'data_coleta'])
+df['delta_cotacao_7d'] = df.groupby('acao')['cotacao'].pct_change(periods=7, fill_method=None)
+# idem para pl, pvp, dividend_yield, roe
+```
+
+**Por que:** fundamentos mudam trimestralmente; o preço muda diariamente. Sem capturar tendência, o modelo vê apenas uma "foto" estática de cada ação, sem saber se está em alta ou em queda.
+
+#### Features Relativas ao Mercado
+
+```python
+# src/models/feature_engineering.py — adicionar_features_relativas()
+mediana_diaria = df.groupby('data_coleta')['pl'].transform('median')
+df['pl_vs_mercado'] = df['pl'] / (mediana_diaria + 1e-9)
+# idem para pvp, roe, margem_liquida, dividend_yield
+```
+
+**Por que:** uma margem líquida de 8% é boa para uma distribuidora, ruim para uma tech. Sem contexto cross-sectional, o modelo trata todos os setores no mesmo espaço de features.
 
 **Interpretação:**
 - `< 0.75`: Muito subavaliado (potencial de compra)
@@ -263,7 +288,10 @@ Prever o preço de uma ação **N dias no futuro** usando indicadores fundamenta
 
 ```python
 def adicionar_preco_futuro(df, n_dias):
-    df['data_futura_alvo'] = df['data_coleta'] + pd.Timedelta(days=n_dias)
+    # BDay = dias úteis — garante que o alvo sempre cai num pregão,
+    # eliminando a inconsistência de fins de semana/feriados
+    from pandas.tseries.offsets import BDay
+    df['data_futura_alvo'] = df['data_coleta'] + BDay(n_dias)
 
     # Por ação, buscar cotação futura
     def _por_acao(grp):
@@ -300,16 +328,36 @@ else:
     X_test, y_test = X[mask_test], y[mask_test]
 ```
 
-#### Etapa 3: Treinamento
+#### Etapa 3: Treinamento com Busca de Hiperparâmetros
 
 ```python
-model = RandomForestRegressor(
-    n_estimators=100,
-    random_state=42
-)
+from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 
-model.fit(X_train, y_train)
+# Número de splits adaptativo ao volume de dados
+n_splits = 3 if len(X_train) < 500 else 5
+tscv = TimeSeriesSplit(n_splits=n_splits)
+
+param_dist = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [5, 10, 15, None],
+    'min_samples_leaf': [2, 5, 10],
+    'max_features': ['sqrt', 'log2', 0.5],
+}
+
+search = RandomizedSearchCV(
+    RandomForestRegressor(random_state=42),
+    param_distributions=param_dist,
+    n_iter=15,
+    cv=tscv,
+    scoring='neg_mean_absolute_error',
+    n_jobs=-1,
+    random_state=42,
+)
+search.fit(X_train, y_train)
+model = search.best_estimator_
 ```
+
+> **Nota:** ver `docs/ML_EVOLUCAO.md` para quando aumentar `n_splits` e `n_iter` conforme o banco cresce.
 
 ### Otimização Multi-Dia
 
@@ -327,28 +375,38 @@ def executar_pipeline_multidia(max_dias=10, data_calculo=None, ...):
     # 1. Carrega dados UMA ÚNICA VEZ
     df = carregar_dados_do_banco()
 
-    # 2. Calcula features UMA ÚNICA VEZ
+    # 2. Calcula features UMA ÚNICA VEZ (pipeline completo)
+    from src.models.feature_engineering import (
+        calcular_features_graham_estrito,
+        adicionar_delta_features,
+        adicionar_features_relativas,
+        FEATURES_REGRESSOR,
+    )
     df = calcular_features_graham_estrito(df)
+    df = adicionar_delta_features(df, janela_dias=7)
+    df = adicionar_features_relativas(df)
 
-    # 3. Loop leve por horizonte
+    # 3. Loop leve por horizonte (1 modelo por horizonte)
     all_predictions = []
     for n in range(1, max_dias + 1):
-        # 3.1. Adiciona preço futuro para este horizonte
+        # 3.1. Adiciona preço futuro para este horizonte (BDay)
         df_n = adicionar_preco_futuro(df, n)
 
-        # 3.2. Treina modelo específico
+        # 3.2. Treina modelo com RandomizedSearchCV
         X_train, y_train = preparar_dados(df_n, n)
-        model = RandomForestRegressor(n_estimators=100)
-        model.fit(X_train, y_train)
+        search = RandomizedSearchCV(RandomForestRegressor(random_state=42), ...)
+        search.fit(X_train, y_train)
+        model = search.best_estimator_
 
         # 3.3. Prediz
         ultimos = X_train.groupby(acoes).tail(1)
         preds = model.predict(ultimos)
 
-        # 3.4. Armazena
+        # 3.4. Armazena (data alvo em dias úteis)
+        from pandas.tseries.offsets import BDay
         all_predictions.append(pd.DataFrame({
             'acao': acoes,
-            'data_previsao': data_calculo + timedelta(days=n),
+            'data_previsao': (pd.Timestamp(data_calculo) + BDay(n)).date(),
             'preco_previsto': preds,
             'dias_a_frente': n
         }))
@@ -387,11 +445,12 @@ print(f"R²: {r2:.4f}")
 print(f"MAPE: {mape:.2f}%")
 ```
 
-**Métricas Típicas:**
-- MAE: R$ 0.50 - 2.00
-- RMSE: R$ 1.00 - 3.00
-- R²: 0.85 - 0.95
-- MAPE: 5-15%
+**Métricas Observadas (maio/2026 — 28 dias de dados):**
+- MAE CV: ~R$ 9.94
+- R² treino: ~0.9888
+- Melhores parâmetros encontrados: `n_estimators=300, min_samples_leaf=10, max_features=0.5, max_depth=15`
+
+> À medida que o banco cresce, as métricas tendem a melhorar. Ver `docs/ML_EVOLUCAO.md` para os ajustes planejados.
 
 ---
 
@@ -500,12 +559,30 @@ for i, idx in enumerate(indices[:10], 1):
     print(f"{i}. {feature_names[idx]}: {importances[idx]:.4f}")
 ```
 
-**Top Features Típicas:**
+**Top Features Típicas (com 28 dias de dados):**
 1. `preco_sobre_graham` (~15%)
 2. `pl` (~12%)
 3. `roe` (~10%)
-4. `variacao_12m` (~8%)
-5. `margem_liquida` (~7%)
+4. `delta_cotacao_7d` (~9%) — nova feature de momentum
+5. `variacao_12m` (~8%)
+6. `margem_liquida` (~7%)
+
+> Com mais dados, as features de delta e relativas tendem a ganhar importância relativa.
+
+---
+
+## Módulo Central de Feature Engineering
+
+Todas as funções de feature engineering estão em **`src/models/feature_engineering.py`**:
+
+| Função | Descrição |
+|--------|-----------|
+| `calcular_features_graham_estrito(df)` | VI de Graham e `preco_sobre_graham` |
+| `adicionar_delta_features(df, janela_dias=7)` | Variação % de cotacao/pl/pvp/dy/roe em N dias |
+| `adicionar_features_relativas(df)` | Razão vs. mediana diária do mercado |
+| `aplicar_todas_features(df)` | Pipeline completo em uma chamada |
+| `FEATURES_REGRESSOR` | Lista canônica de features do regressor (32) |
+| `FEATURES_CLASSIFICADOR` | Lista canônica de features do classificador (33) |
 
 ---
 
@@ -513,9 +590,11 @@ for i, idx in enumerate(indices[:10], 1):
 
 O sistema implementa Machine Learning com **rigor científico**:
 
-✅ **Validação temporal** correta
-✅ **Feature engineering** baseado em Value Investing
-✅ **Tuning automatizado** com RandomizedSearchCV
-✅ **Interpretabilidade** via feature importances
+✅ **Validação temporal** correta (TimeSeriesSplit + hold-out por data)
+✅ **Feature engineering** centralizado: Graham + momentum + contexto de mercado
+✅ **Tuning automatizado** com RandomizedSearchCV em ambos os modelos
+✅ **Horizonte consistente** em dias úteis (BDay) para regressor e classificador
+✅ **Deduplicação** de recomendações via ON CONFLICT (uma por ação por dia)
+✅ **Interpretabilidade** via feature importances + XAI Gemini
 ✅ **Justificativas** baseadas em heurísticas de mercado
 ✅ **Métricas** adequadas para cada tipo de problema

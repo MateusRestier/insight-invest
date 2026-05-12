@@ -32,7 +32,7 @@ O INSIGHT-INVEST é um sistema completo de análise e recomendação de ações 
 │  PostgreSQL (Docker Container)                                      │
 │  ├─ indicadores_fundamentalistas (PK: acao, data_coleta)          │
 │  ├─ resultados_precos (PK: acao, data_previsao)                   │
-│  └─ recomendacoes_acoes (sem PK, histórico temporal)              │
+│  └─ recomendacoes_acoes (UNIQUE: acao, data_recomendacao)         │
 └──────────────────────────┬──────────────────────────────────────────┘
                            ↓ SELECT para treino/predição
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -47,11 +47,20 @@ O INSIGHT-INVEST é um sistema completo de análise e recomendação de ações 
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ regressor_preco.py (RandomForestRegressor)                   │  │
-│  │  • Objetivo: Prever preço futuro N dias à frente            │  │
-│  │  • Estratégia: Modelos especializados por horizonte         │  │
-│  │  • Métricas: MAE, MSE, RMSE, R², MAPE                       │  │
-│  │  • Output: Tabela resultados_precos                         │  │
+│  │ regressor_preco.py (RandomForestRegressor + tuning)          │  │
+│  │  • Objetivo: Prever preço futuro N dias úteis à frente      │  │
+│  │  • Estratégia: Modelos especializados por horizonte (BDay)  │  │
+│  │  • Tuning: RandomizedSearchCV + TimeSeriesSplit             │  │
+│  │  • Métricas: MAE, MSE, RMSE, R²                             │  │
+│  │  • Output: Tabela resultados_precos (10 linhas/ação)        │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ feature_engineering.py (módulo central de features)          │  │
+│  │  • calcular_features_graham_estrito()                        │  │
+│  │  • adicionar_delta_features() — momentum 7 dias             │  │
+│  │  • adicionar_features_relativas() — posição vs. mercado     │  │
+│  │  • FEATURES_REGRESSOR / FEATURES_CLASSIFICADOR (listas)     │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐  │
@@ -156,7 +165,9 @@ Coleta atual (scraper)
     • Gera justificativas heurísticas
     ↓
 recomendacoes_acoes
-    • Campos: acao, prob_sim, prob_nao, resultado, data_insercao
+    • Campos: acao, recomendada, nao_recomendada, resultado, data_recomendacao
+    • Upsert: ON CONFLICT (acao, data_recomendacao) DO UPDATE
+    • Garante 1 registro por ação por dia (sem duplicatas)
 ```
 
 ### 5️⃣ Visualização (Tempo Real)
@@ -259,6 +270,7 @@ Dashboard (http://localhost:8050)
 ### Idempotência
 - **Scraper:** `ON CONFLICT (acao, data_coleta) DO UPDATE`
 - **Regressor:** `ON CONFLICT (acao, data_previsao) DO UPDATE`
+- **Recomendações:** `ON CONFLICT (acao, data_recomendacao) DO UPDATE`
 - **Permite re-execução** sem duplicação de dados
 
 ### Validação Temporal
@@ -270,17 +282,27 @@ Dashboard (http://localhost:8050)
 
 ## Próximos Passos / Roadmap
 
+### Concluído (maio/2026)
+- [x] Feature engineering centralizado (`src/models/feature_engineering.py`)
+- [x] Delta features — momentum de preço e fundamentos (7 dias)
+- [x] Features relativas ao mercado (posição cross-sectional diária)
+- [x] Horizonte em dias úteis (BDay) no regressor e classificador
+- [x] Hyperparameter tuning no regressor (RandomizedSearchCV + TimeSeriesSplit)
+- [x] Deduplicação de `recomendacoes_acoes` (ON CONFLICT + data_recomendacao)
+- [x] Multidia ativo em produção (executar_pipeline_multidia na API)
+- [x] XAI via Gemini (explicação textual das recomendações)
+
 ### Curto Prazo
-- [ ] Análise técnica (RSI, MACD, Bollinger Bands)
-- [ ] SHAP values para interpretabilidade
+- [ ] Ajustar `janela_dias=14` quando banco tiver >2 meses (ver `docs/ML_EVOLUCAO.md`)
+- [ ] SHAP values para interpretabilidade mais profunda
 - [ ] Testes automatizados (pytest)
 
 ### Médio Prazo
-- [ ] Análise de sentimento (NLP em notícias)
+- [ ] Análise técnica (RSI, MACD) como features adicionais
 - [ ] Backtesting de estratégias
-- [ ] API REST com FastAPI
+- [ ] Aumentar n_splits=5 e n_iter=30 quando banco tiver >3 meses
 
 ### Longo Prazo
-- [ ] Transfer Learning de modelos financeiros
+- [ ] Avaliar Gradient Boosting (XGBoost/LightGBM) com >1 ano de dados
 - [ ] Integração com outras bolsas (NASDAQ, NYSE)
-- [ ] App mobile (React Native)
+- [ ] Análise de sentimento (NLP em notícias)

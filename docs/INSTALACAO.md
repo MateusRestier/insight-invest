@@ -269,9 +269,9 @@ SELECT * FROM resultados_precos
 WHERE acao = 'PETR4'
 ORDER BY data_previsao;
 
--- Ver recomendações
+-- Ver recomendações (mais recentes por ação)
 SELECT * FROM recomendacoes_acoes
-ORDER BY data_insercao DESC
+ORDER BY data_recomendacao DESC, acao
 LIMIT 20;
 ```
 
