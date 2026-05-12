@@ -235,14 +235,18 @@ def _processar_ticker(ticker):
         else:
             texto = "FORTEMENTE NÃO RECOMENDADA PARA COMPRA"
 
-        # Insere no PostgreSQL
+        # Insere no PostgreSQL (upsert: uma linha por acao por dia)
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
             """
             INSERT INTO public.recomendacoes_acoes
-               (acao, recomendada, nao_recomendada, resultado)
-            VALUES (%s, %s, %s, %s)
+               (acao, recomendada, nao_recomendada, resultado, data_recomendacao)
+            VALUES (%s, %s, %s, %s, CURRENT_DATE)
+            ON CONFLICT (acao, data_recomendacao) DO UPDATE SET
+                recomendada     = EXCLUDED.recomendada,
+                nao_recomendada = EXCLUDED.nao_recomendada,
+                resultado       = EXCLUDED.resultado
             """,
             (ticker, prob_sim, prob_nao, texto)
         )

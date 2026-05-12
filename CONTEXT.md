@@ -51,6 +51,68 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v3.00] Melhorias de ML: feature engineering, tuning do regressor, deduplicacao de recomendacoes
+**Data:** 2026-05-12
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**Novo modulo `src/models/feature_engineering.py`:**
+- Centraliza toda a logica de feature engineering usada pelos modelos.
+- `calcular_features_graham_estrito()` — migrada do `classificador.py` (estava duplicada).
+- `adicionar_delta_features(df, janela_dias=7)` — calcula variacao percentual de `cotacao`, `pl`, `pvp`, `dividend_yield`, `roe` em relacao a 7 registros anteriores por acao. Cobertura: ~96%.
+- `adicionar_features_relativas(df)` — normaliza `pl`, `pvp`, `roe`, `margem_liquida`, `dividend_yield` pela mediana diaria do mercado inteiro (`col_vs_mercado`).
+- `aplicar_todas_features(df)` — pipeline completo em uma chamada.
+- `FEATURES_REGRESSOR` e `FEATURES_CLASSIFICADOR` — listas canonicas de features (32 e 33 features respectivamente, vs. 22 anteriores).
+
+**`src/models/regressor_preco.py`:**
+- `RandomForestRegressor` fixo substituido por `RandomizedSearchCV` com `TimeSeriesSplit` (n_splits=3 se <500 amostras, senao 5). Parametros buscados: `n_estimators`, `max_depth`, `min_samples_leaf`, `max_features`.
+- Melhor conjunto encontrado em producao: `{n_estimators:300, min_samples_leaf:10, max_features:0.5, max_depth:15}`.
+- `pd.Timedelta(days=n_dias)` substituido por `BDay(n_dias)` — horizonte agora em dias uteis para consistencia entre acoes.
+- Pipeline enriquecido com `adicionar_delta_features` + `adicionar_features_relativas`.
+- `executar_pipeline_multidia` tambem atualizado com as novas features e tuning.
+- Import de `calcular_features_graham_estrito` migrado para `feature_engineering`.
+
+**`src/models/classificador.py`:**
+- `calcular_features_graham_estrito` removida (duplicata) — agora importada de `feature_engineering`.
+- Pipeline adicionado: `adicionar_delta_features` + `adicionar_features_relativas` antes do calculo de rotulos.
+- `pd.to_timedelta(n_dias, unit='d')` substituido por `BDay(n_dias)`.
+- `preparar_X_y_para_modelo` agora usa `FEATURES_CLASSIFICADOR` centralizada.
+
+**`src/models/recomendador_acoes.py`:**
+- INSERT no PostgreSQL alterado para upsert: `ON CONFLICT (acao, data_recomendacao) DO UPDATE SET ...`.
+- Coluna `data_recomendacao` adicionada ao INSERT.
+
+**`src/api/main.py`:**
+- `_run_regressor()` e `_run_treinar()` atualizados para usar `executar_pipeline_multidia` em vez de `executar_pipeline_regressor` — treina um modelo por horizonte (1..10 BDays), mais robusto.
+
+**Migration DB (`scripts/migration_recomendacoes.py`):**
+- Adicionada coluna `data_recomendacao DATE DEFAULT CURRENT_DATE` em `recomendacoes_acoes`.
+- 15.768 registros duplicados removidos via `ctid`.
+- Constraint UNIQUE `(acao, data_recomendacao)` criada.
+
+#### Decisoes e motivos
+- **Modulo centralizado**: antes `calcular_features_graham_estrito` estava duplicada em `classificador.py` e `recomendador_acoes.py`. Centralizar elimina drift entre versoes.
+- **Delta features**: fundamentos mudam trimestralmente; a cotacao muda todo dia. Sem tendencia de preco, o modelo so ve "foto" estatica — as delta features dao o "movimento".
+- **Features relativas**: permite ao modelo saber se uma acao esta cara/barata RELATIVO ao mercado no mesmo dia — fundamental para classificacao comparativa.
+- **BDay**: dias uteis eliminam inconsistencia onde o mesmo `n_dias=10` vira 8 pregoes para uma acao e 6 para outra (feriados/fins de semana diferentes no meio do periodo).
+- **RandomizedSearchCV no regressor**: o classificador ja tinha tuning. O regressor com n_estimators=100 fixo sem max_depth estava claramente com overfitting (R² treino ~0.99, erro real ~16.71%).
+- **Multidia no job**: `executar_pipeline_multidia` ja existia mas nunca era chamado em producao. Usar um modelo dedicado por horizonte e mais preciso que extrapolar todos os horizontes com um so modelo.
+- **Deduplicacao**: tabela `recomendacoes_acoes` nao tinha `ON CONFLICT` e crescia indefinidamente a cada execucao diaria (15k+ duplicatas acumuladas).
+
+#### Resultados observados
+- MAE de CV do regressor: **9.94** (antes: erro medio ~16.71%).
+- R² de treino: 0.9888.
+- Dataset expandido de 33 para 45 colunas apos feature engineering.
+- 603 registros unicos em `recomendacoes_acoes` (sem duplicatas).
+
+#### Pendencias / proximos passos
+- Rodar o classificador local (`--job classificador`) para recomputar o modelo .pkl com as novas features.
+- Fazer commit e deploy no Railway para que o job semanal use o novo pipeline.
+- Aguardar 1 semana para previsoes multidia madurarem e comparar erro real com o anterior.
+- Quando o banco tiver >3 meses de dados: aumentar `n_splits=5` e `n_iter=30` no tuning.
+
+---
 ### [v2.32] Backfill do regressor por período sem vazamento temporal
 **Data:** 2026-05-06
 **IA:** Codex 5.3 via Cursor

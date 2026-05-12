@@ -8,9 +8,16 @@ if str(_PROJECT_ROOT) not in sys.path:
 import pandas as pd, numpy as np
 from datetime import datetime, timedelta, date
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from pandas.tseries.offsets import BDay
 from src.core.db_connection import get_connection
-from src.models.classificador import calcular_features_graham_estrito
+from src.models.feature_engineering import (
+    calcular_features_graham_estrito,
+    adicionar_delta_features,
+    adicionar_features_relativas,
+    FEATURES_REGRESSOR,
+)
 
 # 1) Carrega o histórico
 def carregar_dados_do_banco():
@@ -39,8 +46,12 @@ def obter_data_calculo_maxima():
 
 # 2) Calcula preco_futuro_N_dias
 def adicionar_preco_futuro(df, n_dias):
+    """
+    Calcula o preço alvo N dias úteis à frente (BDay), evitando inconsistências
+    causadas por fins de semana/feriados que acontecem com dias calendário.
+    """
     df = df.copy()
-    df['data_futura_alvo'] = df['data_coleta'] + pd.Timedelta(days=n_dias)
+    df['data_futura_alvo'] = df['data_coleta'] + BDay(n_dias)
 
     def _por_acao(grp, acao_key):
         grp = grp.sort_values('data_coleta')
@@ -89,7 +100,10 @@ def preparar_dados_regressao(df, n_dias):
     elif df.index.name == 'acao':
         acao_fallback = pd.Series(df.index, index=df.index, name='acao')
 
+    # Pipeline de feature engineering completo
     df = calcular_features_graham_estrito(df)
+    df = adicionar_delta_features(df, janela_dias=7)
+    df = adicionar_features_relativas(df)
     df = adicionar_preco_futuro(df, n_dias)
     df = df.dropna(subset=['preco_futuro_N_dias']).copy()
 
@@ -103,18 +117,8 @@ def preparar_dados_regressao(df, n_dias):
         else:
             raise KeyError("Coluna 'acao' ausente após preparação dos dados de regressão.")
 
-    features = [
-        'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',
-        'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
-        'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
-        'giro_ativos','roe','roic','roa','patrimonio_ativos',
-        'passivos_ativos','variacao_12m'
-    ]
-    features = [f for f in features if f in df.columns]
-
-    '''# Diagnóstico: verificar % de NaN em cada feature
-    print("\n---- Diagnóstico de NaNs por Feature (antes do dropna) ----")
-    print(df[features].isnull().mean().sort_values(ascending=False) * 100)'''
+    # Usa a lista centralizada de features; mantém apenas as que existem no df
+    features = [f for f in FEATURES_REGRESSOR if f in df.columns]
 
     X = df[features].replace([np.inf, -np.inf], np.nan).dropna()
     y = df.loc[X.index, 'preco_futuro_N_dias']
@@ -221,12 +225,35 @@ def executar_pipeline_regressor(
     X_test,  y_test  = X[mask_test],  y[mask_test]
     acoes_test       = acoes[mask_test]
 
-    # 4) Treina o modelo
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
+    # 4) Treina o modelo com busca de hiperparâmetros
+    n_samples = len(X_train)
+    # Com poucos dados usa 3 splits; com mais usa 5
+    n_splits = 3 if n_samples < 500 else 5
+    tscv = TimeSeriesSplit(n_splits=n_splits)
 
-    # 5) Gera previsões
-    future_date = data_calculo + timedelta(days=n_dias)
+    param_dist = {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [5, 10, 15, None],
+        'min_samples_leaf': [2, 5, 10],
+        'max_features': ['sqrt', 'log2', 0.5],
+    }
+    search = RandomizedSearchCV(
+        RandomForestRegressor(random_state=42),
+        param_distributions=param_dist,
+        n_iter=15,
+        cv=tscv,
+        scoring='neg_mean_absolute_error',
+        n_jobs=-1,
+        random_state=42,
+        verbose=0,
+    )
+    search.fit(X_train, y_train)
+    model = search.best_estimator_
+    print(f"[regressor] Melhores parametros: {search.best_params_}")
+    print(f"[regressor] Melhor MAE (CV): {-search.best_score_:.4f}")
+
+    # 5) Gera previsões (data alvo em dias úteis, consistente com adicionar_preco_futuro)
+    future_date = (pd.Timestamp(data_calculo) + BDay(n_dias)).date()
     if X_test.empty:
         print("⚠️ Sem dados futuros para teste; gerando previsão manual.")
         ultimos = X_train.groupby(acoes.loc[X_train.index]).tail(1)
@@ -300,6 +327,8 @@ def executar_pipeline_multidia(
     print("ETAPA 1: Carregando e preparando os dados (uma única vez)...")
     df_base = carregar_dados_do_banco()
     df_com_features = calcular_features_graham_estrito(df_base)
+    df_com_features = adicionar_delta_features(df_com_features, janela_dias=7)
+    df_com_features = adicionar_features_relativas(df_com_features)
     print("✅ Dados preparados.")
 
     all_predictions = []
@@ -309,20 +338,13 @@ def executar_pipeline_multidia(
         if progress_callback:
             progress_callback(n, max_dias)
 
-        print(f"\nETAPA 2: Treinando modelo para prever {n} dia(s) à frente...")
+        print(f"\nETAPA 2: Treinando modelo para prever {n} dia(s) úteis à frente...")
 
-        # Adiciona a coluna 'preco_futuro_N_dias' para o horizonte 'n' atual
+        # Adiciona a coluna 'preco_futuro_N_dias' para o horizonte 'n' atual (BDay)
         df_horizonte = adicionar_preco_futuro(df_com_features, n)
         df_horizonte = df_horizonte.dropna(subset=['preco_futuro_N_dias']).copy()
 
-        features = [
-            'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',
-            'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
-            'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
-            'giro_ativos','roe','roic','roa','patrimonio_ativos',
-            'passivos_ativos','variacao_12m'
-        ]
-        features = [f for f in features if f in df_horizonte.columns]
+        features = [f for f in FEATURES_REGRESSOR if f in df_horizonte.columns]
 
         X = df_horizonte[features].replace([np.inf, -np.inf], np.nan).dropna()
         y = df_horizonte.loc[X.index, 'preco_futuro_N_dias']
@@ -333,22 +355,37 @@ def executar_pipeline_multidia(
         cutoff = pd.to_datetime(data_calculo)
         mask_train = dates <= cutoff
         X_train, y_train = X[mask_train], y[mask_train]
-        
+
         # Pega os dados mais recentes de cada ação para fazer a previsão
         ultimos_registros = X_train.groupby(acoes.loc[X_train.index]).tail(1)
-        
+
         if ultimos_registros.empty:
             print(f"⚠️ Sem dados de treino para o horizonte de {n} dias na data {data_calculo}.")
             continue
 
-        # Treina um modelo específico para este horizonte de dias
-        model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-        model.fit(X_train, y_train)
+        # Treina com RandomizedSearchCV
+        n_splits = 3 if len(X_train) < 500 else 5
+        tscv = TimeSeriesSplit(n_splits=n_splits)
+        param_dist = {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [5, 10, 15, None],
+            'min_samples_leaf': [2, 5, 10],
+            'max_features': ['sqrt', 'log2', 0.5],
+        }
+        search = RandomizedSearchCV(
+            RandomForestRegressor(random_state=42),
+            param_distributions=param_dist,
+            n_iter=15, cv=tscv,
+            scoring='neg_mean_absolute_error',
+            n_jobs=-1, random_state=42, verbose=0,
+        )
+        search.fit(X_train, y_train)
+        model = search.best_estimator_
 
         # Gera previsões
         preds = model.predict(ultimos_registros)
-        
-        future_date = data_calculo + timedelta(days=n)
+
+        future_date = (pd.Timestamp(data_calculo) + BDay(n)).date()
 
         comp = pd.DataFrame({
             'acao': acoes.loc[ultimos_registros.index].values,

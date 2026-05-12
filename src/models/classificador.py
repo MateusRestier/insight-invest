@@ -9,7 +9,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score
 from sklearn.model_selection import TimeSeriesSplit, RandomizedSearchCV
+from pandas.tseries.offsets import BDay
 from src.core.db_connection import get_connection
+from src.models.feature_engineering import (
+    calcular_features_graham_estrito,
+    adicionar_delta_features,
+    adicionar_features_relativas,
+    FEATURES_CLASSIFICADOR,
+)
 
 
 def carregar_dados_completos_do_banco():
@@ -50,8 +57,8 @@ def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_s
     df['data_coleta'] = pd.to_datetime(df['data_coleta'])
     df = df.sort_values(by='data_coleta')
 
-    # Criar uma coluna com a data futura que queremos encontrar
-    df['data_futura_alvo'] = df['data_coleta'] + pd.to_timedelta(n_dias, unit='d')
+    # Criar a data alvo em dias úteis (BDay) para consistência entre ações
+    df['data_futura_alvo'] = df['data_coleta'] + BDay(n_dias)
 
     # Usamos pd.merge_asof, a ferramenta correta para "procurar o valor mais próximo no tempo"
     # Para cada linha do dataframe original ('left'), ele procurará no mesmo dataframe ('right')
@@ -110,35 +117,6 @@ def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_s
 
     return df
 
-def calcular_features_graham_estrito(df_input):
-    """
-    Calcula o VI de Graham e a feature Preco_Sobre_Graham de forma estrita.
-    VI_Graham só é calculado se LPA > 0 E VPA > 0.
-    """
-    df = df_input.copy()
-    cols_to_numeric = ['lpa', 'vpa', 'cotacao']
-    for col in cols_to_numeric:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-        else:
-            df[col] = np.nan
-            
-    df['vi_graham'] = np.nan
-    df['preco_sobre_graham'] = np.nan
-    condicao_valida_graham = (df['lpa'] > 0) & (df['vpa'] > 0)
-    
-    lpa_validos = df.loc[condicao_valida_graham, 'lpa']
-    vpa_validos = df.loc[condicao_valida_graham, 'vpa']
-    
-    if not lpa_validos.empty and not vpa_validos.empty:
-        produto_para_sqrt = 22.5 * lpa_validos * vpa_validos
-        vi_calculado = np.sqrt(produto_para_sqrt)
-        df.loc[condicao_valida_graham, 'vi_graham'] = vi_calculado
-
-    condicao_vi_valido = df['vi_graham'].notna() & (df['vi_graham'] != 0)
-    df.loc[condicao_vi_valido, 'preco_sobre_graham'] = df.loc[condicao_vi_valido, 'cotacao'] / df.loc[condicao_vi_valido, 'vi_graham']
-    return df
-
 def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path):
     """Prepara X (features), y (target) e dates (data_coleta) para o modelo, removendo colunas com nulos."""
     print("Preparando X, y e dates para o modelo...")
@@ -152,14 +130,8 @@ def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path):
     y = df_para_treino['rotulo_desempenho_futuro'].astype(int)
     dates = df_para_treino['data_coleta']
 
-    # Define as features a usar
-    features_colunas = [
-        'pl','pvp','dividend_yield','payout','margem_liquida','margem_bruta',
-        'margem_ebit','margem_ebitda','ev_ebit','p_ebit',
-        'p_ativo','p_cap_giro','p_ativo_circ_liq','vpa','lpa',
-        'giro_ativos','roe','roic','roa','patrimonio_ativos',
-        'passivos_ativos','variacao_12m','preco_sobre_graham', 'fund_bad'
-    ]
+    # Define as features a usar (lista centralizada em feature_engineering.py)
+    features_colunas = FEATURES_CLASSIFICADOR
     features_existentes = [col for col in features_colunas if col in df_para_treino.columns]
     if len(features_existentes) < len(features_colunas):
         ausentes = set(features_colunas) - set(features_existentes)
@@ -230,9 +202,11 @@ def executar_pipeline_classificador():
         print("Pipeline encerrado devido à falha no carregamento dos dados.")
         return
 
-    # 2) Calcula Graham e rótulos
+    # 2) Calcula Graham, delta features, features relativas e rótulos
     df_com_graham = calcular_features_graham_estrito(df_bruto)
-    df_com_rotulos = calcular_rotulos_desempenho_futuro(df_com_graham,n_dias=10, q_inferior=0.25, q_superior=0.75)
+    df_com_graham = adicionar_delta_features(df_com_graham, janela_dias=7)
+    df_com_graham = adicionar_features_relativas(df_com_graham)
+    df_com_rotulos = calcular_rotulos_desempenho_futuro(df_com_graham, n_dias=10, q_inferior=0.25, q_superior=0.75)
 
     # Qualquer ação com PL ou ROE negativos vira rótulo 0
     mask_bad = (df_com_rotulos['pl'] <= 0) | (df_com_rotulos['roe'] <= 0)

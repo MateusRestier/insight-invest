@@ -101,9 +101,9 @@ def _run_treinar():
     _set_tarefa("treinar")
     try:
         from src.models.classificador import executar_pipeline_classificador
-        from src.models.regressor_preco import executar_pipeline_regressor
+        from src.models.regressor_preco import executar_pipeline_multidia
         executar_pipeline_classificador()
-        executar_pipeline_regressor(n_dias=10, data_calculo=date.today())
+        executar_pipeline_multidia(max_dias=10, data_calculo=date.today(), save_to_db=True)
     finally:
         _set_tarefa(None)
 
@@ -118,8 +118,9 @@ def _run_classificador():
 def _run_regressor():
     _set_tarefa("regressor")
     try:
-        from src.models.regressor_preco import executar_pipeline_regressor
-        executar_pipeline_regressor(n_dias=10, data_calculo=date.today())
+        from src.models.regressor_preco import executar_pipeline_multidia
+        # Treina um modelo por horizonte (1..10 dias úteis) — mais robusto que modelo único
+        executar_pipeline_multidia(max_dias=10, data_calculo=date.today(), save_to_db=True)
     finally:
         _set_tarefa(None)
 
