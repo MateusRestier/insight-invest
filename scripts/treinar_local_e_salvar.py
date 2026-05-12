@@ -18,6 +18,9 @@ Exemplos:
 - Backfill do regressor por período (sem vazamento temporal):
     python scripts/treinar_local_e_salvar.py --job regressor --n-dias 10 --data-inicio 2026-04-20 --data-fim 2026-04-30 --sem-vazamento-temporal
 
+- Rodar apenas os dias pendentes desde a última execução:
+    python scripts/treinar_local_e_salvar.py --job regressor --n-dias 10 --pendente
+
 - Rodar só recomendações e salvar no banco:
     python scripts/treinar_local_e_salvar.py --job recomendacoes
 """
@@ -106,6 +109,14 @@ def main():
             "na data_calculo (evita uso indireto de futuro no treino)."
         ),
     )
+    parser.add_argument(
+        "--pendente",
+        action="store_true",
+        help=(
+            "Detecta a última data_calculo em resultados_precos e roda o backfill "
+            "do dia seguinte até hoje. Ignora --data-inicio e --data-fim."
+        ),
+    )
     args = parser.parse_args()
 
     data_calculo = date.fromisoformat(args.data_calculo)
@@ -124,14 +135,38 @@ def main():
             print("[1] Upload de modelo pulado por flag.")
 
     if args.job in ("todos", "regressor"):
-        if args.data_inicio or args.data_fim:
+        # Resolve intervalo de datas a processar
+        if args.pendente:
+            conn = get_connection()
+            try:
+                import pandas as pd
+                ultima = pd.read_sql_query(
+                    "SELECT MAX(data_calculo) AS ultima FROM resultados_precos", conn
+                ).iloc[0, 0]
+            finally:
+                conn.close()
+            if ultima is None:
+                raise RuntimeError(
+                    "Tabela resultados_precos está vazia. Use --data-inicio/--data-fim para o primeiro backfill."
+                )
+            data_inicio = pd.Timestamp(ultima).date() + timedelta(days=1)
+            data_fim = date.today()
+            if data_inicio > data_fim:
+                print("[2] Nenhum dia pendente — resultados_precos já está atualizado.")
+                data_inicio = data_fim = None
+            else:
+                print(f"[2] Pendente detectado: {data_inicio} → {data_fim}")
+        elif args.data_inicio or args.data_fim:
             if not (args.data_inicio and args.data_fim):
                 raise ValueError("Para backfill, informe ambos --data-inicio e --data-fim.")
             data_inicio = date.fromisoformat(args.data_inicio)
             data_fim = date.fromisoformat(args.data_fim)
             if data_inicio > data_fim:
                 raise ValueError("--data-inicio não pode ser maior que --data-fim.")
+        else:
+            data_inicio = data_fim = None
 
+        if data_inicio and data_fim:
             print("[2] Regressor em backfill por período...")
             atual = data_inicio
             total = (data_fim - data_inicio).days + 1
@@ -147,7 +182,7 @@ def main():
                 atual += timedelta(days=1)
                 i += 1
             print("[2] Backfill do regressor concluído.")
-        else:
+        elif not args.pendente:
             print("[2] Treinando regressor e salvando no banco Railway...")
             executar_pipeline_regressor(
                 n_dias=args.n_dias,
