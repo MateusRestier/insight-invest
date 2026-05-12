@@ -26,8 +26,8 @@ def carregar_dados_completos_do_banco():
     try:
         conn = get_connection() #
         # Query para pegar TODAS as colunas de indicadores, ordenadas
-        query = "SELECT * FROM indicadores_fundamentalistas ORDER BY acao, data_coleta;"
-        df = pd.read_sql_query(query, conn) #
+        query = "SELECT * FROM indicadores_fundamentalistas WHERE cotacao >= 1.0 ORDER BY acao, data_coleta;"
+        df = pd.read_sql_query(query, conn)
         if 'data_coleta' in df.columns:
             df['data_coleta'] = pd.to_datetime(df['data_coleta'])
         print(f"Todos os indicadores carregados do banco! Shape: {df.shape}")

@@ -26,7 +26,7 @@ def carregar_dados_do_banco():
     try:
         conn = get_connection()
         df = pd.read_sql_query(
-            "SELECT * FROM indicadores_fundamentalistas ORDER BY acao, data_coleta;",
+            "SELECT * FROM indicadores_fundamentalistas WHERE cotacao >= 1.0 ORDER BY acao, data_coleta;",
             conn
         )
         df['data_coleta'] = pd.to_datetime(df['data_coleta'])
