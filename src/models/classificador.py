@@ -76,6 +76,14 @@ def calcular_rotulos_desempenho_futuro(df_input, n_dias=10, q_inferior=0.25, q_s
     # Renomear a coluna de cotação futura encontrada
     df_futuro.rename(columns={'cotacao': 'preco_futuro_N_dias'}, inplace=True)
 
+    # Descarta matches muito distantes da data-alvo.
+    # direction='forward' pode atravessar lacunas longas de dados (ex: 7 meses sem coleta),
+    # atribuindo o preco de muito no futuro como se fosse o alvo de 10 dias.
+    # Tolerância de 30 dias cobre fins de semana + feriados prolongados sem silenciar dados legítimos.
+    _tolerance = pd.Timedelta(days=30)
+    _too_far = (df_futuro['data_coleta'] - df_futuro['data_futura_alvo']) > _tolerance
+    df_futuro.loc[_too_far, 'preco_futuro_N_dias'] = np.nan
+
     # Juntar os preços futuros de volta ao nosso dataframe original
     # Usamos o índice para garantir o alinhamento correto
     df['preco_futuro_N_dias'] = df_futuro['preco_futuro_N_dias'].values

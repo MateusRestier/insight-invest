@@ -14,7 +14,7 @@ from src.core.db_connection import get_connection
 
 # Margem de erro (em %) abaixo da qual a previsão é considerada "Precisa".
 # Alterar este valor atualiza automaticamente o gráfico de pizza, a tabela e os filtros.
-_LIMIAR_PRECISO = 5.0  # ±5 %
+_LIMIAR_PRECISO = 1.0  # ±1 %
 
 # ----------------------------------------------------------------------
 # Layout da página "Indicadores"

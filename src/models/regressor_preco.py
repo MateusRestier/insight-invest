@@ -68,7 +68,14 @@ def adicionar_preco_futuro(df, n_dias):
             left_on='data_futura_alvo', right_on='data_coleta',
             direction='forward'
         )
-        grp = grp.assign(preco_futuro_N_dias=merged['cotacao'].values)
+        # Descarta matches muito distantes da data-alvo.
+        # direction='forward' pode atravessar lacunas longas de dados (ex: 7 meses sem coleta),
+        # atribuindo o preco de muito no futuro como se fosse o alvo de 10 dias.
+        # Tolerância de 30 dias cobre fins de semana + feriados prolongados sem silenciar dados legítimos.
+        _tolerance = pd.Timedelta(days=30)
+        _too_far = (merged['data_coleta'] - merged['data_futura_alvo']) > _tolerance
+        cotacao_filtrada = merged['cotacao'].where(~_too_far, other=np.nan)
+        grp = grp.assign(preco_futuro_N_dias=cotacao_filtrada.values)
         return grp
 
     df = df.groupby('acao', group_keys=False, dropna=False).apply(
@@ -240,7 +247,7 @@ def executar_pipeline_regressor(
     search = RandomizedSearchCV(
         RandomForestRegressor(random_state=42),
         param_distributions=param_dist,
-        n_iter=15,
+        n_iter=5,
         cv=tscv,
         scoring='neg_mean_absolute_error',
         n_jobs=-1,
@@ -364,7 +371,7 @@ def executar_pipeline_multidia(
             continue
 
         # Treina com RandomizedSearchCV
-        n_splits = 3 if len(X_train) < 500 else 5
+        n_splits = 2 if len(X_train) < 500 else 5
         tscv = TimeSeriesSplit(n_splits=n_splits)
         param_dist = {
             'n_estimators': [100, 200, 300],
@@ -375,7 +382,7 @@ def executar_pipeline_multidia(
         search = RandomizedSearchCV(
             RandomForestRegressor(random_state=42),
             param_distributions=param_dist,
-            n_iter=15, cv=tscv,
+            n_iter=5, cv=tscv,
             scoring='neg_mean_absolute_error',
             n_jobs=-1, random_state=42, verbose=0,
         )

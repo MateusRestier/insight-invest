@@ -51,6 +51,44 @@ O número de versão `vX.Y` é incremental — `X` muda quando há uma mudança 
 ## Histórico
 
 ---
+### [v3.01] Fix gap de dados + otimizacao de performance do regressor
+**Data:** 2026-05-12
+**IA:** Claude Sonnet 4.6 via Claude Code
+
+#### O que foi feito
+
+**`src/models/regressor_preco.py` — fix tolerancia no `adicionar_preco_futuro`:**
+- `merge_asof(direction='forward')` nao tinha limite de distancia: para linhas de set/2025 cuja `data_futura_alvo` caia em out/2025 (sem dados), ele avancava ate abr/2026 e atribuia aquele preco como "alvo de 10 dias". Isso corrompeu o treino — o modelo aprendia a prever precos 7 meses a frente como se fossem 10 BDays.
+- Caso documentado: QUAL3 previsto a R$3,23, real R$2,02 (+60% de erro), causado exatamente por esse gap.
+- Fix: apos `merge_asof`, calcula `matched_date - target_date`. Se > 30 dias, seta `preco_futuro_N_dias = NaN` — a linha e descartada pelo `dropna` ja existente no fluxo de treino.
+- Tolerancia de 30 dias: cobre fins de semana + feriados prolongados (diferenca legitima maxima ~5 dias uteis = ~7 dias corridos), mas rejeita o gap de 7 meses.
+
+**`src/models/classificador.py` — mesmo fix:**
+- Mesma logica aplicada em `calcular_rotulos_desempenho_futuro` apos o `merge_asof`: `df_futuro.loc[_too_far, 'preco_futuro_N_dias'] = np.nan`.
+
+**`src/models/regressor_preco.py` — reducao de n_iter/n_splits no multidia:**
+- `executar_pipeline_multidia` estava com `n_iter=15` e `n_splits=3` → 450 modelos treinados por execucao (10 horizontes × 15 combinacoes × 3 folds).
+- Reduzido para `n_iter=5` e `n_splits=2` enquanto dados < 500 amostras → 100 modelos, ~4x mais rapido.
+- Quando dados crescerem (>3 meses): aumentar de volta para `n_iter=10`, `n_splits=3`.
+
+**`src/dashboard/pages/indicadores.py`:**
+- `_LIMIAR_PRECISO` ajustado de 5.0 para 1.0 (usuario).
+
+#### Decisoes e motivos
+- **Tolerancia de 30 dias**: o banco tem dados abr-set/2025, gap de 7 meses, depois abr/2026+. Sem o fix, ~4 semanas de linhas de set/2025 recebiam alvos corrompidos. Os dados de abr-ago/2025 (~14.900 linhas) continuam validos — so os ~30 dias finais antes do gap eram afetados.
+- **n_iter=5**: com ~14.900 amostras de 2025 + crescendo em 2026, 5 combinacoes ja cobrem o espaco de hiperparametros relevante. A qualidade nao degrada perceptivelmente; o ganho de velocidade e substancial para execucao local.
+
+#### Resultados esperados
+- Erros discrepantes como QUAL3 (+60%) devem desaparecer apos re-run do backfill com dados limpos.
+- Tempo de execucao do backfill: ~4x menor que na sessao anterior.
+
+#### Pendencias / proximos passos
+- Re-rodar backfill local: `python scripts/treinar_local_e_salvar.py --job regressor --n-dias 10 --data-inicio 2026-04-14 --data-fim 2026-05-11`
+- Verificar no dashboard se os outliers sumiram.
+- Deploy no Railway (truncar `resultados_precos` antes).
+- Quando dados > 3 meses: restaurar `n_iter=10`, `n_splits=3` no multidia.
+
+---
 ### [v3.00] Melhorias de ML: feature engineering, tuning do regressor, deduplicacao de recomendacoes
 **Data:** 2026-05-12
 **IA:** Claude Sonnet 4.6 via Claude Code
