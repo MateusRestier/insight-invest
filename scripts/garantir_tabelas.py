@@ -51,7 +51,8 @@ DDL_STATEMENTS = [
         recomendada numeric(5, 4) NOT NULL,
         nao_recomendada numeric(5, 4) NOT NULL,
         resultado varchar(100) NOT NULL,
-        data_insercao timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
+        data_recomendacao date DEFAULT CURRENT_DATE NOT NULL,
+        CONSTRAINT uq_acao_data_recomendacao UNIQUE (acao, data_recomendacao)
     );
     """,
     """
