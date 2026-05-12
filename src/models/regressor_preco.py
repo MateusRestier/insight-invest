@@ -16,6 +16,7 @@ from src.models.feature_engineering import (
     calcular_features_graham_estrito,
     adicionar_delta_features,
     adicionar_features_relativas,
+    preparar_X,
     FEATURES_REGRESSOR,
 )
 
@@ -127,7 +128,7 @@ def preparar_dados_regressao(df, n_dias):
     # Usa a lista centralizada de features; mantém apenas as que existem no df
     features = [f for f in FEATURES_REGRESSOR if f in df.columns]
 
-    X = df[features].replace([np.inf, -np.inf], np.nan).dropna()
+    X = preparar_X(df, features)
     y = df.loc[X.index, 'preco_futuro_N_dias']
     dates = df.loc[X.index, 'data_coleta']
     acoes = df.loc[X.index, 'acao']
@@ -353,7 +354,7 @@ def executar_pipeline_multidia(
 
         features = [f for f in FEATURES_REGRESSOR if f in df_horizonte.columns]
 
-        X = df_horizonte[features].replace([np.inf, -np.inf], np.nan).dropna()
+        X = preparar_X(df_horizonte, features)
         y = df_horizonte.loc[X.index, 'preco_futuro_N_dias']
         dates = df_horizonte.loc[X.index, 'data_coleta']
         acoes = df_horizonte.loc[X.index, 'acao']

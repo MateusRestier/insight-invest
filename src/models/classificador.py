@@ -15,6 +15,7 @@ from src.models.feature_engineering import (
     calcular_features_graham_estrito,
     adicionar_delta_features,
     adicionar_features_relativas,
+    preparar_X,
     FEATURES_CLASSIFICADOR,
 )
 
@@ -148,13 +149,14 @@ def preparar_X_y_para_modelo(df_com_tudo, modelo_base_path):
         print("Nenhuma das features esperadas foi encontrada. Não é possível criar X.")
         return None, None, None, None, None
 
-    # Constrói X e trata infinitos
-    X = df_para_treino[features_existentes].copy()
-    X.replace([np.inf, -np.inf], np.nan, inplace=True)
-    if X.empty or X.isnull().all().all():
-        print("X está vazio ou todas as features são NaN. Não é possível treinar o modelo.")
+    # Constrói X tolerando até MAX_NAN_POR_LINHA NaN por linha (preenche restante com mediana)
+    X = preparar_X(df_para_treino, features_existentes)
+    if X.empty:
+        print("X está vazio após preparação. Não é possível treinar o modelo.")
         return None, None, None, None, None
 
+    y = y.loc[X.index]
+    dates = dates.loc[X.index]
     print(f"Shape de X: {X.shape}, Shape de y: {y.shape}")
     # Retorna também a série de datas alinhada a X.index
     return X, y, X.columns, None, dates

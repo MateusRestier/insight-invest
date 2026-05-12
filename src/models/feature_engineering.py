@@ -147,6 +147,31 @@ FEATURES_CLASSIFICADOR = FEATURES_BASE + FEATURES_GRAHAM + ['fund_bad'] + FEATUR
 FEATURES_REGRESSOR = FEATURES_BASE + FEATURES_GRAHAM + FEATURES_DELTA_7D + FEATURES_RELATIVAS
 
 
+# Máximo de features que podem estar NaN para uma linha ainda entrar no treino.
+# Com 33 features, o pior caso observado é 3 NaN (BRPR3). Limiar=4 cobre todas as 150 stocks
+# sem introduzir ruído excessivo. Os NaN restantes são preenchidos pela mediana da coluna.
+MAX_NAN_POR_LINHA = 4
+
+
+def preparar_X(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
+    """
+    Constrói a matriz X de features a partir de df, aplicando:
+    1. Substituição de inf/-inf por NaN
+    2. Descarte de linhas com mais de MAX_NAN_POR_LINHA NaN
+    3. Preenchimento dos NaN restantes com a mediana da coluna
+
+    Usar este método no lugar de .dropna() garante que stocks com poucos NaN
+    sistêmicos (ex: preco_sobre_graham=NaN para empresas com prejuízo,
+    delta_dividend_yield_7d=NaN para stocks sem dividendo) não sejam excluídos.
+    """
+    X = df[features].replace([np.inf, -np.inf], np.nan)
+    nan_por_linha = X.isna().sum(axis=1)
+    X = X[nan_por_linha <= MAX_NAN_POR_LINHA]
+    col_medians = X.median()
+    X = X.fillna(col_medians)
+    return X
+
+
 def aplicar_todas_features(df: pd.DataFrame, janela_delta: int = 7) -> pd.DataFrame:
     """
     Aplica o pipeline completo de feature engineering:
