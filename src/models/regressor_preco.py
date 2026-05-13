@@ -177,22 +177,41 @@ def salvar_resultados_no_banco(comp, data_calculo):
 
 
 # 5a) Pré-carregamento para backfill (evita recarregar dados a cada iteração)
+def _get_acoes_validas() -> set:
+    """Retorna o conjunto de ações com cotação mais recente >= R$1 (não penny stocks)."""
+    conn = get_connection()
+    df = pd.read_sql_query(
+        """
+        SELECT DISTINCT ON (acao) acao, cotacao
+        FROM indicadores_fundamentalistas
+        ORDER BY acao, data_coleta DESC
+        """,
+        conn
+    )
+    conn.close()
+    return set(df.loc[df['cotacao'] >= 1.0, 'acao'].tolist())
+
+
 def preparar_dados_cache(n_dias: int = 10) -> tuple:
     """
     Carrega e processa os dados uma única vez para uso em backfills.
-    Retorna (X, y, dates, acoes, ultima_real_date) pronto para passar a
-    executar_pipeline_regressor via _dados_cache.
+    Retorna (X, y, dates, acoes, ultima_real_date, acoes_validas) pronto para
+    passar a executar_pipeline_regressor via _dados_cache.
+    acoes_validas: set de tickers com cotação atual >= R$1 (exclui penny stocks).
     """
     conn = get_connection()
     df = pd.read_sql_query(
-        "SELECT * FROM indicadores_fundamentalistas WHERE cotacao >= 1.0 ORDER BY acao, data_coleta;",
+        "SELECT * FROM indicadores_fundamentalistas ORDER BY acao, data_coleta;",
         conn
     )
     conn.close()
     df['data_coleta'] = pd.to_datetime(df['data_coleta'])
     ultima_real_date = df['data_coleta'].max().date()
+    # Conjunto de ações com cotação atual >= R$1
+    cotacao_mais_recente = df.sort_values('data_coleta').groupby('acao')['cotacao'].last()
+    acoes_validas = set(cotacao_mais_recente[cotacao_mais_recente >= 1.0].index.tolist())
     X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
-    return X, y, dates, acoes, ultima_real_date
+    return X, y, dates, acoes, ultima_real_date, acoes_validas
 
 
 # 5b) Pipeline completo
@@ -223,14 +242,18 @@ def executar_pipeline_regressor(
         data_calculo = date.today()
 
     if _dados_cache is not None:
-        X, y, dates, acoes, ultima_real_date = _dados_cache
+        X, y, dates, acoes, ultima_real_date, acoes_validas = _dados_cache
     else:
         # 1) Carrega histórico de indicadores
         conn = get_connection()
-        df = pd.read_sql_query("SELECT * FROM indicadores_fundamentalistas WHERE cotacao >= 1.0", conn)
+        df = pd.read_sql_query(
+            "SELECT * FROM indicadores_fundamentalistas ORDER BY acao, data_coleta;", conn
+        )
         conn.close()
         df['data_coleta'] = pd.to_datetime(df['data_coleta'])
         ultima_real_date = df['data_coleta'].max().date()
+        cotacao_recente = df.sort_values('data_coleta').groupby('acao')['cotacao'].last()
+        acoes_validas = set(cotacao_recente[cotacao_recente >= 1.0].index.tolist())
         # 2) Prepara X, y, datas e tickers
         X, y, dates, acoes = preparar_dados_regressao(df, n_dias)
 
@@ -289,6 +312,9 @@ def executar_pipeline_regressor(
     if X_test.empty:
         print("⚠️ Sem dados futuros para teste; gerando previsão manual.")
         ultimos = X_train.groupby(acoes.loc[X_train.index]).tail(1)
+        # Filtra penny stocks (cotação atual < R$1)
+        mask_validas = acoes.loc[ultimos.index].isin(acoes_validas)
+        ultimos = ultimos[mask_validas]
         preds   = model.predict(ultimos)
         comp = pd.DataFrame({
             'acao':   acoes.loc[ultimos.index].values,
@@ -298,11 +324,16 @@ def executar_pipeline_regressor(
         })
         comp['erro_pct'] = None
     else:
-        preds = model.predict(X_test)
+        # Filtra penny stocks (cotação atual < R$1)
+        mask_validas_test = acoes_test.isin(acoes_validas)
+        X_test_f    = X_test[mask_validas_test]
+        acoes_test_f = acoes_test[mask_validas_test]
+        y_test_f    = y_test[mask_validas_test]
+        preds = model.predict(X_test_f)
         comp = pd.DataFrame({
-            'acao':    acoes_test.values,
-            'data':    [future_date]      * len(acoes_test),
-            'real':    y_test.values,
+            'acao':    acoes_test_f.values,
+            'data':    [future_date]       * len(acoes_test_f),
+            'real':    y_test_f.values,
             'predito': preds
         })
         comp['erro_pct'] = (comp['predito'] - comp['real']) / comp['real'] * 100
