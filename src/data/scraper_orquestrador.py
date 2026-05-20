@@ -113,8 +113,20 @@ def coletar_com_fallback(acao: str) -> Dict:
     return dados
 
 
+def _sanitizar_valores(dados: Dict) -> Dict:
+    """
+    Substitui float('inf'), float('-inf') e float('nan') por None,
+    prevenindo overflow em colunas numeric(10,2) do PostgreSQL.
+    """
+    import math
+    return {
+        k: (None if isinstance(v, float) and not math.isfinite(v) else v)
+        for k, v in dados.items()
+    }
+
+
 def salvar_no_banco(dados: Dict) -> None:
-    dados_save = dict(dados)
+    dados_save = _sanitizar_valores(dict(dados))
     dados_save["data_coleta"] = date.today()
     colunas      = ", ".join(dados_save.keys())
     placeholders = ", ".join(["%s"] * len(dados_save))

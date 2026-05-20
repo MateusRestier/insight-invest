@@ -70,16 +70,19 @@ COLUNAS_NAO_BANCOS = ['Div_Liquida', 'EBIT_12m']
 
 def _parse_valor(raw, mode: str) -> Union[float, None]:
     """Converte string retornada pelo fundamentus para float."""
+    import math
     if raw is None:
         return None
     s = str(raw).strip()
     try:
         if mode == 'pct':
-            return float(s.replace('%', '').strip())
+            v = float(s.replace('%', '').strip())
         elif mode == 'ratio':
-            return float(s) / 100.0
+            v = float(s) / 100.0
         else:  # 'direct' ou 'fin'
-            return float(s)
+            v = float(s)
+        # Rejeita Infinity e NaN — PostgreSQL numeric(10,2) não aceita esses valores
+        return v if math.isfinite(v) else None
     except (ValueError, TypeError):
         return None
 
