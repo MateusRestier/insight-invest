@@ -1,9 +1,9 @@
 name: Treinar Regressor
 
 on:
-  schedule:
-    # 00:30 UTC (21:30 BRT de segunda-feira) — toda terça UTC = segunda BRT
-    - cron: "30 0 * * 2"
+  # schedule:
+  #   # 00:30 UTC (21:30 BRT de segunda-feira) — toda terça UTC = segunda BRT
+  #   - cron: "30 0 * * 2"
   workflow_dispatch:
 
 jobs:

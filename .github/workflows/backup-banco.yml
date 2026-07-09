@@ -1,9 +1,9 @@
 name: Backup Banco
 
 on:
-  schedule:
-    # 00:01 BRT (03:01 UTC), todo sábado
-    - cron: "1 3 * * 6"
+  # schedule:
+  #   # 00:01 BRT (03:01 UTC), todo sábado
+  #   - cron: "1 3 * * 6"
   workflow_dispatch:
 
 jobs:
